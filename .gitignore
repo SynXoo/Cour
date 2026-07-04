@@ -1,0 +1,24 @@
+# Dependencies / build output
+node_modules/
+backend/bin/
+backend/tmp/
+web/.next/
+web/out/
+
+# Environment & secrets — never commit real env files
+.env
+.env.*
+!.env.example
+
+# Dev-mode artifacts
+.emails/
+.uploads/
+coverage/
+*.out
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml

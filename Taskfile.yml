@@ -1,0 +1,89 @@
+version: "3"
+
+# Install go-task once: go install github.com/go-task/task/v3/cmd/task@latest
+# Every task runs from the repo root; task's built-in shell makes these
+# commands work identically on Windows, macOS, and Linux.
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds: [task --list]
+    silent: true
+
+  # ── Run ────────────────────────────────────────────────────────────────
+  infra:
+    desc: Start Postgres + Redis + asynqmon only (for native dev)
+    cmds: [docker compose up -d postgres redis asynqmon]
+
+  up:
+    desc: Build and start the entire system in Docker
+    cmds: [docker compose up --build]
+
+  down:
+    desc: Stop everything (add -- -v to also drop data volumes)
+    cmds: [docker compose down {{.CLI_ARGS}}]
+
+  api:
+    desc: Run the API natively with dev defaults
+    dir: backend
+    cmds: [go run ./cmd/api]
+
+  worker:
+    desc: Run the asynq worker natively
+    dir: backend
+    cmds: [go run ./cmd/worker]
+
+  web:
+    desc: Run the Next.js dev server
+    dir: web
+    cmds: [pnpm dev]
+
+  # ── Database ───────────────────────────────────────────────────────────
+  migrate:
+    desc: Apply pending migrations and exit
+    dir: backend
+    cmds: [go run ./cmd/api -migrate-only]
+
+  seed:
+    desc: Load demo data (fixtures + generated users/activity)
+    dir: backend
+    cmds: [go run ./cmd/seed]
+
+  # ── Codegen ────────────────────────────────────────────────────────────
+  gen:
+    desc: Regenerate sqlc queries, OpenAPI server stubs, and the TS client
+    cmds:
+      - task: gen:sqlc
+      - task: gen:api
+
+  gen:sqlc:
+    dir: backend
+    cmds: [sqlc generate]
+
+  gen:api:
+    cmds:
+      - cd backend && oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+      - cd web && pnpm openapi-typescript ../backend/api/openapi.yaml -o lib/api/schema.d.ts
+
+  # ── Quality ────────────────────────────────────────────────────────────
+  test:
+    desc: Backend + frontend tests
+    cmds:
+      - cd backend && go test ./...
+      - cd web && pnpm test
+
+  test:go:
+    dir: backend
+    cmds: [go test ./...]
+
+  test:int:
+    desc: Backend integration tests (needs Docker for testcontainers)
+    dir: backend
+    cmds: [go test -tags integration -count=1 ./...]
+
+  lint:
+    desc: golangci-lint + eslint + tsc
+    cmds:
+      - cd backend && golangci-lint run
+      - cd web && pnpm lint
+      - cd web && pnpm typecheck

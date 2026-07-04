@@ -1,0 +1,93 @@
+name: cour
+
+# `docker compose up --build` brings up the whole system.
+# For local development with hot reload, run only the infra services
+# (`task infra`) and start api/worker/web natively (`task api|worker|web`).
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cour
+      POSTGRES_PASSWORD: cour
+      POSTGRES_DB: cour
+    ports:
+      - "5434:5432" # 5434 on the host to avoid clashing with other local Postgres instances
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cour -d cour"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    command: ["--redis-addr=redis:6379"]
+    ports:
+      - "8081:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./backend
+      target: api
+    environment:
+      COUR_ENV: prod
+      DATABASE_URL: postgres://cour:cour@postgres:5432/cour?sslmode=disable
+      REDIS_ADDR: redis:6379
+      AUTO_MIGRATE: "true"
+      DEMO_MODE: ${DEMO_MODE:-false}
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    environment:
+      COUR_ENV: prod
+      DATABASE_URL: postgres://cour:cour@postgres:5432/cour?sslmode=disable
+      REDIS_ADDR: redis:6379
+      DEMO_MODE: ${DEMO_MODE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    environment:
+      # Server-side (SSR/proxy) traffic goes container-to-container.
+      API_INTERNAL_URL: http://api:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
