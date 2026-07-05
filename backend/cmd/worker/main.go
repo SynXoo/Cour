@@ -3,14 +3,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/hibiken/asynq"
+	"golang.org/x/sync/errgroup"
 
+	"cour/internal/anilist"
+	"cour/internal/cache"
 	"cour/internal/config"
+	"cour/internal/jobs"
 	"cour/internal/logging"
+	"cour/internal/store"
+	"cour/internal/store/sqlcgen"
 )
 
 func main() {
@@ -21,35 +27,58 @@ func main() {
 	}
 	log := logging.New(cfg)
 
+	pool, err := store.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Error("postgres", "err", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	rdb := cache.NewRedis(cfg.RedisAddr)
+	defer func() { _ = rdb.Close() }()
+
+	queries := sqlcgen.New(pool)
+	appCache := cache.New(rdb)
+	syncer := anilist.NewSyncer(anilist.NewClient(log), queries, appCache, log)
+
 	redisOpt := asynq.RedisClientOpt{Addr: cfg.RedisAddr}
+	logger := jobs.SlogLogger{L: log}
+
 	srv := asynq.NewServer(redisOpt, asynq.Config{
 		Concurrency: 10,
 		Queues: map[string]int{
-			"critical": 6, // notifications, user-facing side effects
-			"default":  3, // sync, recompute
-			"low":      1, // backfills
+			jobs.QueueCritical: 6, // notifications, user-facing side effects
+			jobs.QueueDefault:  3, // sync, recompute
+			jobs.QueueLow:      1, // backfills, upstream trending
 		},
-		Logger: slogAdapter{log},
+		Logger: logger,
 	})
 
 	mux := asynq.NewServeMux()
-	// Task handlers register here, one Register* function per domain slice.
+	jobs.RegisterHandlers(mux, jobs.Deps{
+		Syncer:   syncer,
+		Log:      log,
+		DemoMode: cfg.DemoMode,
+	})
+
+	scheduler := asynq.NewScheduler(redisOpt, &asynq.SchedulerOpts{Logger: logger})
+	if err := jobs.Schedule(scheduler); err != nil {
+		log.Error("schedule", "err", err)
+		os.Exit(1)
+	}
+
+	if !cfg.DemoMode {
+		client := asynq.NewClient(redisOpt)
+		jobs.Bootstrap(client, log)
+		_ = client.Close()
+	}
 
 	log.Info("worker starting", "env", cfg.Env, "demo_mode", cfg.DemoMode)
-	if err := srv.Run(mux); err != nil {
+	var g errgroup.Group
+	g.Go(func() error { return srv.Run(mux) })
+	g.Go(func() error { return scheduler.Run() })
+	if err := g.Wait(); err != nil {
 		log.Error("worker", "err", err)
 		os.Exit(1)
 	}
-}
-
-// slogAdapter satisfies asynq's Logger interface with slog underneath.
-type slogAdapter struct{ l *slog.Logger }
-
-func (a slogAdapter) Debug(args ...any) { a.l.Debug(fmt.Sprint(args...)) }
-func (a slogAdapter) Info(args ...any)  { a.l.Info(fmt.Sprint(args...)) }
-func (a slogAdapter) Warn(args ...any)  { a.l.Warn(fmt.Sprint(args...)) }
-func (a slogAdapter) Error(args ...any) { a.l.Error(fmt.Sprint(args...)) }
-func (a slogAdapter) Fatal(args ...any) {
-	a.l.Error(fmt.Sprint(args...))
-	os.Exit(1)
 }

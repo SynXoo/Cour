@@ -12,7 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"cour/internal/cache"
+	"cour/internal/catalog"
 	"cour/internal/config"
+	"cour/internal/httpapi/apigen"
+	"cour/internal/store/sqlcgen"
 )
 
 type Deps struct {
@@ -36,12 +40,25 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/healthz", health.healthz)
 	r.Get("/readyz", health.readyz)
 
+	queries := sqlcgen.New(d.Pool)
+	appCache := cache.New(d.Redis)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeNotFound(w) })
 		r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 			writeError(w, http.StatusMethodNotAllowed, CodeBadRequest, "method not allowed")
 		})
-		// Feature routes mount here, one register function per domain slice.
+
+		apigen.HandlerWithOptions(catalogHandlers{
+			svc: catalog.New(queries, appCache, d.Log),
+			log: d.Log,
+		}, apigen.ChiServerOptions{
+			BaseRouter: r,
+			// Parameter binding failures (bad enum, non-numeric id, ...)
+			ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
+				writeError(w, http.StatusBadRequest, CodeBadRequest, err.Error())
+			},
+		})
 	})
 
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeNotFound(w) })
