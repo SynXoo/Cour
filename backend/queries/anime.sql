@@ -62,20 +62,22 @@ ORDER BY popularity DESC
 LIMIT $1 OFFSET $2;
 
 -- name: SearchAnime :many
--- Blended full-text + trigram rank: FTS matches word queries, trigram
--- similarity rescues typos and partial titles.
+-- Blended full-text + trigram rank: FTS matches word queries; WORD
+-- similarity (<%) rescues typos — it compares the query against the
+-- best-matching word, so "friren" finds "Sousou no Frieren" even though
+-- whole-title similarity would be far below threshold.
 SELECT sqlc.embed(anime),
   GREATEST(
     ts_rank(search_doc, websearch_to_tsquery('simple', @query::text)),
-    similarity(title_romaji, @query),
-    similarity(coalesce(title_english, ''), @query)
+    word_similarity(@query, title_romaji),
+    word_similarity(@query, coalesce(title_english, ''))
   )::float8 AS rank
 FROM anime
 WHERE is_adult = FALSE
   AND (
     search_doc @@ websearch_to_tsquery('simple', @query)
-    OR title_romaji % @query
-    OR coalesce(title_english, '') % @query
+    OR @query <% title_romaji
+    OR @query <% coalesce(title_english, '')
   )
 ORDER BY rank DESC, popularity DESC
 LIMIT $1;

@@ -22,6 +22,7 @@ import (
 	"cour/internal/httpapi/apigen"
 	"cour/internal/lists"
 	"cour/internal/mail"
+	"cour/internal/moderation"
 	"cour/internal/notify"
 	"cour/internal/profiles"
 	"cour/internal/reviews"
@@ -48,6 +49,7 @@ type apiServer struct {
 	socialHandlers
 	notificationHandlers
 	discoveryHandlers
+	moderationHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -68,6 +70,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 	enqueuer := notify.NewEnqueuer(d.Cfg.RedisAddr, d.Log)
 	discussionSvc := discussions.New(d.Pool, d.Log)
 	discussionSvc.SetNotifier(enqueuer)
+	if filter := moderation.FilterFromEnv(); filter != nil {
+		discussionSvc.SetTextFilter(filter)
+		d.Log.Info("profanity filter enabled")
+	}
 
 	var discord *auth.Discord
 	if d.Cfg.DiscordEnabled() {
@@ -120,6 +126,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		},
 		discoveryHandlers: discoveryHandlers{
 			svc: discovery.New(d.Pool, appCache, discovery.DefaultTrendingConfig(), d.Log),
+			log: d.Log,
+		},
+		moderationHandlers: moderationHandlers{
+			svc: moderation.New(d.Pool, d.Log),
 			log: d.Log,
 		},
 	}

@@ -143,6 +143,8 @@ func (h discussionHandlers) PostComment(w http.ResponseWriter, r *http.Request, 
 			writeValidation(w, map[string]string{"timestamp_seconds": "only episode threads accept timestamps"})
 		case errors.Is(err, discussions.ErrEmptyBody):
 			writeValidation(w, map[string]string{"body": "must be 1-8000 characters"})
+		case errors.Is(err, discussions.ErrProfanity):
+			writeValidation(w, map[string]string{"body": "violates the language policy"})
 		default:
 			writeInternal(w, h.log, err)
 		}

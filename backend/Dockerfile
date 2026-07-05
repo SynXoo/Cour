@@ -11,6 +11,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM gcr.io/distroless/static-debian12:nonroot AS api
 COPY --from=build /out/api /usr/local/bin/api
+# Ships alongside the API so `docker compose exec api /usr/local/bin/seed`
+# can load the demo world with no extra image.
+COPY --from=build /out/seed /usr/local/bin/seed
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/api"]
 

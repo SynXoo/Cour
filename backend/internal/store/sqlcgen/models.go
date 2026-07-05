@@ -327,6 +327,92 @@ func (ns NullNotificationType) Value() (driver.Value, error) {
 	return string(ns.NotificationType), nil
 }
 
+type ReportStatus string
+
+const (
+	ReportStatusOpen      ReportStatus = "open"
+	ReportStatusResolved  ReportStatus = "resolved"
+	ReportStatusDismissed ReportStatus = "dismissed"
+)
+
+func (e *ReportStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReportStatus(s)
+	case string:
+		*e = ReportStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReportStatus: %T", src)
+	}
+	return nil
+}
+
+type NullReportStatus struct {
+	ReportStatus ReportStatus
+	Valid        bool // Valid is true if ReportStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReportStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReportStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReportStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReportStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReportStatus), nil
+}
+
+type ReportSubject string
+
+const (
+	ReportSubjectReview  ReportSubject = "review"
+	ReportSubjectComment ReportSubject = "comment"
+	ReportSubjectUser    ReportSubject = "user"
+)
+
+func (e *ReportSubject) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReportSubject(s)
+	case string:
+		*e = ReportSubject(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReportSubject: %T", src)
+	}
+	return nil
+}
+
+type NullReportSubject struct {
+	ReportSubject ReportSubject
+	Valid         bool // Valid is true if ReportSubject is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReportSubject) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReportSubject, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReportSubject.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReportSubject) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReportSubject), nil
+}
+
 type ThreadKind string
 
 const (
@@ -539,6 +625,18 @@ type RefreshToken struct {
 	UsedAt    *time.Time
 	RevokedAt *time.Time
 	CreatedAt time.Time
+}
+
+type Report struct {
+	ID          int64
+	ReporterID  int64
+	SubjectType ReportSubject
+	SubjectID   int64
+	Reason      string
+	Status      ReportStatus
+	ResolvedBy  *int64
+	ResolvedAt  *time.Time
+	CreatedAt   time.Time
 }
 
 type Review struct {

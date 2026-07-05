@@ -442,15 +442,15 @@ const searchAnime = `-- name: SearchAnime :many
 SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc,
   GREATEST(
     ts_rank(search_doc, websearch_to_tsquery('simple', $2::text)),
-    similarity(title_romaji, $2),
-    similarity(coalesce(title_english, ''), $2)
+    word_similarity($2, title_romaji),
+    word_similarity($2, coalesce(title_english, ''))
   )::float8 AS rank
 FROM anime
 WHERE is_adult = FALSE
   AND (
     search_doc @@ websearch_to_tsquery('simple', $2)
-    OR title_romaji % $2
-    OR coalesce(title_english, '') % $2
+    OR $2 <% title_romaji
+    OR $2 <% coalesce(title_english, '')
   )
 ORDER BY rank DESC, popularity DESC
 LIMIT $1
@@ -466,8 +466,10 @@ type SearchAnimeRow struct {
 	Rank  float64
 }
 
-// Blended full-text + trigram rank: FTS matches word queries, trigram
-// similarity rescues typos and partial titles.
+// Blended full-text + trigram rank: FTS matches word queries; WORD
+// similarity (<%) rescues typos — it compares the query against the
+// best-matching word, so "friren" finds "Sousou no Frieren" even though
+// whole-title similarity would be far below threshold.
 func (q *Queries) SearchAnime(ctx context.Context, arg SearchAnimeParams) ([]SearchAnimeRow, error) {
 	rows, err := q.db.Query(ctx, searchAnime, arg.Limit, arg.Query)
 	if err != nil {

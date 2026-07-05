@@ -30,7 +30,13 @@ var (
 	ErrEmptyBody     = errors.New("discussions: comment body required")
 	ErrBadEmoji      = errors.New("discussions: unknown reaction")
 	ErrAnimeNotFound = errors.New("discussions: anime not found")
+	ErrProfanity     = errors.New("discussions: language policy violation")
 )
+
+// TextFilter is the profanity hook (see internal/moderation).
+type TextFilter interface {
+	Flagged(text string) bool
+}
 
 var validEmojis = map[string]bool{
 	"+1": true, "heart": true, "laugh": true, "surprise": true, "cry": true, "fire": true,
@@ -50,7 +56,8 @@ type Notifier interface {
 type Service struct {
 	q        *sqlcgen.Queries
 	pool     *pgxpool.Pool
-	notifier Notifier // nil until the notifications slice registers one
+	notifier Notifier   // nil until the notifications slice registers one
+	filter   TextFilter // nil = no language policy
 	log      *slog.Logger
 }
 
@@ -60,6 +67,9 @@ func New(pool *pgxpool.Pool, log *slog.Logger) *Service {
 
 // SetNotifier wires the notification fan-out (slice 8).
 func (s *Service) SetNotifier(n Notifier) { s.notifier = n }
+
+// SetTextFilter wires the profanity hook (slice 10).
+func (s *Service) SetTextFilter(f TextFilter) { s.filter = f }
 
 // SeriesThreadIfExists returns the board or nil without creating it (for
 // the read-only thread index).
@@ -247,6 +257,9 @@ func (s *Service) Post(ctx context.Context, threadID, userID int64, in PostInput
 	}
 	if len(in.Body) > maxBodyLen {
 		return sqlcgen.Comment{}, fmt.Errorf("%w: body too long", ErrEmptyBody)
+	}
+	if s.filter != nil && s.filter.Flagged(in.Body) {
+		return sqlcgen.Comment{}, ErrProfanity
 	}
 	if in.TimestampSeconds != nil && thread.Kind != sqlcgen.ThreadKindEpisode {
 		return sqlcgen.Comment{}, ErrNoTimestamps

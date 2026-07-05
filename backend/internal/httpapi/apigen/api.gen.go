@@ -196,21 +196,60 @@ func (e NotificationType) Valid() bool {
 	}
 }
 
+// Defines values for ReportSubject.
+const (
+	ReportSubjectComment ReportSubject = "comment"
+	ReportSubjectReview  ReportSubject = "review"
+	ReportSubjectUser    ReportSubject = "user"
+)
+
+// Valid indicates whether the value is a known member of the ReportSubject enum.
+func (e ReportSubject) Valid() bool {
+	switch e {
+	case ReportSubjectComment:
+		return true
+	case ReportSubjectReview:
+		return true
+	case ReportSubjectUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ResolveReportRequestAction.
+const (
+	Dismissed ResolveReportRequestAction = "dismissed"
+	Resolved  ResolveReportRequestAction = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the ResolveReportRequestAction enum.
+func (e ResolveReportRequestAction) Valid() bool {
+	switch e {
+	case Dismissed:
+		return true
+	case Resolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
-	Admin Role = "admin"
-	Mod   Role = "mod"
-	User  Role = "user"
+	RoleAdmin Role = "admin"
+	RoleMod   Role = "mod"
+	RoleUser  Role = "user"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
 func (e Role) Valid() bool {
 	switch e {
-	case Admin:
+	case RoleAdmin:
 		return true
-	case Mod:
+	case RoleMod:
 		return true
-	case User:
+	case RoleUser:
 		return true
 	default:
 		return false
@@ -437,6 +476,13 @@ type FeedItem struct {
 	Type      ActivityType           `json:"type"`
 }
 
+// FileReportRequest defines model for FileReportRequest.
+type FileReportRequest struct {
+	Reason      string        `json:"reason"`
+	SubjectId   int64         `json:"subject_id"`
+	SubjectType ReportSubject `json:"subject_type"`
+}
+
 // Format defines model for Format.
 type Format string
 
@@ -595,6 +641,35 @@ type RelationState struct {
 	// IsFollowing Always false for anonymous callers
 	IsFollowing bool `json:"is_following"`
 }
+
+// Report defines model for Report.
+type Report struct {
+	CreatedAt time.Time `json:"created_at"`
+	Id        int64     `json:"id"`
+	Reason    string    `json:"reason"`
+
+	// Reporter Reporter's username
+	Reporter    string        `json:"reporter"`
+	SubjectId   int64         `json:"subject_id"`
+	SubjectType ReportSubject `json:"subject_type"`
+}
+
+// ReportList defines model for ReportList.
+type ReportList struct {
+	Data       []Report `json:"data"`
+	NextCursor *int64   `json:"next_cursor"`
+}
+
+// ReportSubject defines model for ReportSubject.
+type ReportSubject string
+
+// ResolveReportRequest defines model for ResolveReportRequest.
+type ResolveReportRequest struct {
+	Action ResolveReportRequestAction `json:"action"`
+}
+
+// ResolveReportRequestAction defines model for ResolveReportRequest.Action.
+type ResolveReportRequestAction string
 
 // Review defines model for Review.
 type Review struct {
@@ -848,6 +923,12 @@ type GetMyNotificationsParams struct {
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListOpenReportsParams defines parameters for ListOpenReports.
+type ListOpenReportsParams struct {
+	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetScheduleParams defines parameters for GetSchedule.
 type GetScheduleParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
@@ -891,6 +972,12 @@ type MarkNotificationsReadJSONRequestBody = MarkReadRequest
 
 // UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
 type UpdateMyProfileJSONRequestBody = UpdateProfileRequest
+
+// ResolveReportJSONRequestBody defines body for ResolveReport for application/json ContentType.
+type ResolveReportJSONRequestBody = ResolveReportRequest
+
+// FileReportJSONRequestBody defines body for FileReport for application/json ContentType.
+type FileReportJSONRequestBody = FileReportRequest
 
 // PostCommentJSONRequestBody defines body for PostComment for application/json ContentType.
 type PostCommentJSONRequestBody = PostCommentRequest
@@ -1008,6 +1095,15 @@ type ServerInterface interface {
 	// Taste-based suggestions with explanations
 	// (GET /me/recommendations)
 	GetMyRecommendations(w http.ResponseWriter, r *http.Request)
+	// Open reports queue (moderators only)
+	// (GET /mod/reports)
+	ListOpenReports(w http.ResponseWriter, r *http.Request, params ListOpenReportsParams)
+	// Close a report as resolved or dismissed (moderators only)
+	// (POST /mod/reports/{reportId})
+	ResolveReport(w http.ResponseWriter, r *http.Request, reportId int64)
+	// Report content or a user to the moderators
+	// (POST /reports)
+	FileReport(w http.ResponseWriter, r *http.Request)
 	// Soft-delete a review (author or moderator)
 	// (DELETE /reviews/{reviewId})
 	DeleteReview(w http.ResponseWriter, r *http.Request, reviewId int64)
@@ -1281,6 +1377,24 @@ func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 // Taste-based suggestions with explanations
 // (GET /me/recommendations)
 func (_ Unimplemented) GetMyRecommendations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Open reports queue (moderators only)
+// (GET /mod/reports)
+func (_ Unimplemented) ListOpenReports(w http.ResponseWriter, r *http.Request, params ListOpenReportsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Close a report as resolved or dismissed (moderators only)
+// (POST /mod/reports/{reportId})
+func (_ Unimplemented) ResolveReport(w http.ResponseWriter, r *http.Request, reportId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Report content or a user to the moderators
+// (POST /reports)
+func (_ Unimplemented) FileReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2493,6 +2607,110 @@ func (siw *ServerInterfaceWrapper) GetMyRecommendations(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ListOpenReports operation middleware
+func (siw *ServerInterfaceWrapper) ListOpenReports(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOpenReportsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOpenReports(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResolveReport operation middleware
+func (siw *ServerInterfaceWrapper) ResolveReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reportId" -------------
+	var reportId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reportId", chi.URLParam(r, "reportId"), &reportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reportId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResolveReport(w, r, reportId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FileReport operation middleware
+func (siw *ServerInterfaceWrapper) FileReport(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FileReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteReview operation middleware
 func (siw *ServerInterfaceWrapper) DeleteReview(w http.ResponseWriter, r *http.Request) {
 
@@ -3233,6 +3451,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/recommendations", wrapper.GetMyRecommendations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/mod/reports", wrapper.ListOpenReports)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mod/reports/{reportId}", wrapper.ResolveReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/reports", wrapper.FileReport)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/reviews/{reviewId}", wrapper.DeleteReview)

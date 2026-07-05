@@ -462,6 +462,62 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /reports:
+    post:
+      operationId: fileReport
+      summary: Report content or a user to the moderators
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FileReportRequest" }
+      responses:
+        "202": { description: Filed (duplicates are absorbed silently) }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /mod/reports:
+    get:
+      operationId: listOpenReports
+      summary: Open reports queue (moderators only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        "200":
+          description: Open reports
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /mod/reports/{reportId}:
+    post:
+      operationId: resolveReport
+      summary: Close a report as resolved or dismissed (moderators only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolveReportRequest" }
+      responses:
+        "204": { description: Closed }
+        default:
+          $ref: "#/components/responses/Error"
+
   /anime:
     get:
       operationId: listAnime
@@ -1162,6 +1218,49 @@ components:
       properties:
         helpful_count: { type: integer }
         voted: { type: boolean }
+
+    ReportSubject:
+      type: string
+      enum: [review, comment, user]
+
+    FileReportRequest:
+      type: object
+      required: [subject_type, subject_id, reason]
+      properties:
+        subject_type: { $ref: "#/components/schemas/ReportSubject" }
+        subject_id: { type: integer, format: int64 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    Report:
+      type: object
+      required: [id, subject_type, subject_id, reason, reporter, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        subject_type: { $ref: "#/components/schemas/ReportSubject" }
+        subject_id: { type: integer, format: int64 }
+        reason: { type: string }
+        reporter: { type: string, description: Reporter's username }
+        created_at: { type: string, format: date-time }
+
+    ReportList:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Report" }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+
+    ResolveReportRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [resolved, dismissed]
 
     TrendingList:
       type: object
