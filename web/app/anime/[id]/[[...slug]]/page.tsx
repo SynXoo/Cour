@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EpisodeList } from "@/components/anime/episode-list";
+import { FavoriteButton } from "@/components/anime/favorite-button";
+import { ListEditor } from "@/components/anime/list-editor";
 import { serverApi, type AnimeDetail } from "@/lib/api/client";
 import { formatLabel, seasonLabel, untilLabel } from "@/lib/anime";
 
@@ -117,6 +119,11 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           {mainStudios.length > 0 && (
             <p className="text-sm text-muted-foreground">Studio: {mainStudios.join(", ")}</p>
           )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <ListEditor animeId={anime.id} episodesCount={anime.episodes_count} />
+            <FavoriteButton animeId={anime.id} />
+          </div>
         </div>
       </header>
 

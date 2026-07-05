@@ -18,6 +18,7 @@ import (
 	"cour/internal/catalog"
 	"cour/internal/config"
 	"cour/internal/httpapi/apigen"
+	"cour/internal/lists"
 	"cour/internal/mail"
 	"cour/internal/store/sqlcgen"
 )
@@ -34,6 +35,7 @@ type Deps struct {
 type apiServer struct {
 	catalogHandlers
 	authHandlers
+	listHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -72,6 +74,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 			limiter: redis_rate.NewLimiter(d.Redis),
 			cfg:     d.Cfg,
 			log:     d.Log,
+		},
+		listHandlers: listHandlers{
+			svc: lists.New(d.Pool, d.Log),
+			log: d.Log,
 		},
 	}
 

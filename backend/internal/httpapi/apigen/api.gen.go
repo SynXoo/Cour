@@ -79,6 +79,33 @@ func (e Format) Valid() bool {
 	}
 }
 
+// Defines values for ListStatus.
+const (
+	Completed ListStatus = "completed"
+	Dropped   ListStatus = "dropped"
+	Paused    ListStatus = "paused"
+	Planning  ListStatus = "planning"
+	Watching  ListStatus = "watching"
+)
+
+// Valid indicates whether the value is a known member of the ListStatus enum.
+func (e ListStatus) Valid() bool {
+	switch e {
+	case Completed:
+		return true
+	case Dropped:
+		return true
+	case Paused:
+		return true
+	case Planning:
+		return true
+	case Watching:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Admin Role = "admin"
@@ -232,13 +259,54 @@ type ErrorEnvelope struct {
 	} `json:"error"`
 }
 
+// FavoriteState defines model for FavoriteState.
+type FavoriteState struct {
+	Favorited bool `json:"favorited"`
+}
+
+// FavoritesList defines model for FavoritesList.
+type FavoritesList struct {
+	Data []AnimeSummary `json:"data"`
+}
+
 // Format defines model for Format.
 type Format string
+
+// ListEntry defines model for ListEntry.
+type ListEntry struct {
+	AnimeId    int64               `json:"anime_id"`
+	FinishedOn *openapi_types.Date `json:"finished_on"`
+	Progress   int                 `json:"progress"`
+	Score      *int                `json:"score"`
+	StartedOn  *openapi_types.Date `json:"started_on"`
+	Status     ListStatus          `json:"status"`
+	UpdatedAt  time.Time           `json:"updated_at"`
+}
+
+// ListEntryWithAnime defines model for ListEntryWithAnime.
+type ListEntryWithAnime struct {
+	Anime      AnimeSummary        `json:"anime"`
+	AnimeId    int64               `json:"anime_id"`
+	FinishedOn *openapi_types.Date `json:"finished_on"`
+	Progress   int                 `json:"progress"`
+	Score      *int                `json:"score"`
+	StartedOn  *openapi_types.Date `json:"started_on"`
+	Status     ListStatus          `json:"status"`
+	UpdatedAt  time.Time           `json:"updated_at"`
+}
+
+// ListStatus defines model for ListStatus.
+type ListStatus string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
+}
+
+// MyList defines model for MyList.
+type MyList struct {
+	Data []ListEntryWithAnime `json:"data"`
 }
 
 // PageInfo defines model for PageInfo.
@@ -324,6 +392,17 @@ type TokenRequest struct {
 	Token string `json:"token"`
 }
 
+// UpsertListEntryRequest defines model for UpsertListEntryRequest.
+type UpsertListEntryRequest struct {
+	FinishedOn *openapi_types.Date `json:"finished_on,omitempty"`
+	Progress   *int                `json:"progress,omitempty"`
+
+	// Score 1-10; 0 clears the score; omitted keeps it
+	Score     *int                `json:"score,omitempty"`
+	StartedOn *openapi_types.Date `json:"started_on,omitempty"`
+	Status    ListStatus          `json:"status"`
+}
+
 // UserPrivate defines model for UserPrivate.
 type UserPrivate struct {
 	AvatarUrl      *string   `json:"avatar_url"`
@@ -360,6 +439,11 @@ type DiscordCallbackParams struct {
 	State *string `form:"state,omitempty" json:"state,omitempty"`
 }
 
+// GetMyListParams defines parameters for GetMyList.
+type GetMyListParams struct {
+	Status *ListStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
 // GetScheduleParams defines parameters for GetSchedule.
 type GetScheduleParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
@@ -380,6 +464,9 @@ type RegisterJSONRequestBody = RegisterRequest
 
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = TokenRequest
+
+// UpsertMyListEntryJSONRequestBody defines body for UpsertMyListEntry for application/json ContentType.
+type UpsertMyListEntryJSONRequestBody = UpsertListEntryRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -419,6 +506,30 @@ type ServerInterface interface {
 	// Confirm an email address with a mailed token
 	// (POST /auth/verify-email)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// The authenticated user's favorites
+	// (GET /me/favorites)
+	GetMyFavorites(w http.ResponseWriter, r *http.Request)
+	// Remove from favorites
+	// (DELETE /me/favorites/{animeId})
+	RemoveFavorite(w http.ResponseWriter, r *http.Request, animeId int64)
+	// Whether this anime is in the user's favorites
+	// (GET /me/favorites/{animeId})
+	GetFavoriteState(w http.ResponseWriter, r *http.Request, animeId int64)
+	// Add to favorites
+	// (PUT /me/favorites/{animeId})
+	AddFavorite(w http.ResponseWriter, r *http.Request, animeId int64)
+	// The authenticated user's anime list
+	// (GET /me/list)
+	GetMyList(w http.ResponseWriter, r *http.Request, params GetMyListParams)
+	// Remove this anime from the user's list
+	// (DELETE /me/list/{animeId})
+	DeleteMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64)
+	// This user's entry for one anime (404 when untracked)
+	// (GET /me/list/{animeId})
+	GetMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64)
+	// Add or update this anime on the user's list
+	// (PUT /me/list/{animeId})
+	UpsertMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64)
 	// Airing schedule for a time window
 	// (GET /schedule)
 	GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams)
@@ -500,6 +611,54 @@ func (_ Unimplemented) Register(w http.ResponseWriter, r *http.Request) {
 // Confirm an email address with a mailed token
 // (POST /auth/verify-email)
 func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The authenticated user's favorites
+// (GET /me/favorites)
+func (_ Unimplemented) GetMyFavorites(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove from favorites
+// (DELETE /me/favorites/{animeId})
+func (_ Unimplemented) RemoveFavorite(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Whether this anime is in the user's favorites
+// (GET /me/favorites/{animeId})
+func (_ Unimplemented) GetFavoriteState(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add to favorites
+// (PUT /me/favorites/{animeId})
+func (_ Unimplemented) AddFavorite(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The authenticated user's anime list
+// (GET /me/list)
+func (_ Unimplemented) GetMyList(w http.ResponseWriter, r *http.Request, params GetMyListParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove this anime from the user's list
+// (DELETE /me/list/{animeId})
+func (_ Unimplemented) DeleteMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// This user's entry for one anime (404 when untracked)
+// (GET /me/list/{animeId})
+func (_ Unimplemented) GetMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add or update this anime on the user's list
+// (PUT /me/list/{animeId})
+func (_ Unimplemented) UpsertMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -839,6 +998,257 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetMyFavorites operation middleware
+func (siw *ServerInterfaceWrapper) GetMyFavorites(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyFavorites(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveFavorite operation middleware
+func (siw *ServerInterfaceWrapper) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveFavorite(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFavoriteState operation middleware
+func (siw *ServerInterfaceWrapper) GetFavoriteState(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFavoriteState(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddFavorite operation middleware
+func (siw *ServerInterfaceWrapper) AddFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddFavorite(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyList operation middleware
+func (siw *ServerInterfaceWrapper) GetMyList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMyListParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyList(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMyListEntry operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMyListEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMyListEntry(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyListEntry operation middleware
+func (siw *ServerInterfaceWrapper) GetMyListEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyListEntry(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertMyListEntry operation middleware
+func (siw *ServerInterfaceWrapper) UpsertMyListEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "animeId" -------------
+	var animeId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "animeId", chi.URLParam(r, "animeId"), &animeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "animeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertMyListEntry(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSchedule operation middleware
 func (siw *ServerInterfaceWrapper) GetSchedule(w http.ResponseWriter, r *http.Request) {
 
@@ -1068,6 +1478,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/favorites", wrapper.GetMyFavorites)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/me/favorites/{animeId}", wrapper.RemoveFavorite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/favorites/{animeId}", wrapper.GetFavoriteState)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/me/favorites/{animeId}", wrapper.AddFavorite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/list", wrapper.GetMyList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/me/list/{animeId}", wrapper.DeleteMyListEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/list/{animeId}", wrapper.GetMyListEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/me/list/{animeId}", wrapper.UpsertMyListEntry)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/schedule", wrapper.GetSchedule)

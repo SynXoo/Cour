@@ -12,6 +12,55 @@ import (
 	"github.com/google/uuid"
 )
 
+type ActivityType string
+
+const (
+	ActivityTypeListAdd      ActivityType = "list_add"
+	ActivityTypeStatusChange ActivityType = "status_change"
+	ActivityTypeProgress     ActivityType = "progress"
+	ActivityTypeCompleted    ActivityType = "completed"
+	ActivityTypeScored       ActivityType = "scored"
+	ActivityTypeFavorite     ActivityType = "favorite"
+	ActivityTypeReview       ActivityType = "review"
+	ActivityTypeComment      ActivityType = "comment"
+	ActivityTypeHelpfulVote  ActivityType = "helpful_vote"
+)
+
+func (e *ActivityType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ActivityType(s)
+	case string:
+		*e = ActivityType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ActivityType: %T", src)
+	}
+	return nil
+}
+
+type NullActivityType struct {
+	ActivityType ActivityType
+	Valid        bool // Valid is true if ActivityType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullActivityType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ActivityType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ActivityType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullActivityType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ActivityType), nil
+}
+
 type AnimeFormat string
 
 const (
@@ -190,6 +239,51 @@ func (ns NullEmailTokenPurpose) Value() (driver.Value, error) {
 	return string(ns.EmailTokenPurpose), nil
 }
 
+type ListStatus string
+
+const (
+	ListStatusWatching  ListStatus = "watching"
+	ListStatusCompleted ListStatus = "completed"
+	ListStatusPlanning  ListStatus = "planning"
+	ListStatusPaused    ListStatus = "paused"
+	ListStatusDropped   ListStatus = "dropped"
+)
+
+func (e *ListStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ListStatus(s)
+	case string:
+		*e = ListStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ListStatus: %T", src)
+	}
+	return nil
+}
+
+type NullListStatus struct {
+	ListStatus ListStatus
+	Valid      bool // Valid is true if ListStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullListStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ListStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ListStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullListStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ListStatus), nil
+}
+
 type UserRole string
 
 const (
@@ -231,6 +325,16 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UserRole), nil
+}
+
+type Activity struct {
+	ID        int64
+	UserID    int64
+	Type      ActivityType
+	AnimeID   *int64
+	RefID     *int64
+	Payload   []byte
+	CreatedAt time.Time
 }
 
 type Anime struct {
@@ -282,6 +386,25 @@ type Episode struct {
 	Title     *string
 	AiringAt  *time.Time
 	CreatedAt time.Time
+}
+
+type Favorite struct {
+	UserID    int64
+	AnimeID   int64
+	CreatedAt time.Time
+}
+
+type ListEntry struct {
+	ID         int64
+	UserID     int64
+	AnimeID    int64
+	Status     ListStatus
+	Score      *int16
+	Progress   int32
+	StartedOn  *time.Time
+	FinishedOn *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type RefreshToken struct {

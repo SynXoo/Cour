@@ -183,6 +183,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The authenticated user's anime list */
+        get: operations["getMyList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/list/{animeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        /** This user's entry for one anime (404 when untracked) */
+        get: operations["getMyListEntry"];
+        /** Add or update this anime on the user's list */
+        put: operations["upsertMyListEntry"];
+        post?: never;
+        /** Remove this anime from the user's list */
+        delete: operations["deleteMyListEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The authenticated user's favorites */
+        get: operations["getMyFavorites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/{animeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        /** Whether this anime is in the user's favorites */
+        get: operations["getFavoriteState"];
+        /** Add to favorites */
+        put: operations["addFavorite"];
+        post?: never;
+        /** Remove from favorites */
+        delete: operations["removeFavorite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/anime": {
         parameters: {
             query?: never;
@@ -307,6 +383,43 @@ export interface components {
             email_verified: boolean;
             /** Format: date-time */
             created_at: string;
+        };
+        /** @enum {string} */
+        ListStatus: "watching" | "completed" | "planning" | "paused" | "dropped";
+        ListEntry: {
+            /** Format: int64 */
+            anime_id: number;
+            status: components["schemas"]["ListStatus"];
+            score: number | null;
+            progress: number;
+            /** Format: date */
+            started_on: string | null;
+            /** Format: date */
+            finished_on: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ListEntryWithAnime: components["schemas"]["ListEntry"] & {
+            anime: components["schemas"]["AnimeSummary"];
+        };
+        MyList: {
+            data: components["schemas"]["ListEntryWithAnime"][];
+        };
+        UpsertListEntryRequest: {
+            status: components["schemas"]["ListStatus"];
+            /** @description 1-10; 0 clears the score; omitted keeps it */
+            score?: number | null;
+            progress?: number | null;
+            /** Format: date */
+            started_on?: string | null;
+            /** Format: date */
+            finished_on?: string | null;
+        };
+        FavoritesList: {
+            data: components["schemas"]["AnimeSummary"][];
+        };
+        FavoriteState: {
+            favorited: boolean;
         };
         /** @enum {string} */
         Season: "WINTER" | "SPRING" | "SUMMER" | "FALL";
@@ -629,6 +742,186 @@ export interface operations {
         responses: {
             /** @description Redirect to the web app with the session cookie set */
             302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyList: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ListStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List entries, most recently updated first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyListEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEntry"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertMyListEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertListEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The resulting entry (after auto-transitions) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEntry"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMyListEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyFavorites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Favorites, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoritesList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getFavoriteState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Favorite state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Favorited */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unfavorited */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
