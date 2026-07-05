@@ -510,6 +510,141 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /anime/{id}/threads:
+    get:
+      operationId: getAnimeThreads
+      summary: Discussion index for an anime (series board + episode threads)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Existing threads and their sizes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreadIndex" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /anime/{id}/threads/series:
+    get:
+      operationId: getSeriesThread
+      summary: The anime's series board (created on first visit)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: The thread
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Thread" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /anime/{id}/episodes/{number}/thread:
+    get:
+      operationId: getEpisodeThread
+      summary: An episode's thread with context (created on first visit)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: number
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Thread + episode + anime
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EpisodeThread" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /threads/{threadId}/comments:
+    parameters:
+      - name: threadId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: listComments
+      summary: A thread's comments, oldest first (client builds the tree)
+      responses:
+        "200":
+          description: Comments with authors and reactions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentList" }
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: postComment
+      summary: Add a comment (optionally anchored to a moment)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PostCommentRequest" }
+      responses:
+        "201":
+          description: The comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /comments/{commentId}:
+    delete:
+      operationId: deleteComment
+      summary: Soft-delete a comment (author or moderator); tombstone remains
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { description: Deleted }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /comments/{commentId}/reactions/{emoji}:
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+      - name: emoji
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/Emoji" }
+    put:
+      operationId: addReaction
+      summary: React to a comment
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Reacted }
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: removeReaction
+      summary: Remove a reaction
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Removed }
+        default:
+          $ref: "#/components/responses/Error"
+
   /seasons/{year}/{season}:
     get:
       operationId: getSeason
@@ -831,6 +966,100 @@ components:
       properties:
         helpful_count: { type: integer }
         voted: { type: boolean }
+
+    Emoji:
+      type: string
+      enum: ["+1", heart, laugh, surprise, cry, fire]
+
+    Thread:
+      type: object
+      required: [id, anime_id, kind, comment_count, last_activity_at]
+      properties:
+        id: { type: integer, format: int64 }
+        anime_id: { type: integer, format: int64 }
+        kind:
+          type: string
+          enum: [series, episode]
+        comment_count: { type: integer }
+        last_activity_at: { type: string, format: date-time }
+
+    EpisodeThread:
+      type: object
+      required: [thread, anime, episode]
+      properties:
+        thread: { $ref: "#/components/schemas/Thread" }
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        episode: { $ref: "#/components/schemas/Episode" }
+
+    ThreadIndex:
+      type: object
+      required: [series, episodes]
+      properties:
+        series:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/Thread" }]
+        episodes:
+          type: array
+          items:
+            type: object
+            required: [number, thread_id, comment_count, last_activity_at]
+            properties:
+              number: { type: integer }
+              thread_id: { type: integer, format: int64 }
+              comment_count: { type: integer }
+              last_activity_at: { type: string, format: date-time }
+
+    ReactionCount:
+      type: object
+      required: [emoji, count, mine]
+      properties:
+        emoji: { $ref: "#/components/schemas/Emoji" }
+        count: { type: integer }
+        mine: { type: boolean }
+
+    Comment:
+      type: object
+      required:
+        [id, thread_id, parent_id, author, body, timestamp_seconds,
+         has_spoilers, deleted, reactions, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        thread_id: { type: integer, format: int64 }
+        parent_id: { type: integer, format: int64, nullable: true }
+        author: { $ref: "#/components/schemas/ReviewAuthor" }
+        body: { type: string, description: "\"[removed]\" when deleted" }
+        timestamp_seconds:
+          type: integer
+          nullable: true
+          description: Moment anchor within the episode
+        has_spoilers: { type: boolean }
+        deleted: { type: boolean }
+        reactions:
+          type: array
+          items: { $ref: "#/components/schemas/ReactionCount" }
+        created_at: { type: string, format: date-time }
+
+    CommentList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+
+    PostCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 8000 }
+        parent_id: { type: integer, format: int64, nullable: true }
+        timestamp_seconds:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 35999
+          description: Only valid in episode threads
+        has_spoilers: { type: boolean, default: false }
 
     Season:
       type: string

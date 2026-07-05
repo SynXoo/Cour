@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ScheduleEntry } from "@/lib/api/client";
-import { animeHref, displayTitle, untilLabel } from "@/lib/anime";
+import { displayTitle, untilLabel } from "@/lib/anime";
 
 export function ScheduleStrip({ entries }: { entries: ScheduleEntry[] }) {
   return (
@@ -9,7 +9,7 @@ export function ScheduleStrip({ entries }: { entries: ScheduleEntry[] }) {
       {entries.map((e) => (
         <li key={`${e.anime.id}-${e.episode}`} className="w-56 shrink-0">
           <Link
-            href={animeHref(e.anime)}
+            href={`/anime/${e.anime.id}/episode/${e.episode}`}
             className="flex h-full items-center gap-3 rounded-lg border border-border/60 bg-card p-2.5 transition-colors hover:border-primary/50"
           >
             <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded bg-muted">

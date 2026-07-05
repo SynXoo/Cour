@@ -124,6 +124,12 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           <div className="flex items-center gap-2 pt-1">
             <ListEditor animeId={anime.id} episodesCount={anime.episodes_count} />
             <FavoriteButton animeId={anime.id} />
+            <Link
+              href={`/anime/${anime.id}/discussion`}
+              className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+            >
+              Discussion
+            </Link>
           </div>
         </div>
       </header>
@@ -151,7 +157,10 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           <h2 id="episodes-heading" className="text-lg font-semibold tracking-tight">
             Episodes
           </h2>
-          <EpisodeList episodes={anime.episodes} />
+          <p className="text-xs text-muted-foreground">
+            Every episode has its own thread — tap in.
+          </p>
+          <EpisodeList animeId={anime.id} episodes={anime.episodes} />
         </section>
       )}
 

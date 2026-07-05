@@ -46,6 +46,36 @@ func (e AiringStatus) Valid() bool {
 	}
 }
 
+// Defines values for Emoji.
+const (
+	Cry      Emoji = "cry"
+	Fire     Emoji = "fire"
+	Heart    Emoji = "heart"
+	Laugh    Emoji = "laugh"
+	Plus1    Emoji = "+1"
+	Surprise Emoji = "surprise"
+)
+
+// Valid indicates whether the value is a known member of the Emoji enum.
+func (e Emoji) Valid() bool {
+	switch e {
+	case Cry:
+		return true
+	case Fire:
+		return true
+	case Heart:
+		return true
+	case Laugh:
+		return true
+	case Plus1:
+		return true
+	case Surprise:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	MOVIE   Format = "MOVIE"
@@ -166,6 +196,24 @@ func (e SessionResponseTokenType) Valid() bool {
 	}
 }
 
+// Defines values for ThreadKind.
+const (
+	ThreadKindEpisode ThreadKind = "episode"
+	ThreadKindSeries  ThreadKind = "series"
+)
+
+// Valid indicates whether the value is a known member of the ThreadKind enum.
+func (e ThreadKind) Valid() bool {
+	switch e {
+	case ThreadKindEpisode:
+		return true
+	case ThreadKindSeries:
+		return true
+	default:
+		return false
+	}
+}
+
 // AiringStatus defines model for AiringStatus.
 type AiringStatus string
 
@@ -242,11 +290,44 @@ type AnimeSummary struct {
 	TitleEnglish *string `json:"title_english"`
 }
 
+// Comment defines model for Comment.
+type Comment struct {
+	Author ReviewAuthor `json:"author"`
+
+	// Body "[removed]" when deleted
+	Body        string          `json:"body"`
+	CreatedAt   time.Time       `json:"created_at"`
+	Deleted     bool            `json:"deleted"`
+	HasSpoilers bool            `json:"has_spoilers"`
+	Id          int64           `json:"id"`
+	ParentId    *int64          `json:"parent_id"`
+	Reactions   []ReactionCount `json:"reactions"`
+	ThreadId    int64           `json:"thread_id"`
+
+	// TimestampSeconds Moment anchor within the episode
+	TimestampSeconds *int `json:"timestamp_seconds"`
+}
+
+// CommentList defines model for CommentList.
+type CommentList struct {
+	Data []Comment `json:"data"`
+}
+
+// Emoji defines model for Emoji.
+type Emoji string
+
 // Episode defines model for Episode.
 type Episode struct {
 	AiringAt *time.Time `json:"airing_at"`
 	Number   int        `json:"number"`
 	Title    *string    `json:"title"`
+}
+
+// EpisodeThread defines model for EpisodeThread.
+type EpisodeThread struct {
+	Anime   AnimeSummary `json:"anime"`
+	Episode Episode      `json:"episode"`
+	Thread  Thread       `json:"thread"`
 }
 
 // ErrorEnvelope defines model for ErrorEnvelope.
@@ -333,6 +414,16 @@ type PasswordResetRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// PostCommentRequest defines model for PostCommentRequest.
+type PostCommentRequest struct {
+	Body        string `json:"body"`
+	HasSpoilers *bool  `json:"has_spoilers,omitempty"`
+	ParentId    *int64 `json:"parent_id,omitempty"`
+
+	// TimestampSeconds Only valid in episode threads
+	TimestampSeconds *int `json:"timestamp_seconds,omitempty"`
+}
+
 // ProfileStats defines model for ProfileStats.
 type ProfileStats struct {
 	Counts struct {
@@ -351,6 +442,13 @@ type ProfileStats struct {
 	// MeanScore Mean of 1-10 scores; null until something is rated
 	MeanScore  *float32 `json:"mean_score"`
 	RatedCount int      `json:"rated_count"`
+}
+
+// ReactionCount defines model for ReactionCount.
+type ReactionCount struct {
+	Count int   `json:"count"`
+	Emoji Emoji `json:"emoji"`
+	Mine  bool  `json:"mine"`
 }
 
 // RegisterRequest defines model for RegisterRequest.
@@ -458,6 +556,29 @@ type Studio struct {
 type Tag struct {
 	Name string `json:"name"`
 	Rank int    `json:"rank"`
+}
+
+// Thread defines model for Thread.
+type Thread struct {
+	AnimeId        int64      `json:"anime_id"`
+	CommentCount   int        `json:"comment_count"`
+	Id             int64      `json:"id"`
+	Kind           ThreadKind `json:"kind"`
+	LastActivityAt time.Time  `json:"last_activity_at"`
+}
+
+// ThreadKind defines model for Thread.Kind.
+type ThreadKind string
+
+// ThreadIndex defines model for ThreadIndex.
+type ThreadIndex struct {
+	Episodes []struct {
+		CommentCount   int       `json:"comment_count"`
+		LastActivityAt time.Time `json:"last_activity_at"`
+		Number         int       `json:"number"`
+		ThreadId       int64     `json:"thread_id"`
+	} `json:"episodes"`
+	Series *Thread `json:"series"`
 }
 
 // TokenRequest defines model for TokenRequest.
@@ -599,6 +720,9 @@ type UpsertMyListEntryJSONRequestBody = UpsertListEntryRequest
 // UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
 type UpdateMyProfileJSONRequestBody = UpdateProfileRequest
 
+// PostCommentJSONRequestBody defines body for PostComment for application/json ContentType.
+type PostCommentJSONRequestBody = PostCommentRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Browse or search the catalog
@@ -607,6 +731,9 @@ type ServerInterface interface {
 	// Anime detail with episodes
 	// (GET /anime/{id})
 	GetAnime(w http.ResponseWriter, r *http.Request, id int64)
+	// An episode's thread with context (created on first visit)
+	// (GET /anime/{id}/episodes/{number}/thread)
+	GetEpisodeThread(w http.ResponseWriter, r *http.Request, id int64, number int)
 	// Reviews for an anime, most helpful first
 	// (GET /anime/{id}/reviews)
 	ListAnimeReviews(w http.ResponseWriter, r *http.Request, id int64, params ListAnimeReviewsParams)
@@ -616,6 +743,12 @@ type ServerInterface interface {
 	// Write or edit the caller's review
 	// (PUT /anime/{id}/reviews/mine)
 	UpsertMyReview(w http.ResponseWriter, r *http.Request, id int64)
+	// Discussion index for an anime (series board + episode threads)
+	// (GET /anime/{id}/threads)
+	GetAnimeThreads(w http.ResponseWriter, r *http.Request, id int64)
+	// The anime's series board (created on first visit)
+	// (GET /anime/{id}/threads/series)
+	GetSeriesThread(w http.ResponseWriter, r *http.Request, id int64)
 	// Begin Discord OAuth (redirects to discord.com)
 	// (GET /auth/discord)
 	DiscordStart(w http.ResponseWriter, r *http.Request)
@@ -649,6 +782,15 @@ type ServerInterface interface {
 	// Confirm an email address with a mailed token
 	// (POST /auth/verify-email)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// Soft-delete a comment (author or moderator); tombstone remains
+	// (DELETE /comments/{commentId})
+	DeleteComment(w http.ResponseWriter, r *http.Request, commentId int64)
+	// Remove a reaction
+	// (DELETE /comments/{commentId}/reactions/{emoji})
+	RemoveReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji)
+	// React to a comment
+	// (PUT /comments/{commentId}/reactions/{emoji})
+	AddReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji)
 	// The authenticated user's favorites
 	// (GET /me/favorites)
 	GetMyFavorites(w http.ResponseWriter, r *http.Request)
@@ -694,6 +836,12 @@ type ServerInterface interface {
 	// Seasonal chart
 	// (GET /seasons/{year}/{season})
 	GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season)
+	// A thread's comments, oldest first (client builds the tree)
+	// (GET /threads/{threadId}/comments)
+	ListComments(w http.ResponseWriter, r *http.Request, threadId int64)
+	// Add a comment (optionally anchored to a moment)
+	// (POST /threads/{threadId}/comments)
+	PostComment(w http.ResponseWriter, r *http.Request, threadId int64)
 	// Public profile with stats and showcases
 	// (GET /users/{username})
 	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
@@ -718,6 +866,12 @@ func (_ Unimplemented) GetAnime(w http.ResponseWriter, r *http.Request, id int64
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// An episode's thread with context (created on first visit)
+// (GET /anime/{id}/episodes/{number}/thread)
+func (_ Unimplemented) GetEpisodeThread(w http.ResponseWriter, r *http.Request, id int64, number int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Reviews for an anime, most helpful first
 // (GET /anime/{id}/reviews)
 func (_ Unimplemented) ListAnimeReviews(w http.ResponseWriter, r *http.Request, id int64, params ListAnimeReviewsParams) {
@@ -733,6 +887,18 @@ func (_ Unimplemented) GetMyReview(w http.ResponseWriter, r *http.Request, id in
 // Write or edit the caller's review
 // (PUT /anime/{id}/reviews/mine)
 func (_ Unimplemented) UpsertMyReview(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Discussion index for an anime (series board + episode threads)
+// (GET /anime/{id}/threads)
+func (_ Unimplemented) GetAnimeThreads(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The anime's series board (created on first visit)
+// (GET /anime/{id}/threads/series)
+func (_ Unimplemented) GetSeriesThread(w http.ResponseWriter, r *http.Request, id int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -799,6 +965,24 @@ func (_ Unimplemented) ResendVerification(w http.ResponseWriter, r *http.Request
 // Confirm an email address with a mailed token
 // (POST /auth/verify-email)
 func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Soft-delete a comment (author or moderator); tombstone remains
+// (DELETE /comments/{commentId})
+func (_ Unimplemented) DeleteComment(w http.ResponseWriter, r *http.Request, commentId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a reaction
+// (DELETE /comments/{commentId}/reactions/{emoji})
+func (_ Unimplemented) RemoveReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// React to a comment
+// (PUT /comments/{commentId}/reactions/{emoji})
+func (_ Unimplemented) AddReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -889,6 +1073,18 @@ func (_ Unimplemented) GetSchedule(w http.ResponseWriter, r *http.Request, param
 // Seasonal chart
 // (GET /seasons/{year}/{season})
 func (_ Unimplemented) GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A thread's comments, oldest first (client builds the tree)
+// (GET /threads/{threadId}/comments)
+func (_ Unimplemented) ListComments(w http.ResponseWriter, r *http.Request, threadId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add a comment (optionally anchored to a moment)
+// (POST /threads/{threadId}/comments)
+func (_ Unimplemented) PostComment(w http.ResponseWriter, r *http.Request, threadId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1050,6 +1246,41 @@ func (siw *ServerInterfaceWrapper) GetAnime(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// GetEpisodeThread operation middleware
+func (siw *ServerInterfaceWrapper) GetEpisodeThread(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "number" -------------
+	var number int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "number", chi.URLParam(r, "number"), &number, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "number", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEpisodeThread(w, r, id, number)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAnimeReviews operation middleware
 func (siw *ServerInterfaceWrapper) ListAnimeReviews(w http.ResponseWriter, r *http.Request) {
 
@@ -1160,6 +1391,58 @@ func (siw *ServerInterfaceWrapper) UpsertMyReview(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpsertMyReview(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnimeThreads operation middleware
+func (siw *ServerInterfaceWrapper) GetAnimeThreads(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnimeThreads(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSeriesThread operation middleware
+func (siw *ServerInterfaceWrapper) GetSeriesThread(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSeriesThread(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1358,6 +1641,120 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VerifyEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteComment operation middleware
+func (siw *ServerInterfaceWrapper) DeleteComment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "commentId" -------------
+	var commentId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "commentId", chi.URLParam(r, "commentId"), &commentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "commentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteComment(w, r, commentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveReaction operation middleware
+func (siw *ServerInterfaceWrapper) RemoveReaction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "commentId" -------------
+	var commentId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "commentId", chi.URLParam(r, "commentId"), &commentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "commentId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "emoji" -------------
+	var emoji Emoji
+
+	err = runtime.BindStyledParameterWithOptions("simple", "emoji", chi.URLParam(r, "emoji"), &emoji, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "emoji", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveReaction(w, r, commentId, emoji)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddReaction operation middleware
+func (siw *ServerInterfaceWrapper) AddReaction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "commentId" -------------
+	var commentId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "commentId", chi.URLParam(r, "commentId"), &commentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "commentId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "emoji" -------------
+	var emoji Emoji
+
+	err = runtime.BindStyledParameterWithOptions("simple", "emoji", chi.URLParam(r, "emoji"), &emoji, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "emoji", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddReaction(w, r, commentId, emoji)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1841,6 +2238,64 @@ func (siw *ServerInterfaceWrapper) GetSeason(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListComments operation middleware
+func (siw *ServerInterfaceWrapper) ListComments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "threadId" -------------
+	var threadId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "threadId", chi.URLParam(r, "threadId"), &threadId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "threadId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComments(w, r, threadId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostComment operation middleware
+func (siw *ServerInterfaceWrapper) PostComment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "threadId" -------------
+	var threadId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "threadId", chi.URLParam(r, "threadId"), &threadId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "threadId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostComment(w, r, threadId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUserProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -2042,6 +2497,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/anime/{id}", wrapper.GetAnime)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/episodes/{number}/thread", wrapper.GetEpisodeThread)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/anime/{id}/reviews", wrapper.ListAnimeReviews)
 	})
 	r.Group(func(r chi.Router) {
@@ -2049,6 +2507,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/anime/{id}/reviews/mine", wrapper.UpsertMyReview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/threads", wrapper.GetAnimeThreads)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/threads/series", wrapper.GetSeriesThread)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/discord", wrapper.DiscordStart)
@@ -2082,6 +2546,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/comments/{commentId}", wrapper.DeleteComment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/comments/{commentId}/reactions/{emoji}", wrapper.RemoveReaction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/comments/{commentId}/reactions/{emoji}", wrapper.AddReaction)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/favorites", wrapper.GetMyFavorites)
@@ -2127,6 +2600,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/seasons/{year}/{season}", wrapper.GetSeason)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/threads/{threadId}/comments", wrapper.ListComments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/threads/{threadId}/comments", wrapper.PostComment)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)

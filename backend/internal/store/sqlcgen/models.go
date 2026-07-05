@@ -284,6 +284,48 @@ func (ns NullListStatus) Value() (driver.Value, error) {
 	return string(ns.ListStatus), nil
 }
 
+type ThreadKind string
+
+const (
+	ThreadKindSeries  ThreadKind = "series"
+	ThreadKindEpisode ThreadKind = "episode"
+)
+
+func (e *ThreadKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ThreadKind(s)
+	case string:
+		*e = ThreadKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ThreadKind: %T", src)
+	}
+	return nil
+}
+
+type NullThreadKind struct {
+	ThreadKind ThreadKind
+	Valid      bool // Valid is true if ThreadKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullThreadKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ThreadKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ThreadKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullThreadKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ThreadKind), nil
+}
+
 type UserRole string
 
 const (
@@ -369,6 +411,26 @@ type Anime struct {
 	SearchDoc         interface{}
 }
 
+type Comment struct {
+	ID               int64
+	ThreadID         int64
+	ParentID         *int64
+	UserID           int64
+	Body             string
+	TimestampSeconds *int32
+	HasSpoilers      bool
+	DeletedAt        *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type CommentReaction struct {
+	CommentID int64
+	UserID    int64
+	Emoji     string
+	CreatedAt time.Time
+}
+
 type EmailToken struct {
 	ID        int64
 	UserID    int64
@@ -435,6 +497,16 @@ type ReviewVote struct {
 	ReviewID  int64
 	UserID    int64
 	CreatedAt time.Time
+}
+
+type Thread struct {
+	ID             int64
+	AnimeID        int64
+	EpisodeID      *int64
+	Kind           ThreadKind
+	CommentCount   int32
+	LastActivityAt time.Time
+	CreatedAt      time.Time
 }
 
 type User struct {

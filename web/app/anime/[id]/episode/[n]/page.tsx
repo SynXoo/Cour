@@ -1,0 +1,114 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ThreadView } from "@/components/discussions/thread-view";
+import { serverApi } from "@/lib/api/client";
+import type { components } from "@/lib/api/schema";
+import { airDateLabel, animeHref, displayTitle, isUpcoming, untilLabel } from "@/lib/anime";
+
+type EpisodeThread = components["schemas"]["EpisodeThread"];
+type Params = { id: string; n: string };
+
+async function fetchThread(idRaw: string, nRaw: string): Promise<EpisodeThread | null> {
+  const id = Number(idRaw);
+  const n = Number(nRaw);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(n) || n <= 0) return null;
+  const res = await serverApi()
+    .GET("/anime/{id}/episodes/{number}/thread", {
+      params: { path: { id, number: n } },
+      // Threads move fast; don't cache the SSR fetch.
+      fetch: (input: Request) => fetch(input, { cache: "no-store" }),
+    })
+    .catch(() => null);
+  return res?.data ?? null;
+}
+
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const p = await params;
+  const data = await fetchThread(p.id, p.n);
+  if (!data) return {};
+  const title = displayTitle(data.anime);
+  return {
+    title: `${title} — Episode ${data.episode.number} discussion`,
+    description: `Talk about episode ${data.episode.number} of ${title} — timestamped comments, reactions, no stream links.`,
+  };
+}
+
+export default async function EpisodeThreadPage({ params }: { params: Promise<Params> }) {
+  const p = await params;
+  const data = await fetchThread(p.id, p.n);
+  if (!data) notFound();
+
+  const { anime, episode, thread } = data;
+  const upcoming = isUpcoming(episode.airing_at);
+  const prev = episode.number > 1 ? episode.number - 1 : null;
+  const next =
+    anime.episodes_count == null || episode.number < anime.episodes_count
+      ? episode.number + 1
+      : null;
+
+  return (
+    <div className="flex flex-col gap-6 py-2">
+      <header className="flex items-center gap-4">
+        <Link
+          href={animeHref(anime)}
+          className="relative h-20 w-14 shrink-0 overflow-hidden rounded bg-muted"
+        >
+          {anime.cover_image && (
+            <Image src={anime.cover_image} alt="" fill sizes="56px" className="object-cover" />
+          )}
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link href={animeHref(anime)} className="text-sm text-muted-foreground hover:text-primary">
+            {displayTitle(anime)}
+          </Link>
+          <h1 className="text-xl font-bold tracking-tight">
+            Episode {episode.number}
+            {episode.title ? ` — ${episode.title}` : ""}
+          </h1>
+          {episode.airing_at && (
+            <p className="text-xs text-muted-foreground">
+              {upcoming
+                ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
+                : `Aired ${airDateLabel(episode.airing_at)}`}
+            </p>
+          )}
+        </div>
+        <nav aria-label="Episode navigation" className="flex shrink-0 gap-1.5 text-sm">
+          {prev && (
+            <Link
+              href={`/anime/${anime.id}/episode/${prev}`}
+              className="rounded-md border border-border px-2.5 py-1.5 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            >
+              ← {prev}
+            </Link>
+          )}
+          {next && (
+            <Link
+              href={`/anime/${anime.id}/episode/${next}`}
+              className="rounded-md border border-border px-2.5 py-1.5 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            >
+              {next} →
+            </Link>
+          )}
+        </nav>
+      </header>
+
+      {upcoming && (
+        <p className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm">
+          This episode hasn&apos;t aired yet — the thread is open for
+          speculation. Tag spoilers from source material!
+        </p>
+      )}
+
+      <ThreadView threadId={thread.id} allowTimestamps />
+
+      <p className="text-xs text-muted-foreground">
+        {thread.comment_count} comment{thread.comment_count === 1 ? "" : "s"} ·
+        anchor a comment to a moment with a timestamp like 12:34 · bring your
+        own legal stream.
+      </p>
+    </div>
+  );
+}

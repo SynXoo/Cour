@@ -17,6 +17,7 @@ import (
 	"cour/internal/cache"
 	"cour/internal/catalog"
 	"cour/internal/config"
+	"cour/internal/discussions"
 	"cour/internal/httpapi/apigen"
 	"cour/internal/lists"
 	"cour/internal/mail"
@@ -40,6 +41,7 @@ type apiServer struct {
 	listHandlers
 	profileHandlers
 	reviewHandlers
+	discussionHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -90,6 +92,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		reviewHandlers: reviewHandlers{
 			svc: reviews.New(d.Pool, d.Log),
 			q:   queries,
+			log: d.Log,
+		},
+		discussionHandlers: discussionHandlers{
+			svc: discussions.New(d.Pool, d.Log),
 			log: d.Log,
 		},
 	}

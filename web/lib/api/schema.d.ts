@@ -441,6 +441,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/anime/{id}/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discussion index for an anime (series board + episode threads) */
+        get: operations["getAnimeThreads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/anime/{id}/threads/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The anime's series board (created on first visit) */
+        get: operations["getSeriesThread"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/anime/{id}/episodes/{number}/thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An episode's thread with context (created on first visit) */
+        get: operations["getEpisodeThread"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/threads/{threadId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                threadId: number;
+            };
+            cookie?: never;
+        };
+        /** A thread's comments, oldest first (client builds the tree) */
+        get: operations["listComments"];
+        put?: never;
+        /** Add a comment (optionally anchored to a moment) */
+        post: operations["postComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a comment (author or moderator); tombstone remains */
+        delete: operations["deleteComment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comments/{commentId}/reactions/{emoji}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                commentId: number;
+                emoji: components["schemas"]["Emoji"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** React to a comment */
+        put: operations["addReaction"];
+        post?: never;
+        /** Remove a reaction */
+        delete: operations["removeReaction"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/seasons/{year}/{season}": {
         parameters: {
             query?: never;
@@ -647,6 +756,70 @@ export interface components {
         HelpfulState: {
             helpful_count: number;
             voted: boolean;
+        };
+        /** @enum {string} */
+        Emoji: "+1" | "heart" | "laugh" | "surprise" | "cry" | "fire";
+        Thread: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            anime_id: number;
+            /** @enum {string} */
+            kind: "series" | "episode";
+            comment_count: number;
+            /** Format: date-time */
+            last_activity_at: string;
+        };
+        EpisodeThread: {
+            thread: components["schemas"]["Thread"];
+            anime: components["schemas"]["AnimeSummary"];
+            episode: components["schemas"]["Episode"];
+        };
+        ThreadIndex: {
+            series: components["schemas"]["Thread"] | null;
+            episodes: {
+                number: number;
+                /** Format: int64 */
+                thread_id: number;
+                comment_count: number;
+                /** Format: date-time */
+                last_activity_at: string;
+            }[];
+        };
+        ReactionCount: {
+            emoji: components["schemas"]["Emoji"];
+            count: number;
+            mine: boolean;
+        };
+        Comment: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            thread_id: number;
+            /** Format: int64 */
+            parent_id: number | null;
+            author: components["schemas"]["ReviewAuthor"];
+            /** @description "[removed]" when deleted */
+            body: string;
+            /** @description Moment anchor within the episode */
+            timestamp_seconds: number | null;
+            has_spoilers: boolean;
+            deleted: boolean;
+            reactions: components["schemas"]["ReactionCount"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        CommentList: {
+            data: components["schemas"]["Comment"][];
+        };
+        PostCommentRequest: {
+            body: string;
+            /** Format: int64 */
+            parent_id?: number | null;
+            /** @description Only valid in episode threads */
+            timestamp_seconds?: number | null;
+            /** @default false */
+            has_spoilers: boolean;
         };
         /** @enum {string} */
         Season: "WINTER" | "SPRING" | "SUMMER" | "FALL";
@@ -1464,6 +1637,191 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserReviewList"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAnimeThreads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Existing threads and their sizes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadIndex"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSeriesThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The thread */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Thread"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEpisodeThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Thread + episode + anime */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeThread"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listComments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                threadId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comments with authors and reactions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    postComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                threadId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostCommentRequest"];
+            };
+        };
+        responses: {
+            /** @description The comment */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                commentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                commentId: number;
+                emoji: components["schemas"]["Emoji"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reacted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                commentId: number;
+                emoji: components["schemas"]["Emoji"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { serverApi, type ScheduleEntry } from "@/lib/api/client";
-import { animeHref, displayTitle, untilLabel } from "@/lib/anime";
+import { displayTitle, untilLabel } from "@/lib/anime";
 
 export const metadata: Metadata = {
   title: "Weekly Schedule",
@@ -54,7 +54,7 @@ export default async function SchedulePage() {
               {dayEntries.map((e) => (
                 <li key={`${e.anime.id}-${e.episode}`}>
                   <Link
-                    href={animeHref(e.anime)}
+                    href={`/anime/${e.anime.id}/episode/${e.episode}`}
                     className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-2.5 transition-colors hover:border-primary/50"
                   >
                     <span className="w-16 shrink-0 text-sm font-semibold tabular-nums text-primary">
