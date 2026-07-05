@@ -313,6 +313,155 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /users/{username}/follow:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        schema: { type: string, maxLength: 20 }
+    get:
+      operationId: getFollowState
+      summary: Follow counts and whether the caller follows this user
+      responses:
+        "200":
+          description: Relation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationState" }
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: followUser
+      summary: Follow this user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Updated relation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationState" }
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: unfollowUser
+      summary: Unfollow this user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Updated relation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationState" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{username}/followers:
+    get:
+      operationId: listFollowers
+      summary: Who follows this user
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Followers, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserRefList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{username}/following:
+    get:
+      operationId: listFollowing
+      summary: Who this user follows
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Followed users, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserRefList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/feed:
+    get:
+      operationId: getMyFeed
+      summary: Activity from everyone the caller follows
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
+      responses:
+        "200":
+          description: Feed page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Feed" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/notifications:
+    get:
+      operationId: getMyNotifications
+      summary: The caller's notifications, newest first
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Notification page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/notifications/unread-count:
+    get:
+      operationId: getUnreadCount
+      summary: Unread notification count (for the bell)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnreadCount" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/notifications/read:
+    post:
+      operationId: markNotificationsRead
+      summary: Mark notifications read (specific ids or all)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MarkReadRequest" }
+      responses:
+        "204": { description: Marked }
+        default:
+          $ref: "#/components/responses/Error"
+
   /anime:
     get:
       operationId: listAnime
@@ -966,6 +1115,103 @@ components:
       properties:
         helpful_count: { type: integer }
         voted: { type: boolean }
+
+    RelationState:
+      type: object
+      required: [followers, following, is_following]
+      properties:
+        followers: { type: integer }
+        following: { type: integer }
+        is_following: { type: boolean, description: Always false for anonymous callers }
+
+    UserRefList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewAuthor" }
+
+    ActivityType:
+      type: string
+      enum: [list_add, status_change, progress, completed, scored, favorite, review, comment, helpful_vote]
+
+    FeedItem:
+      type: object
+      required: [id, actor, type, anime, ref_id, payload, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        actor: { $ref: "#/components/schemas/ReviewAuthor" }
+        type: { $ref: "#/components/schemas/ActivityType" }
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        ref_id: { type: integer, format: int64, nullable: true }
+        payload:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+
+    Feed:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/FeedItem" }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Pass back as ?cursor= for the next page; null at the end
+
+    NotificationType:
+      type: string
+      enum: [comment_reply, new_follower, episode_aired]
+
+    Notification:
+      type: object
+      required: [id, type, actor, anime, ref_id, payload, read, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        type: { $ref: "#/components/schemas/NotificationType" }
+        actor:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/ReviewAuthor" }]
+        anime:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/AnimeSummary" }]
+        ref_id: { type: integer, format: int64, nullable: true }
+        payload:
+          type: object
+          additionalProperties: true
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    NotificationList:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Notification" }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+
+    UnreadCount:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer }
+
+    MarkReadRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          maxItems: 100
+          items: { type: integer, format: int64 }
+        all: { type: boolean, default: false }
 
     Emoji:
       type: string

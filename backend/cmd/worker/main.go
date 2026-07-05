@@ -15,6 +15,7 @@ import (
 	"cour/internal/config"
 	"cour/internal/jobs"
 	"cour/internal/logging"
+	"cour/internal/notify"
 	"cour/internal/store"
 	"cour/internal/store/sqlcgen"
 )
@@ -60,6 +61,7 @@ func main() {
 		Log:      log,
 		DemoMode: cfg.DemoMode,
 	})
+	notify.NewHandlers(queries, rdb, log).Register(mux)
 
 	scheduler := asynq.NewScheduler(redisOpt, &asynq.SchedulerOpts{Logger: logger})
 	if err := jobs.Schedule(scheduler); err != nil {

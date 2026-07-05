@@ -94,6 +94,9 @@ func Schedule(s *asynq.Scheduler) error {
 		{"@every 6h", asynq.NewTask(TypeSyncSeasons, nil, asynq.Queue(QueueDefault))},
 		{"@every 6h", asynq.NewTask(TypeSyncAiring, nil, asynq.Queue(QueueDefault))},
 		{"@every 1h", asynq.NewTask(TypeSyncTrending, nil, asynq.Queue(QueueLow))},
+		// New-episode alerts scan the schedule regardless of demo mode —
+		// they read our own DB, not AniList.
+		{"@every 30m", asynq.NewTask("notify:episodes_aired", nil, asynq.Queue(QueueCritical))},
 	}
 	for _, e := range entries {
 		if _, err := s.Register(e.spec, e.task); err != nil {

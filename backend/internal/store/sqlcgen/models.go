@@ -284,6 +284,49 @@ func (ns NullListStatus) Value() (driver.Value, error) {
 	return string(ns.ListStatus), nil
 }
 
+type NotificationType string
+
+const (
+	NotificationTypeCommentReply NotificationType = "comment_reply"
+	NotificationTypeNewFollower  NotificationType = "new_follower"
+	NotificationTypeEpisodeAired NotificationType = "episode_aired"
+)
+
+func (e *NotificationType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = NotificationType(s)
+	case string:
+		*e = NotificationType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for NotificationType: %T", src)
+	}
+	return nil
+}
+
+type NullNotificationType struct {
+	NotificationType NotificationType
+	Valid            bool // Valid is true if NotificationType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullNotificationType) Scan(value interface{}) error {
+	if value == nil {
+		ns.NotificationType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.NotificationType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullNotificationType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.NotificationType), nil
+}
+
 type ThreadKind string
 
 const (
@@ -456,6 +499,12 @@ type Favorite struct {
 	CreatedAt time.Time
 }
 
+type Follow struct {
+	FollowerID int64
+	FolloweeID int64
+	CreatedAt  time.Time
+}
+
 type ListEntry struct {
 	ID         int64
 	UserID     int64
@@ -467,6 +516,18 @@ type ListEntry struct {
 	FinishedOn *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+}
+
+type Notification struct {
+	ID        int64
+	UserID    int64
+	Type      NotificationType
+	ActorID   *int64
+	AnimeID   *int64
+	RefID     *int64
+	Payload   []byte
+	ReadAt    *time.Time
+	CreatedAt time.Time
 }
 
 type RefreshToken struct {

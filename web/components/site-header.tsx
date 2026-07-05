@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserMenu } from "@/components/auth/user-menu";
+import { NotificationBell } from "@/components/notifications/bell";
 
 const nav = [
   { href: "/seasonal", label: "Seasonal" },
@@ -30,6 +31,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

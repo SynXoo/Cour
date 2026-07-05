@@ -310,6 +310,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{username}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        /** Follow counts and whether the caller follows this user */
+        get: operations["getFollowState"];
+        /** Follow this user */
+        put: operations["followUser"];
+        post?: never;
+        /** Unfollow this user */
+        delete: operations["unfollowUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{username}/followers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who follows this user */
+        get: operations["listFollowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{username}/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who this user follows */
+        get: operations["listFollowing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity from everyone the caller follows */
+        get: operations["getMyFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's notifications, newest first */
+        get: operations["getMyNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread notification count (for the bell) */
+        get: operations["getUnreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark notifications read (specific ids or all) */
+        post: operations["markNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/anime": {
         parameters: {
             query?: never;
@@ -756,6 +879,69 @@ export interface components {
         HelpfulState: {
             helpful_count: number;
             voted: boolean;
+        };
+        RelationState: {
+            followers: number;
+            following: number;
+            /** @description Always false for anonymous callers */
+            is_following: boolean;
+        };
+        UserRefList: {
+            data: components["schemas"]["ReviewAuthor"][];
+        };
+        /** @enum {string} */
+        ActivityType: "list_add" | "status_change" | "progress" | "completed" | "scored" | "favorite" | "review" | "comment" | "helpful_vote";
+        FeedItem: {
+            /** Format: int64 */
+            id: number;
+            actor: components["schemas"]["ReviewAuthor"];
+            type: components["schemas"]["ActivityType"];
+            anime: components["schemas"]["AnimeSummary"];
+            /** Format: int64 */
+            ref_id: number | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        Feed: {
+            data: components["schemas"]["FeedItem"][];
+            /**
+             * Format: int64
+             * @description Pass back as ?cursor= for the next page; null at the end
+             */
+            next_cursor: number | null;
+        };
+        /** @enum {string} */
+        NotificationType: "comment_reply" | "new_follower" | "episode_aired";
+        Notification: {
+            /** Format: int64 */
+            id: number;
+            type: components["schemas"]["NotificationType"];
+            actor: components["schemas"]["ReviewAuthor"] | null;
+            anime: components["schemas"]["AnimeSummary"] | null;
+            /** Format: int64 */
+            ref_id: number | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            read: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NotificationList: {
+            data: components["schemas"]["Notification"][];
+            /** Format: int64 */
+            next_cursor: number | null;
+        };
+        UnreadCount: {
+            count: number;
+        };
+        MarkReadRequest: {
+            ids?: number[];
+            /** @default false */
+            all: boolean;
         };
         /** @enum {string} */
         Emoji: "+1" | "heart" | "laugh" | "surprise" | "cry" | "fire";
@@ -1389,6 +1575,213 @@ export interface operations {
         responses: {
             /** @description Sent (no-op when already verified) */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getFollowState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    followUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated relation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unfollowUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated relation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFollowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Followers, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFollowing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Followed users, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyFeed: {
+        parameters: {
+            query?: {
+                cursor?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Feed page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Feed"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyNotifications: {
+        parameters: {
+            query?: {
+                cursor?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notification page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUnreadCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    markNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Marked */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

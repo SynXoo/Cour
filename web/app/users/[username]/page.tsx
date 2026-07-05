@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnimeGrid } from "@/components/anime/anime-grid";
+import { FollowButton } from "@/components/social/follow-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { serverApi } from "@/lib/api/client";
@@ -75,6 +76,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
               year: "numeric",
             })}
           </p>
+          <FollowButton username={profile.username} />
           {profile.favorite_genres.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {profile.favorite_genres.map((g) => (

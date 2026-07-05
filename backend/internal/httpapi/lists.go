@@ -19,11 +19,11 @@ type listHandlers struct {
 }
 
 var validListStatuses = map[apigen.ListStatus]sqlcgen.ListStatus{
-	apigen.Watching:  sqlcgen.ListStatusWatching,
-	apigen.Completed: sqlcgen.ListStatusCompleted,
-	apigen.Planning:  sqlcgen.ListStatusPlanning,
-	apigen.Paused:    sqlcgen.ListStatusPaused,
-	apigen.Dropped:   sqlcgen.ListStatusDropped,
+	apigen.ListStatusWatching:  sqlcgen.ListStatusWatching,
+	apigen.ListStatusCompleted: sqlcgen.ListStatusCompleted,
+	apigen.ListStatusPlanning:  sqlcgen.ListStatusPlanning,
+	apigen.ListStatusPaused:    sqlcgen.ListStatusPaused,
+	apigen.ListStatusDropped:   sqlcgen.ListStatusDropped,
 }
 
 func (h listHandlers) GetMyList(w http.ResponseWriter, r *http.Request, params apigen.GetMyListParams) {

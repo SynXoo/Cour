@@ -21,8 +21,10 @@ import (
 	"cour/internal/httpapi/apigen"
 	"cour/internal/lists"
 	"cour/internal/mail"
+	"cour/internal/notify"
 	"cour/internal/profiles"
 	"cour/internal/reviews"
+	"cour/internal/social"
 	"cour/internal/store/sqlcgen"
 )
 
@@ -42,6 +44,8 @@ type apiServer struct {
 	profileHandlers
 	reviewHandlers
 	discussionHandlers
+	socialHandlers
+	notificationHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -57,6 +61,11 @@ func NewRouter(d Deps) (http.Handler, error) {
 	appCache := cache.New(d.Redis)
 	mailer := mail.New(d.Cfg.EmailMode, d.Log)
 	authSvc := auth.NewService(d.Pool, issuer, mailer, d.Cfg.RefreshTokenTTL, d.Cfg.WebOrigin, d.Log)
+
+	// Async notification producer; discussions and follows fan out through it.
+	enqueuer := notify.NewEnqueuer(d.Cfg.RedisAddr, d.Log)
+	discussionSvc := discussions.New(d.Pool, d.Log)
+	discussionSvc.SetNotifier(enqueuer)
 
 	var discord *auth.Discord
 	if d.Cfg.DiscordEnabled() {
@@ -95,7 +104,16 @@ func NewRouter(d Deps) (http.Handler, error) {
 			log: d.Log,
 		},
 		discussionHandlers: discussionHandlers{
-			svc: discussions.New(d.Pool, d.Log),
+			svc: discussionSvc,
+			log: d.Log,
+		},
+		socialHandlers: socialHandlers{
+			svc: social.New(d.Pool, enqueuer, d.Log),
+			q:   queries,
+			log: d.Log,
+		},
+		notificationHandlers: notificationHandlers{
+			q:   queries,
 			log: d.Log,
 		},
 	}

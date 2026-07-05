@@ -57,6 +57,12 @@ export function UserMenu() {
           <Link href="/list">My list</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href="/feed">Feed</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/recommendations">For you</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/settings">Settings</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
