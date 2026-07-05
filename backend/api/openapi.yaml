@@ -266,6 +266,53 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /users/{username}:
+    get:
+      operationId: getUserProfile
+      summary: Public profile with stats and showcases
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: The profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserProfile" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      summary: Edit bio, avatar, and favorite genres
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses:
+        "200":
+          description: The updated account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPrivate" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/resend-verification:
+    post:
+      operationId: resendVerification
+      summary: Send a fresh email-verification link
+      security: [{ bearerAuth: [] }]
+      responses:
+        "202": { description: Sent (no-op when already verified) }
+        default:
+          $ref: "#/components/responses/Error"
+
   /anime:
     get:
       operationId: listAnime
@@ -445,6 +492,77 @@ components:
         role: { $ref: "#/components/schemas/Role" }
         email_verified: { type: boolean }
         created_at: { type: string, format: date-time }
+
+    UserProfile:
+      type: object
+      required:
+        [username, avatar_url, bio, favorite_genres, role, created_at, stats,
+         favorites, currently_watching]
+      properties:
+        username: { type: string }
+        avatar_url: { type: string, nullable: true }
+        bio: { type: string }
+        favorite_genres:
+          type: array
+          items: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        created_at: { type: string, format: date-time }
+        stats: { $ref: "#/components/schemas/ProfileStats" }
+        favorites:
+          type: array
+          items: { $ref: "#/components/schemas/AnimeSummary" }
+        currently_watching:
+          type: array
+          items: { $ref: "#/components/schemas/WatchingEntry" }
+
+    ProfileStats:
+      type: object
+      required: [counts, mean_score, rated_count, episodes_watched, genres]
+      properties:
+        counts:
+          type: object
+          required: [watching, completed, planning, paused, dropped]
+          properties:
+            watching: { type: integer }
+            completed: { type: integer }
+            planning: { type: integer }
+            paused: { type: integer }
+            dropped: { type: integer }
+        mean_score:
+          type: number
+          nullable: true
+          description: Mean of 1-10 scores; null until something is rated
+        rated_count: { type: integer }
+        episodes_watched: { type: integer }
+        genres:
+          type: array
+          items:
+            type: object
+            required: [genre, count]
+            properties:
+              genre: { type: string }
+              count: { type: integer }
+
+    WatchingEntry:
+      type: object
+      required: [anime, progress]
+      properties:
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        progress: { type: integer }
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        bio: { type: string, maxLength: 500 }
+        avatar_url:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: http(s) URL; null clears the avatar
+        favorite_genres:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 30 }
 
     ListStatus:
       type: string

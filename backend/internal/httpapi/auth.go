@@ -252,6 +252,26 @@ func (h authHandlers) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h authHandlers) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	id, ok := mustIdentity(w, r)
+	if !ok {
+		return
+	}
+	if !h.strictLimit(w, r, "resend-verify") {
+		return
+	}
+	user, err := h.svc.User(r.Context(), id.UserID)
+	if err != nil {
+		writeInternal(w, h.log, err)
+		return
+	}
+	if err := h.svc.SendVerification(r.Context(), user); err != nil {
+		writeInternal(w, h.log, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 // ── Discord OAuth ──────────────────────────────────────────────────────────
 
 const oauthStateTTL = 10 * time.Minute

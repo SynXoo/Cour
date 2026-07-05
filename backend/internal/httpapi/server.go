@@ -20,6 +20,7 @@ import (
 	"cour/internal/httpapi/apigen"
 	"cour/internal/lists"
 	"cour/internal/mail"
+	"cour/internal/profiles"
 	"cour/internal/store/sqlcgen"
 )
 
@@ -36,6 +37,7 @@ type apiServer struct {
 	catalogHandlers
 	authHandlers
 	listHandlers
+	profileHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -77,6 +79,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		},
 		listHandlers: listHandlers{
 			svc: lists.New(d.Pool, d.Log),
+			log: d.Log,
+		},
+		profileHandlers: profileHandlers{
+			svc: profiles.New(d.Pool, appCache, d.Log),
 			log: d.Log,
 		},
 	}

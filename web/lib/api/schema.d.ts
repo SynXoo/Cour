@@ -259,6 +259,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public profile with stats and showcases */
+        get: operations["getUserProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit bio, avatar, and favorite genres */
+        patch: operations["updateMyProfile"];
+        trace?: never;
+    };
+    "/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a fresh email-verification link */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/anime": {
         parameters: {
             query?: never;
@@ -383,6 +434,45 @@ export interface components {
             email_verified: boolean;
             /** Format: date-time */
             created_at: string;
+        };
+        UserProfile: {
+            username: string;
+            avatar_url: string | null;
+            bio: string;
+            favorite_genres: string[];
+            role: components["schemas"]["Role"];
+            /** Format: date-time */
+            created_at: string;
+            stats: components["schemas"]["ProfileStats"];
+            favorites: components["schemas"]["AnimeSummary"][];
+            currently_watching: components["schemas"]["WatchingEntry"][];
+        };
+        ProfileStats: {
+            counts: {
+                watching: number;
+                completed: number;
+                planning: number;
+                paused: number;
+                dropped: number;
+            };
+            /** @description Mean of 1-10 scores; null until something is rated */
+            mean_score: number | null;
+            rated_count: number;
+            episodes_watched: number;
+            genres: {
+                genre: string;
+                count: number;
+            }[];
+        };
+        WatchingEntry: {
+            anime: components["schemas"]["AnimeSummary"];
+            progress: number;
+        };
+        UpdateProfileRequest: {
+            bio?: string;
+            /** @description http(s) URL; null clears the avatar */
+            avatar_url?: string | null;
+            favorite_genres?: string[];
         };
         /** @enum {string} */
         ListStatus: "watching" | "completed" | "planning" | "paused" | "dropped";
@@ -922,6 +1012,73 @@ export interface operations {
         responses: {
             /** @description Unfavorited */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPrivate"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent (no-op when already verified) */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

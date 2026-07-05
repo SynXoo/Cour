@@ -327,6 +327,26 @@ type PasswordResetRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// ProfileStats defines model for ProfileStats.
+type ProfileStats struct {
+	Counts struct {
+		Completed int `json:"completed"`
+		Dropped   int `json:"dropped"`
+		Paused    int `json:"paused"`
+		Planning  int `json:"planning"`
+		Watching  int `json:"watching"`
+	} `json:"counts"`
+	EpisodesWatched int `json:"episodes_watched"`
+	Genres          []struct {
+		Count int    `json:"count"`
+		Genre string `json:"genre"`
+	} `json:"genres"`
+
+	// MeanScore Mean of 1-10 scores; null until something is rated
+	MeanScore  *float32 `json:"mean_score"`
+	RatedCount int      `json:"rated_count"`
+}
+
 // RegisterRequest defines model for RegisterRequest.
 type RegisterRequest struct {
 	Email    openapi_types.Email `json:"email"`
@@ -392,6 +412,14 @@ type TokenRequest struct {
 	Token string `json:"token"`
 }
 
+// UpdateProfileRequest defines model for UpdateProfileRequest.
+type UpdateProfileRequest struct {
+	// AvatarUrl http(s) URL; null clears the avatar
+	AvatarUrl      *string   `json:"avatar_url,omitempty"`
+	Bio            *string   `json:"bio,omitempty"`
+	FavoriteGenres *[]string `json:"favorite_genres,omitempty"`
+}
+
 // UpsertListEntryRequest defines model for UpsertListEntryRequest.
 type UpsertListEntryRequest struct {
 	FinishedOn *openapi_types.Date `json:"finished_on,omitempty"`
@@ -414,6 +442,25 @@ type UserPrivate struct {
 	Id             int64     `json:"id"`
 	Role           Role      `json:"role"`
 	Username       string    `json:"username"`
+}
+
+// UserProfile defines model for UserProfile.
+type UserProfile struct {
+	AvatarUrl         *string         `json:"avatar_url"`
+	Bio               string          `json:"bio"`
+	CreatedAt         time.Time       `json:"created_at"`
+	CurrentlyWatching []WatchingEntry `json:"currently_watching"`
+	FavoriteGenres    []string        `json:"favorite_genres"`
+	Favorites         []AnimeSummary  `json:"favorites"`
+	Role              Role            `json:"role"`
+	Stats             ProfileStats    `json:"stats"`
+	Username          string          `json:"username"`
+}
+
+// WatchingEntry defines model for WatchingEntry.
+type WatchingEntry struct {
+	Anime    AnimeSummary `json:"anime"`
+	Progress int          `json:"progress"`
 }
 
 // Error defines model for Error.
@@ -468,6 +515,9 @@ type VerifyEmailJSONRequestBody = TokenRequest
 // UpsertMyListEntryJSONRequestBody defines body for UpsertMyListEntry for application/json ContentType.
 type UpsertMyListEntryJSONRequestBody = UpsertListEntryRequest
 
+// UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
+type UpdateMyProfileJSONRequestBody = UpdateProfileRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Browse or search the catalog
@@ -503,6 +553,9 @@ type ServerInterface interface {
 	// Create an account with email + password
 	// (POST /auth/register)
 	Register(w http.ResponseWriter, r *http.Request)
+	// Send a fresh email-verification link
+	// (POST /auth/resend-verification)
+	ResendVerification(w http.ResponseWriter, r *http.Request)
 	// Confirm an email address with a mailed token
 	// (POST /auth/verify-email)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
@@ -530,12 +583,18 @@ type ServerInterface interface {
 	// Add or update this anime on the user's list
 	// (PUT /me/list/{animeId})
 	UpsertMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64)
+	// Edit bio, avatar, and favorite genres
+	// (PATCH /me/profile)
+	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	// Airing schedule for a time window
 	// (GET /schedule)
 	GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams)
 	// Seasonal chart
 	// (GET /seasons/{year}/{season})
 	GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season)
+	// Public profile with stats and showcases
+	// (GET /users/{username})
+	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -608,6 +667,12 @@ func (_ Unimplemented) Register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Send a fresh email-verification link
+// (POST /auth/resend-verification)
+func (_ Unimplemented) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Confirm an email address with a mailed token
 // (POST /auth/verify-email)
 func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
@@ -662,6 +727,12 @@ func (_ Unimplemented) UpsertMyListEntry(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Edit bio, avatar, and favorite genres
+// (PATCH /me/profile)
+func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Airing schedule for a time window
 // (GET /schedule)
 func (_ Unimplemented) GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams) {
@@ -671,6 +742,12 @@ func (_ Unimplemented) GetSchedule(w http.ResponseWriter, r *http.Request, param
 // Seasonal chart
 // (GET /seasons/{year}/{season})
 func (_ Unimplemented) GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Public profile with stats and showcases
+// (GET /users/{username})
+func (_ Unimplemented) GetUserProfile(w http.ResponseWriter, r *http.Request, username string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -984,6 +1061,26 @@ func (siw *ServerInterfaceWrapper) Register(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// ResendVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendVerification(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendVerification(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // VerifyEmail operation middleware
 func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
@@ -1249,6 +1346,26 @@ func (siw *ServerInterfaceWrapper) UpsertMyListEntry(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateMyProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMyProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSchedule operation middleware
 func (siw *ServerInterfaceWrapper) GetSchedule(w http.ResponseWriter, r *http.Request) {
 
@@ -1321,6 +1438,32 @@ func (siw *ServerInterfaceWrapper) GetSeason(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSeason(w, r, year, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserProfile(w, r, username)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1477,6 +1620,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/register", wrapper.Register)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/resend-verification", wrapper.ResendVerification)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
 	})
 	r.Group(func(r chi.Router) {
@@ -1504,10 +1650,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/me/list/{animeId}", wrapper.UpsertMyListEntry)
 	})
 	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/schedule", wrapper.GetSchedule)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/seasons/{year}/{season}", wrapper.GetSeason)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)
 	})
 
 	return r
