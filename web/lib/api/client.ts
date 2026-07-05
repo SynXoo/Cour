@@ -53,12 +53,17 @@ export function refreshSession(): Promise<SessionUser | null> {
 // to the Go API, so cookies are first-party and CORS never applies.
 export const browserApi = createClient<paths>({ baseUrl: "/api/v1" });
 
+// A dispatched Request's body is consumed; keep a clone around so the
+// 401-refresh-replay path has something send-able.
+const replayClones = new WeakMap<Request, Request>();
+
 browserApi.use({
   onRequest({ request }) {
     if (accessToken) {
       request.headers.set("Authorization", `Bearer ${accessToken}`);
     }
     request.headers.set("X-Requested-With", "fetch");
+    replayClones.set(request, request.clone());
     return request;
   },
   async onResponse({ request, response }) {
@@ -68,11 +73,9 @@ browserApi.use({
       accessToken &&
       !request.url.includes("/auth/")
     ) {
+      const retry = replayClones.get(request);
       const user = await refreshSession();
-      if (user && accessToken) {
-        const retry = new Request(request, {
-          headers: new Headers(request.headers),
-        });
+      if (user && accessToken && retry) {
         retry.headers.set("Authorization", `Bearer ${accessToken}`);
         return fetch(retry);
       }

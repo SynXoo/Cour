@@ -418,6 +418,25 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+type Review struct {
+	ID           int64
+	UserID       int64
+	AnimeID      int64
+	Body         string
+	Score        int16
+	HasSpoilers  bool
+	HelpfulCount int32
+	DeletedAt    *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type ReviewVote struct {
+	ReviewID  int64
+	UserID    int64
+	CreatedAt time.Time
+}
+
 type User struct {
 	ID              int64
 	Email           string

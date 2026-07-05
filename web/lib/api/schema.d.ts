@@ -347,6 +347,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/anime/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reviews for an anime, most helpful first */
+        get: operations["listAnimeReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/anime/{id}/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** The caller's review of this anime (404 when none) */
+        get: operations["getMyReview"];
+        /** Write or edit the caller's review */
+        put: operations["upsertMyReview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/{reviewId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        /** One review with its anime */
+        get: operations["getReview"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a review (author or moderator) */
+        delete: operations["deleteReview"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/{reviewId}/helpful": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a review helpful */
+        put: operations["markHelpful"];
+        post?: never;
+        /** Remove a helpful mark */
+        delete: operations["unmarkHelpful"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{username}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reviews written by a user, newest first */
+        get: operations["listUserReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/seasons/{year}/{season}": {
         parameters: {
             query?: never;
@@ -510,6 +604,49 @@ export interface components {
         };
         FavoriteState: {
             favorited: boolean;
+        };
+        ReviewAuthor: {
+            username: string;
+            avatar_url: string | null;
+        };
+        Review: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            anime_id: number;
+            author: components["schemas"]["ReviewAuthor"];
+            body: string;
+            score: number;
+            has_spoilers: boolean;
+            helpful_count: number;
+            /** @description Whether the caller marked it helpful (false when anonymous) */
+            voted: boolean;
+            is_mine: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ReviewDetail: components["schemas"]["Review"] & {
+            anime: components["schemas"]["AnimeSummary"];
+        };
+        UpsertReviewRequest: {
+            body: string;
+            score: number;
+            /** @default false */
+            has_spoilers: boolean;
+        };
+        ReviewList: {
+            data: components["schemas"]["Review"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        UserReviewList: {
+            data: components["schemas"]["ReviewDetail"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        HelpfulState: {
+            helpful_count: number;
+            voted: boolean;
         };
         /** @enum {string} */
         Season: "WINTER" | "SPRING" | "SUMMER" | "FALL";
@@ -1134,6 +1271,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnimeDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAnimeReviews: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reviews */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertMyReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    markHelpful: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New vote state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpfulState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unmarkHelpful: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New vote state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpfulState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUserReviews: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reviews with their anime */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserReviewList"];
                 };
             };
             default: components["responses"]["Error"];

@@ -272,6 +272,12 @@ type FavoritesList struct {
 // Format defines model for Format.
 type Format string
 
+// HelpfulState defines model for HelpfulState.
+type HelpfulState struct {
+	HelpfulCount int  `json:"helpful_count"`
+	Voted        bool `json:"voted"`
+}
+
 // ListEntry defines model for ListEntry.
 type ListEntry struct {
 	AnimeId    int64               `json:"anime_id"`
@@ -356,6 +362,53 @@ type RegisterRequest struct {
 	Username string `json:"username"`
 }
 
+// Review defines model for Review.
+type Review struct {
+	AnimeId      int64        `json:"anime_id"`
+	Author       ReviewAuthor `json:"author"`
+	Body         string       `json:"body"`
+	CreatedAt    time.Time    `json:"created_at"`
+	HasSpoilers  bool         `json:"has_spoilers"`
+	HelpfulCount int          `json:"helpful_count"`
+	Id           int64        `json:"id"`
+	IsMine       bool         `json:"is_mine"`
+	Score        int          `json:"score"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+
+	// Voted Whether the caller marked it helpful (false when anonymous)
+	Voted bool `json:"voted"`
+}
+
+// ReviewAuthor defines model for ReviewAuthor.
+type ReviewAuthor struct {
+	AvatarUrl *string `json:"avatar_url"`
+	Username  string  `json:"username"`
+}
+
+// ReviewDetail defines model for ReviewDetail.
+type ReviewDetail struct {
+	Anime        AnimeSummary `json:"anime"`
+	AnimeId      int64        `json:"anime_id"`
+	Author       ReviewAuthor `json:"author"`
+	Body         string       `json:"body"`
+	CreatedAt    time.Time    `json:"created_at"`
+	HasSpoilers  bool         `json:"has_spoilers"`
+	HelpfulCount int          `json:"helpful_count"`
+	Id           int64        `json:"id"`
+	IsMine       bool         `json:"is_mine"`
+	Score        int          `json:"score"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+
+	// Voted Whether the caller marked it helpful (false when anonymous)
+	Voted bool `json:"voted"`
+}
+
+// ReviewList defines model for ReviewList.
+type ReviewList struct {
+	Data []Review `json:"data"`
+	Page PageInfo `json:"page"`
+}
+
 // Role defines model for Role.
 type Role string
 
@@ -431,6 +484,13 @@ type UpsertListEntryRequest struct {
 	Status    ListStatus          `json:"status"`
 }
 
+// UpsertReviewRequest defines model for UpsertReviewRequest.
+type UpsertReviewRequest struct {
+	Body        string `json:"body"`
+	HasSpoilers *bool  `json:"has_spoilers,omitempty"`
+	Score       int    `json:"score"`
+}
+
 // UserPrivate defines model for UserPrivate.
 type UserPrivate struct {
 	AvatarUrl      *string   `json:"avatar_url"`
@@ -457,6 +517,12 @@ type UserProfile struct {
 	Username          string          `json:"username"`
 }
 
+// UserReviewList defines model for UserReviewList.
+type UserReviewList struct {
+	Data []ReviewDetail `json:"data"`
+	Page PageInfo       `json:"page"`
+}
+
 // WatchingEntry defines model for WatchingEntry.
 type WatchingEntry struct {
 	Anime    AnimeSummary `json:"anime"`
@@ -480,6 +546,12 @@ type ListAnimeParams struct {
 	PerPage *int          `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+// ListAnimeReviewsParams defines parameters for ListAnimeReviews.
+type ListAnimeReviewsParams struct {
+	Page    *int `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
 // DiscordCallbackParams defines parameters for DiscordCallback.
 type DiscordCallbackParams struct {
 	Code  *string `form:"code,omitempty" json:"code,omitempty"`
@@ -496,6 +568,15 @@ type GetScheduleParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
 	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
 }
+
+// ListUserReviewsParams defines parameters for ListUserReviews.
+type ListUserReviewsParams struct {
+	Page    *int `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
+// UpsertMyReviewJSONRequestBody defines body for UpsertMyReview for application/json ContentType.
+type UpsertMyReviewJSONRequestBody = UpsertReviewRequest
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
@@ -526,6 +607,15 @@ type ServerInterface interface {
 	// Anime detail with episodes
 	// (GET /anime/{id})
 	GetAnime(w http.ResponseWriter, r *http.Request, id int64)
+	// Reviews for an anime, most helpful first
+	// (GET /anime/{id}/reviews)
+	ListAnimeReviews(w http.ResponseWriter, r *http.Request, id int64, params ListAnimeReviewsParams)
+	// The caller's review of this anime (404 when none)
+	// (GET /anime/{id}/reviews/mine)
+	GetMyReview(w http.ResponseWriter, r *http.Request, id int64)
+	// Write or edit the caller's review
+	// (PUT /anime/{id}/reviews/mine)
+	UpsertMyReview(w http.ResponseWriter, r *http.Request, id int64)
 	// Begin Discord OAuth (redirects to discord.com)
 	// (GET /auth/discord)
 	DiscordStart(w http.ResponseWriter, r *http.Request)
@@ -586,6 +676,18 @@ type ServerInterface interface {
 	// Edit bio, avatar, and favorite genres
 	// (PATCH /me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
+	// Soft-delete a review (author or moderator)
+	// (DELETE /reviews/{reviewId})
+	DeleteReview(w http.ResponseWriter, r *http.Request, reviewId int64)
+	// One review with its anime
+	// (GET /reviews/{reviewId})
+	GetReview(w http.ResponseWriter, r *http.Request, reviewId int64)
+	// Remove a helpful mark
+	// (DELETE /reviews/{reviewId}/helpful)
+	UnmarkHelpful(w http.ResponseWriter, r *http.Request, reviewId int64)
+	// Mark a review helpful
+	// (PUT /reviews/{reviewId}/helpful)
+	MarkHelpful(w http.ResponseWriter, r *http.Request, reviewId int64)
 	// Airing schedule for a time window
 	// (GET /schedule)
 	GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams)
@@ -595,6 +697,9 @@ type ServerInterface interface {
 	// Public profile with stats and showcases
 	// (GET /users/{username})
 	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
+	// Reviews written by a user, newest first
+	// (GET /users/{username}/reviews)
+	ListUserReviews(w http.ResponseWriter, r *http.Request, username string, params ListUserReviewsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -610,6 +715,24 @@ func (_ Unimplemented) ListAnime(w http.ResponseWriter, r *http.Request, params 
 // Anime detail with episodes
 // (GET /anime/{id})
 func (_ Unimplemented) GetAnime(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reviews for an anime, most helpful first
+// (GET /anime/{id}/reviews)
+func (_ Unimplemented) ListAnimeReviews(w http.ResponseWriter, r *http.Request, id int64, params ListAnimeReviewsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The caller's review of this anime (404 when none)
+// (GET /anime/{id}/reviews/mine)
+func (_ Unimplemented) GetMyReview(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Write or edit the caller's review
+// (PUT /anime/{id}/reviews/mine)
+func (_ Unimplemented) UpsertMyReview(w http.ResponseWriter, r *http.Request, id int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -733,6 +856,30 @@ func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Soft-delete a review (author or moderator)
+// (DELETE /reviews/{reviewId})
+func (_ Unimplemented) DeleteReview(w http.ResponseWriter, r *http.Request, reviewId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One review with its anime
+// (GET /reviews/{reviewId})
+func (_ Unimplemented) GetReview(w http.ResponseWriter, r *http.Request, reviewId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a helpful mark
+// (DELETE /reviews/{reviewId}/helpful)
+func (_ Unimplemented) UnmarkHelpful(w http.ResponseWriter, r *http.Request, reviewId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark a review helpful
+// (PUT /reviews/{reviewId}/helpful)
+func (_ Unimplemented) MarkHelpful(w http.ResponseWriter, r *http.Request, reviewId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Airing schedule for a time window
 // (GET /schedule)
 func (_ Unimplemented) GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams) {
@@ -748,6 +895,12 @@ func (_ Unimplemented) GetSeason(w http.ResponseWriter, r *http.Request, year in
 // Public profile with stats and showcases
 // (GET /users/{username})
 func (_ Unimplemented) GetUserProfile(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reviews written by a user, newest first
+// (GET /users/{username}/reviews)
+func (_ Unimplemented) ListUserReviews(w http.ResponseWriter, r *http.Request, username string, params ListUserReviewsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -888,6 +1041,125 @@ func (siw *ServerInterfaceWrapper) GetAnime(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAnime(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAnimeReviews operation middleware
+func (siw *ServerInterfaceWrapper) ListAnimeReviews(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAnimeReviewsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "per_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAnimeReviews(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyReview operation middleware
+func (siw *ServerInterfaceWrapper) GetMyReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyReview(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertMyReview operation middleware
+func (siw *ServerInterfaceWrapper) UpsertMyReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertMyReview(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1366,6 +1638,128 @@ func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteReview operation middleware
+func (siw *ServerInterfaceWrapper) DeleteReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", chi.URLParam(r, "reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteReview(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReview operation middleware
+func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", chi.URLParam(r, "reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReview(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnmarkHelpful operation middleware
+func (siw *ServerInterfaceWrapper) UnmarkHelpful(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", chi.URLParam(r, "reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnmarkHelpful(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MarkHelpful operation middleware
+func (siw *ServerInterfaceWrapper) MarkHelpful(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reviewId" -------------
+	var reviewId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", chi.URLParam(r, "reviewId"), &reviewId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reviewId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkHelpful(w, r, reviewId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSchedule operation middleware
 func (siw *ServerInterfaceWrapper) GetSchedule(w http.ResponseWriter, r *http.Request) {
 
@@ -1464,6 +1858,61 @@ func (siw *ServerInterfaceWrapper) GetUserProfile(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetUserProfile(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserReviews operation middleware
+func (siw *ServerInterfaceWrapper) ListUserReviews(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUserReviewsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "per_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserReviews(w, r, username, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1593,6 +2042,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/anime/{id}", wrapper.GetAnime)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/reviews", wrapper.ListAnimeReviews)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/reviews/mine", wrapper.GetMyReview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/anime/{id}/reviews/mine", wrapper.UpsertMyReview)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/discord", wrapper.DiscordStart)
 	})
 	r.Group(func(r chi.Router) {
@@ -1653,6 +2111,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/reviews/{reviewId}", wrapper.DeleteReview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/reviews/{reviewId}", wrapper.GetReview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/reviews/{reviewId}/helpful", wrapper.UnmarkHelpful)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/reviews/{reviewId}/helpful", wrapper.MarkHelpful)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/schedule", wrapper.GetSchedule)
 	})
 	r.Group(func(r chi.Router) {
@@ -1660,6 +2130,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{username}/reviews", wrapper.ListUserReviews)
 	})
 
 	return r

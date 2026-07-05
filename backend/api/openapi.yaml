@@ -369,6 +369,147 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /anime/{id}/reviews:
+    get:
+      operationId: listAnimeReviews
+      summary: Reviews for an anime, most helpful first
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /anime/{id}/reviews/mine:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getMyReview
+      summary: The caller's review of this anime (404 when none)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: upsertMyReview
+      summary: Write or edit the caller's review
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpsertReviewRequest" }
+      responses:
+        "200":
+          description: The saved review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /reviews/{reviewId}:
+    parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getReview
+      summary: One review with its anime
+      responses:
+        "200":
+          description: The review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewDetail" }
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteReview
+      summary: Soft-delete a review (author or moderator)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Deleted }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /reviews/{reviewId}/helpful:
+    parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      operationId: markHelpful
+      summary: Mark a review helpful
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: New vote state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HelpfulState" }
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: unmarkHelpful
+      summary: Remove a helpful mark
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: New vote state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HelpfulState" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{username}/reviews:
+    get:
+      operationId: listUserReviews
+      summary: Reviews written by a user, newest first
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        "200":
+          description: Reviews with their anime
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserReviewList" }
+        default:
+          $ref: "#/components/responses/Error"
+
   /seasons/{year}/{season}:
     get:
       operationId: getSeason
@@ -624,6 +765,72 @@ components:
       required: [favorited]
       properties:
         favorited: { type: boolean }
+
+    ReviewAuthor:
+      type: object
+      required: [username, avatar_url]
+      properties:
+        username: { type: string }
+        avatar_url: { type: string, nullable: true }
+
+    Review:
+      type: object
+      required:
+        [id, anime_id, author, body, score, has_spoilers, helpful_count,
+         voted, is_mine, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        anime_id: { type: integer, format: int64 }
+        author: { $ref: "#/components/schemas/ReviewAuthor" }
+        body: { type: string }
+        score: { type: integer, minimum: 1, maximum: 10 }
+        has_spoilers: { type: boolean }
+        helpful_count: { type: integer }
+        voted: { type: boolean, description: Whether the caller marked it helpful (false when anonymous) }
+        is_mine: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ReviewDetail:
+      allOf:
+        - $ref: "#/components/schemas/Review"
+        - type: object
+          required: [anime]
+          properties:
+            anime: { $ref: "#/components/schemas/AnimeSummary" }
+
+    UpsertReviewRequest:
+      type: object
+      required: [body, score]
+      properties:
+        body: { type: string, minLength: 100, maxLength: 20000 }
+        score: { type: integer, minimum: 1, maximum: 10 }
+        has_spoilers: { type: boolean, default: false }
+
+    ReviewList:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Review" }
+        page: { $ref: "#/components/schemas/PageInfo" }
+
+    UserReviewList:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewDetail" }
+        page: { $ref: "#/components/schemas/PageInfo" }
+
+    HelpfulState:
+      type: object
+      required: [helpful_count, voted]
+      properties:
+        helpful_count: { type: integer }
+        voted: { type: boolean }
 
     Season:
       type: string

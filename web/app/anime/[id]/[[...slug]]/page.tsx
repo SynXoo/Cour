@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EpisodeList } from "@/components/anime/episode-list";
 import { FavoriteButton } from "@/components/anime/favorite-button";
 import { ListEditor } from "@/components/anime/list-editor";
+import { AnimeReviews } from "@/components/reviews/anime-reviews";
 import { serverApi, type AnimeDetail } from "@/lib/api/client";
 import { formatLabel, seasonLabel, untilLabel } from "@/lib/anime";
 
@@ -153,6 +154,8 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           <EpisodeList episodes={anime.episodes} />
         </section>
       )}
+
+      <AnimeReviews animeId={anime.id} />
 
       <p className="text-xs text-muted-foreground">
         Data from AniList · last synced {new Date(anime.synced_at).toLocaleString()}
