@@ -14,6 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"cour/internal/anilist"
+	"cour/internal/discovery"
 )
 
 // Task type names, namespaced by subsystem.
@@ -21,6 +22,8 @@ const (
 	TypeSyncSeasons  = "anilist:sync_seasons"  // current + next season charts
 	TypeSyncAiring   = "anilist:sync_airing"   // airing schedule window
 	TypeSyncTrending = "anilist:sync_trending" // AniList's own trending signal
+
+	TypeRecomputeDiscovery = "discovery:recompute" // trending scores + hidden gems
 )
 
 // Queue names, by user-visible urgency.
@@ -31,15 +34,28 @@ const (
 )
 
 type Deps struct {
-	Syncer   *anilist.Syncer
-	Log      *slog.Logger
-	DemoMode bool
+	Syncer    *anilist.Syncer
+	Discovery *discovery.Service
+	Log       *slog.Logger
+	DemoMode  bool
 }
 
 func RegisterHandlers(mux *asynq.ServeMux, d Deps) {
 	mux.HandleFunc(TypeSyncSeasons, d.demoGate(d.handleSyncSeasons))
 	mux.HandleFunc(TypeSyncAiring, d.demoGate(d.handleSyncAiring))
 	mux.HandleFunc(TypeSyncTrending, d.demoGate(d.handleSyncTrending))
+	// Discovery works entirely on local data — never demo-gated.
+	mux.HandleFunc(TypeRecomputeDiscovery, d.handleRecomputeDiscovery)
+}
+
+func (d Deps) handleRecomputeDiscovery(ctx context.Context, _ *asynq.Task) error {
+	if _, err := d.Discovery.RecomputeTrending(ctx); err != nil {
+		return fmt.Errorf("recompute trending: %w", err)
+	}
+	if _, err := d.Discovery.RecomputeHiddenGems(ctx); err != nil {
+		return fmt.Errorf("recompute gems: %w", err)
+	}
+	return nil
 }
 
 // demoGate turns AniList-touching jobs into no-ops in demo mode, where the
@@ -97,6 +113,7 @@ func Schedule(s *asynq.Scheduler) error {
 		// New-episode alerts scan the schedule regardless of demo mode —
 		// they read our own DB, not AniList.
 		{"@every 30m", asynq.NewTask("notify:episodes_aired", nil, asynq.Queue(QueueCritical))},
+		{"@every 15m", asynq.NewTask(TypeRecomputeDiscovery, nil, asynq.Queue(QueueDefault))},
 	}
 	for _, e := range entries {
 		if _, err := s.Register(e.spec, e.task); err != nil {
@@ -108,9 +125,14 @@ func Schedule(s *asynq.Scheduler) error {
 
 // Bootstrap enqueues one immediate run of every sync so a fresh install
 // populates without waiting for the first tick. Uniqueness suppresses
-// duplicates from worker restarts.
-func Bootstrap(client *asynq.Client, log *slog.Logger) {
-	for _, t := range []string{TypeSyncSeasons, TypeSyncAiring, TypeSyncTrending} {
+// duplicates from worker restarts. Discovery always runs (it reads local
+// data); AniList syncs are skipped in demo mode.
+func Bootstrap(client *asynq.Client, demoMode bool, log *slog.Logger) {
+	types := []string{TypeRecomputeDiscovery}
+	if !demoMode {
+		types = append(types, TypeSyncSeasons, TypeSyncAiring, TypeSyncTrending)
+	}
+	for _, t := range types {
 		_, err := client.Enqueue(asynq.NewTask(t, nil), asynq.Queue(QueueDefault), asynq.Unique(30*time.Minute))
 		if err != nil && !isDuplicate(err) {
 			log.Warn("bootstrap enqueue failed", "type", t, "err", err)

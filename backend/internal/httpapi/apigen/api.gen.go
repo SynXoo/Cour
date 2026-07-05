@@ -376,6 +376,11 @@ type CommentList struct {
 	Data []Comment `json:"data"`
 }
 
+// DiscoveryList defines model for DiscoveryList.
+type DiscoveryList struct {
+	Data []AnimeSummary `json:"data"`
+}
+
 // Emoji defines model for Emoji.
 type Emoji string
 
@@ -560,6 +565,19 @@ type ReactionCount struct {
 	Mine  bool  `json:"mine"`
 }
 
+// RecommendationItem defines model for RecommendationItem.
+type RecommendationItem struct {
+	Anime   AnimeSummary `json:"anime"`
+	Reasons []string     `json:"reasons"`
+}
+
+// Recommendations defines model for Recommendations.
+type Recommendations struct {
+	// ColdStart True when there was no taste signal and the list falls back to trending + gems
+	ColdStart bool                 `json:"cold_start"`
+	Data      []RecommendationItem `json:"data"`
+}
+
 // RegisterRequest defines model for RegisterRequest.
 type RegisterRequest struct {
 	Email    openapi_types.Email `json:"email"`
@@ -704,6 +722,12 @@ type TokenRequest struct {
 	Token string `json:"token"`
 }
 
+// TrendingList defines model for TrendingList.
+type TrendingList struct {
+	ComputedAt *time.Time     `json:"computed_at"`
+	Data       []AnimeSummary `json:"data"`
+}
+
 // UnreadCount defines model for UnreadCount.
 type UnreadCount struct {
 	Count int `json:"count"`
@@ -830,6 +854,11 @@ type GetScheduleParams struct {
 	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
 }
 
+// GetTrendingParams defines parameters for GetTrending.
+type GetTrendingParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListUserReviewsParams defines parameters for ListUserReviews.
 type ListUserReviewsParams struct {
 	Page    *int `form:"page,omitempty" json:"page,omitempty"`
@@ -934,6 +963,9 @@ type ServerInterface interface {
 	// React to a comment
 	// (PUT /comments/{commentId}/reactions/{emoji})
 	AddReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji)
+	// Recent, highly-rated, under-watched titles
+	// (GET /hidden-gems)
+	GetHiddenGems(w http.ResponseWriter, r *http.Request)
 	// The authenticated user's favorites
 	// (GET /me/favorites)
 	GetMyFavorites(w http.ResponseWriter, r *http.Request)
@@ -973,6 +1005,9 @@ type ServerInterface interface {
 	// Edit bio, avatar, and favorite genres
 	// (PATCH /me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
+	// Taste-based suggestions with explanations
+	// (GET /me/recommendations)
+	GetMyRecommendations(w http.ResponseWriter, r *http.Request)
 	// Soft-delete a review (author or moderator)
 	// (DELETE /reviews/{reviewId})
 	DeleteReview(w http.ResponseWriter, r *http.Request, reviewId int64)
@@ -997,6 +1032,9 @@ type ServerInterface interface {
 	// Add a comment (optionally anchored to a moment)
 	// (POST /threads/{threadId}/comments)
 	PostComment(w http.ResponseWriter, r *http.Request, threadId int64)
+	// Trending Now — recency-weighted, time-decayed
+	// (GET /trending)
+	GetTrending(w http.ResponseWriter, r *http.Request, params GetTrendingParams)
 	// Public profile with stats and showcases
 	// (GET /users/{username})
 	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
@@ -1156,6 +1194,12 @@ func (_ Unimplemented) AddReaction(w http.ResponseWriter, r *http.Request, comme
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Recent, highly-rated, under-watched titles
+// (GET /hidden-gems)
+func (_ Unimplemented) GetHiddenGems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // The authenticated user's favorites
 // (GET /me/favorites)
 func (_ Unimplemented) GetMyFavorites(w http.ResponseWriter, r *http.Request) {
@@ -1234,6 +1278,12 @@ func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Taste-based suggestions with explanations
+// (GET /me/recommendations)
+func (_ Unimplemented) GetMyRecommendations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Soft-delete a review (author or moderator)
 // (DELETE /reviews/{reviewId})
 func (_ Unimplemented) DeleteReview(w http.ResponseWriter, r *http.Request, reviewId int64) {
@@ -1279,6 +1329,12 @@ func (_ Unimplemented) ListComments(w http.ResponseWriter, r *http.Request, thre
 // Add a comment (optionally anchored to a moment)
 // (POST /threads/{threadId}/comments)
 func (_ Unimplemented) PostComment(w http.ResponseWriter, r *http.Request, threadId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Trending Now — recency-weighted, time-decayed
+// (GET /trending)
+func (_ Unimplemented) GetTrending(w http.ResponseWriter, r *http.Request, params GetTrendingParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1988,6 +2044,20 @@ func (siw *ServerInterfaceWrapper) AddReaction(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetHiddenGems operation middleware
+func (siw *ServerInterfaceWrapper) GetHiddenGems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHiddenGems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyFavorites operation middleware
 func (siw *ServerInterfaceWrapper) GetMyFavorites(w http.ResponseWriter, r *http.Request) {
 
@@ -2403,6 +2473,26 @@ func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetMyRecommendations operation middleware
+func (siw *ServerInterfaceWrapper) GetMyRecommendations(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyRecommendations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteReview operation middleware
 func (siw *ServerInterfaceWrapper) DeleteReview(w http.ResponseWriter, r *http.Request) {
 
@@ -2655,6 +2745,39 @@ func (siw *ServerInterfaceWrapper) PostComment(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostComment(w, r, threadId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTrending operation middleware
+func (siw *ServerInterfaceWrapper) GetTrending(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTrendingParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTrending(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3067,6 +3190,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/comments/{commentId}/reactions/{emoji}", wrapper.AddReaction)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hidden-gems", wrapper.GetHiddenGems)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/favorites", wrapper.GetMyFavorites)
 	})
 	r.Group(func(r chi.Router) {
@@ -3106,6 +3232,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/recommendations", wrapper.GetMyRecommendations)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/reviews/{reviewId}", wrapper.DeleteReview)
 	})
 	r.Group(func(r chi.Router) {
@@ -3128,6 +3257,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/threads/{threadId}/comments", wrapper.PostComment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/trending", wrapper.GetTrending)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)

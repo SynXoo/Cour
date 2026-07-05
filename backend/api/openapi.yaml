@@ -816,6 +816,53 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /trending:
+    get:
+      operationId: getTrending
+      summary: Trending Now — recency-weighted, time-decayed
+      description: >
+        Ranked by recent Cour activity with exponential time decay (not
+        all-time popularity), lightly blended with AniList's trending signal.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Ranked titles
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrendingList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /hidden-gems:
+    get:
+      operationId: getHiddenGems
+      summary: Recent, highly-rated, under-watched titles
+      responses:
+        "200":
+          description: The gems rail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscoveryList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/recommendations:
+    get:
+      operationId: getMyRecommendations
+      summary: Taste-based suggestions with explanations
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Personalized picks
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recommendations" }
+        default:
+          $ref: "#/components/responses/Error"
+
   /schedule:
     get:
       operationId: getSchedule
@@ -1115,6 +1162,43 @@ components:
       properties:
         helpful_count: { type: integer }
         voted: { type: boolean }
+
+    TrendingList:
+      type: object
+      required: [data, computed_at]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/AnimeSummary" }
+        computed_at: { type: string, format: date-time, nullable: true }
+
+    DiscoveryList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/AnimeSummary" }
+
+    RecommendationItem:
+      type: object
+      required: [anime, reasons]
+      properties:
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        reasons:
+          type: array
+          items: { type: string }
+
+    Recommendations:
+      type: object
+      required: [data, cold_start]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/RecommendationItem" }
+        cold_start:
+          type: boolean
+          description: True when there was no taste signal and the list falls back to trending + gems
 
     RelationState:
       type: object

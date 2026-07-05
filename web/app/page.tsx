@@ -8,13 +8,20 @@ export default async function HomePage() {
   const { season, year } = currentSeason();
   const api = serverApi();
 
-  const [seasonRes, scheduleRes] = await Promise.all([
+  const [seasonRes, scheduleRes, trendingRes] = await Promise.all([
     api.GET("/seasons/{year}/{season}", { params: { path: { year, season } } }).catch(() => null),
     api.GET("/schedule", {}).catch(() => null),
+    api
+      .GET("/trending", {
+        params: { query: { limit: 12 } },
+        fetch: (input: Request) => fetch(input, { next: { revalidate: 120 } }),
+      })
+      .catch(() => null),
   ]);
 
   const seasonal = seasonRes?.data?.data ?? [];
   const schedule = scheduleRes?.data?.data ?? [];
+  const trending = trendingRes?.data?.data ?? [];
 
   if (seasonal.length === 0) {
     return (
@@ -44,6 +51,20 @@ export default async function HomePage() {
             </Link>
           </div>
           <ScheduleStrip entries={schedule.slice(0, 12)} />
+        </section>
+      )}
+
+      {trending.length > 0 && (
+        <section aria-labelledby="trending-now" className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 id="trending-now" className="text-lg font-semibold tracking-tight">
+              <span className="text-primary">Trending</span> right now
+            </h2>
+            <Link href="/trending" className="text-sm text-muted-foreground hover:text-primary">
+              Full ranking →
+            </Link>
+          </div>
+          <AnimeGrid anime={trending} priorityCount={6} />
         </section>
       )}
 

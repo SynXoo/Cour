@@ -54,6 +54,8 @@ services:
       AUTO_MIGRATE: "true"
       DEMO_MODE: ${DEMO_MODE:-false}
       WEB_ORIGIN: http://localhost:3000
+      # base64("dev-only-seed-do-not-use-in-prod") — override for any real deployment
+      AUTH_TOKEN_SEED: ${AUTH_TOKEN_SEED:-ZGV2LW9ubHktc2VlZC1kby1ub3QtdXNlLWluLXByb2Q=}
     ports:
       - "8080:8080"
     depends_on:
@@ -71,6 +73,7 @@ services:
       DATABASE_URL: postgres://cour:cour@postgres:5432/cour?sslmode=disable
       REDIS_ADDR: redis:6379
       DEMO_MODE: ${DEMO_MODE:-false}
+      AUTH_TOKEN_SEED: ${AUTH_TOKEN_SEED:-ZGV2LW9ubHktc2VlZC1kby1ub3QtdXNlLWluLXByb2Q=}
     depends_on:
       postgres:
         condition: service_healthy

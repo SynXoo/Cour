@@ -17,6 +17,7 @@ import (
 	"cour/internal/cache"
 	"cour/internal/catalog"
 	"cour/internal/config"
+	"cour/internal/discovery"
 	"cour/internal/discussions"
 	"cour/internal/httpapi/apigen"
 	"cour/internal/lists"
@@ -46,6 +47,7 @@ type apiServer struct {
 	discussionHandlers
 	socialHandlers
 	notificationHandlers
+	discoveryHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -114,6 +116,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		},
 		notificationHandlers: notificationHandlers{
 			q:   queries,
+			log: d.Log,
+		},
+		discoveryHandlers: discoveryHandlers{
+			svc: discovery.New(d.Pool, appCache, discovery.DefaultTrendingConfig(), d.Log),
 			log: d.Log,
 		},
 	}

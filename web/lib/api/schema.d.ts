@@ -690,6 +690,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/trending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trending Now — recency-weighted, time-decayed
+         * @description Ranked by recent Cour activity with exponential time decay (not all-time popularity), lightly blended with AniList's trending signal.
+         */
+        get: operations["getTrending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hidden-gems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent, highly-rated, under-watched titles */
+        get: operations["getHiddenGems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Taste-based suggestions with explanations */
+        get: operations["getMyRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/schedule": {
         parameters: {
             query?: never;
@@ -879,6 +933,23 @@ export interface components {
         HelpfulState: {
             helpful_count: number;
             voted: boolean;
+        };
+        TrendingList: {
+            data: components["schemas"]["AnimeSummary"][];
+            /** Format: date-time */
+            computed_at: string | null;
+        };
+        DiscoveryList: {
+            data: components["schemas"]["AnimeSummary"][];
+        };
+        RecommendationItem: {
+            anime: components["schemas"]["AnimeSummary"];
+            reasons: string[];
+        };
+        Recommendations: {
+            data: components["schemas"]["RecommendationItem"][];
+            /** @description True when there was no taste signal and the list falls back to trending + gems */
+            cold_start: boolean;
         };
         RelationState: {
             followers: number;
@@ -2238,6 +2309,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeasonChart"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTrending: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked titles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendingList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHiddenGems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The gems rail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyRecommendations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Personalized picks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendations"];
                 };
             };
             default: components["responses"]["Error"];

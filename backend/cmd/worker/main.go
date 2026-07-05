@@ -13,6 +13,7 @@ import (
 	"cour/internal/anilist"
 	"cour/internal/cache"
 	"cour/internal/config"
+	"cour/internal/discovery"
 	"cour/internal/jobs"
 	"cour/internal/logging"
 	"cour/internal/notify"
@@ -57,9 +58,10 @@ func main() {
 
 	mux := asynq.NewServeMux()
 	jobs.RegisterHandlers(mux, jobs.Deps{
-		Syncer:   syncer,
-		Log:      log,
-		DemoMode: cfg.DemoMode,
+		Syncer:    syncer,
+		Discovery: discovery.New(pool, appCache, discovery.DefaultTrendingConfig(), log),
+		Log:       log,
+		DemoMode:  cfg.DemoMode,
 	})
 	notify.NewHandlers(queries, rdb, log).Register(mux)
 
@@ -69,11 +71,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !cfg.DemoMode {
-		client := asynq.NewClient(redisOpt)
-		jobs.Bootstrap(client, log)
-		_ = client.Close()
-	}
+	client := asynq.NewClient(redisOpt)
+	jobs.Bootstrap(client, cfg.DemoMode, log)
+	_ = client.Close()
 
 	log.Info("worker starting", "env", cfg.Env, "demo_mode", cfg.DemoMode)
 	var g errgroup.Group

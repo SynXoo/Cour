@@ -49,16 +49,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	syncer := anilist.NewSyncer(nil, sqlcgen.New(pool), cache.New(rdb), log)
+	queries := sqlcgen.New(pool)
+	syncer := anilist.NewSyncer(nil, queries, cache.New(rdb), log)
 	n, err := syncer.SeedFromFixtures(ctx, snap, airing)
 	if err != nil {
 		log.Error("seed", "err", err)
 		os.Exit(1)
 	}
-
-	log.Info("seed complete",
+	log.Info("fixtures loaded",
 		"anime", n,
 		"airing_entries", len(airing.Entries),
 		"snapshot_age", time.Since(snap.FetchedAt).Round(time.Hour).String(),
 	)
+
+	if err := seedDemo(ctx, pool, queries, log); err != nil {
+		log.Error("demo seed", "err", err)
+		os.Exit(1)
+	}
 }

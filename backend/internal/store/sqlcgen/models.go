@@ -570,6 +570,13 @@ type Thread struct {
 	CreatedAt      time.Time
 }
 
+type TrendingScore struct {
+	AnimeID    int64
+	Score      float64
+	Rank       int32
+	ComputedAt time.Time
+}
+
 type User struct {
 	ID              int64
 	Email           string
