@@ -12,6 +12,10 @@ sql:
         overrides:
           - db_type: "pg_catalog.tsvector"
             go_type: "string"
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
           - db_type: "timestamptz"
             go_type: "time.Time"
           - db_type: "timestamptz"

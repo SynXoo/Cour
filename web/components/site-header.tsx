@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UserMenu } from "@/components/auth/user-menu";
 
 const nav = [
   { href: "/seasonal", label: "Seasonal" },
@@ -29,7 +30,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        {/* Auth controls land here in the auth slice */}
+        <UserMenu />
       </div>
     </header>
   );

@@ -53,14 +53,20 @@ func main() {
 	rdb := cache.NewRedis(cfg.RedisAddr)
 	defer func() { _ = rdb.Close() }()
 
+	handler, err := httpapi.NewRouter(httpapi.Deps{
+		Cfg:   cfg,
+		Log:   log,
+		Pool:  pool,
+		Redis: rdb,
+	})
+	if err != nil {
+		log.Error("router", "err", err)
+		os.Exit(1)
+	}
+
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.Port),
-		Handler: httpapi.NewRouter(httpapi.Deps{
-			Cfg:   cfg,
-			Log:   log,
-			Pool:  pool,
-			Redis: rdb,
-		}),
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}

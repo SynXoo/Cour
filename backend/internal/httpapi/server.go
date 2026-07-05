@@ -9,13 +9,16 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"cour/internal/auth"
 	"cour/internal/cache"
 	"cour/internal/catalog"
 	"cour/internal/config"
 	"cour/internal/httpapi/apigen"
+	"cour/internal/mail"
 	"cour/internal/store/sqlcgen"
 )
 
@@ -26,7 +29,52 @@ type Deps struct {
 	Redis *redis.Client
 }
 
-func NewRouter(d Deps) http.Handler {
+// apiServer composes the per-domain handler sets into the single
+// apigen.ServerInterface the spec router expects.
+type apiServer struct {
+	catalogHandlers
+	authHandlers
+}
+
+func NewRouter(d Deps) (http.Handler, error) {
+	issuer, ephemeral, err := auth.NewTokenIssuer(d.Cfg.AuthTokenSeed, d.Cfg.AccessTokenTTL)
+	if err != nil {
+		return nil, err
+	}
+	if ephemeral {
+		d.Log.Warn("AUTH_TOKEN_SEED is empty — using an ephemeral signing key; sessions will not survive restarts")
+	}
+
+	queries := sqlcgen.New(d.Pool)
+	appCache := cache.New(d.Redis)
+	mailer := mail.New(d.Cfg.EmailMode, d.Log)
+	authSvc := auth.NewService(d.Pool, issuer, mailer, d.Cfg.RefreshTokenTTL, d.Cfg.WebOrigin, d.Log)
+
+	var discord *auth.Discord
+	if d.Cfg.DiscordEnabled() {
+		discord = auth.NewDiscord(
+			d.Cfg.DiscordClientID,
+			d.Cfg.DiscordSecret,
+			d.Cfg.WebOrigin+"/api/v1/auth/discord/callback",
+		)
+		d.Log.Info("discord oauth enabled")
+	}
+
+	server := apiServer{
+		catalogHandlers: catalogHandlers{
+			svc: catalog.New(queries, appCache, d.Log),
+			log: d.Log,
+		},
+		authHandlers: authHandlers{
+			svc:     authSvc,
+			discord: discord,
+			rdb:     d.Redis,
+			limiter: redis_rate.NewLimiter(d.Redis),
+			cfg:     d.Cfg,
+			log:     d.Log,
+		},
+	}
+
 	r := chi.NewRouter()
 
 	// Note: no RealIP/X-Forwarded-For handling here — trusting proxy headers
@@ -40,19 +88,19 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/healthz", health.healthz)
 	r.Get("/readyz", health.readyz)
 
-	queries := sqlcgen.New(d.Pool)
-	appCache := cache.New(d.Redis)
-
 	r.Route("/api/v1", func(r chi.Router) {
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeNotFound(w) })
 		r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 			writeError(w, http.StatusMethodNotAllowed, CodeBadRequest, "method not allowed")
 		})
 
-		apigen.HandlerWithOptions(catalogHandlers{
-			svc: catalog.New(queries, appCache, d.Log),
-			log: d.Log,
-		}, apigen.ChiServerOptions{
+		r.Use(optionalAuth(issuer))
+		// Coarse safety-net limit; credential endpoints add their own
+		// strict per-IP limits on top.
+		r.Use(rateLimit(d.Redis, "global",
+			redis_rate.Limit{Rate: 25, Burst: 50, Period: time.Second}, byUser))
+
+		apigen.HandlerWithOptions(server, apigen.ChiServerOptions{
 			BaseRouter: r,
 			// Parameter binding failures (bad enum, non-numeric id, ...)
 			ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
@@ -62,5 +110,5 @@ func NewRouter(d Deps) http.Handler {
 	})
 
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeNotFound(w) })
-	return r
+	return r, nil
 }

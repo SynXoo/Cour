@@ -11,6 +11,150 @@ servers:
   - url: /api/v1
 
 paths:
+  /auth/register:
+    post:
+      operationId: register
+      summary: Create an account with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created; session established (refresh cookie set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Log in with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Session established (refresh cookie set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Rotate the refresh cookie into a fresh session
+      description: >
+        Requires the httpOnly refresh cookie and an `X-Requested-With` header.
+        Reusing an already-rotated token revokes the whole session family.
+      responses:
+        "200":
+          description: New session (refresh cookie rotated)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke this session family and clear the cookie
+      responses:
+        "204": { description: Logged out }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: The authenticated account
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPrivate" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      summary: Confirm an email address with a mailed token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TokenRequest" }
+      responses:
+        "204": { description: Email verified }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      summary: Send a password-reset link
+      description: Always answers 202 — account existence is never revealed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+      responses:
+        "202": { description: If the account exists, an email is on its way }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/password-reset/confirm:
+    post:
+      operationId: confirmPasswordReset
+      summary: Set a new password with a mailed token
+      description: Consuming the token revokes every live session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetConfirm" }
+      responses:
+        "204": { description: Password updated }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/discord:
+    get:
+      operationId: discordStart
+      summary: Begin Discord OAuth (redirects to discord.com)
+      responses:
+        "302": { description: Redirect to Discord authorize page }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/discord/callback:
+    get:
+      operationId: discordCallback
+      summary: Discord OAuth callback (redirects back to the web app)
+      parameters:
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+      responses:
+        "302": { description: Redirect to the web app with the session cookie set }
+        default:
+          $ref: "#/components/responses/Error"
+
   /anime:
     get:
       operationId: listAnime
@@ -111,6 +255,12 @@ paths:
           $ref: "#/components/responses/Error"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   responses:
     Error:
       description: Error envelope
@@ -119,6 +269,72 @@ components:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
 
   schemas:
+    RegisterRequest:
+      type: object
+      required: [email, username, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9_]{3,20}$"
+          description: 3-20 characters, letters/digits/underscore
+        password: { type: string, minLength: 8, maxLength: 128 }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    TokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    PasswordResetConfirm:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 8, maxLength: 128 }
+
+    SessionResponse:
+      type: object
+      required: [access_token, token_type, expires_in, user]
+      properties:
+        access_token: { type: string, description: Short-lived JWT for the Authorization header }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer, description: Access-token lifetime in seconds }
+        user: { $ref: "#/components/schemas/UserPrivate" }
+
+    Role:
+      type: string
+      enum: [user, mod, admin]
+
+    UserPrivate:
+      type: object
+      required: [id, email, username, avatar_url, bio, favorite_genres, role, email_verified, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        email: { type: string }
+        username: { type: string }
+        avatar_url: { type: string, nullable: true }
+        bio: { type: string }
+        favorite_genres:
+          type: array
+          items: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        email_verified: { type: boolean }
+        created_at: { type: string, format: date-time }
+
     Season:
       type: string
       enum: [WINTER, SPRING, SUMMER, FALL]

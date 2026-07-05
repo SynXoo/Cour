@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -20,6 +21,20 @@ type Config struct {
 	AutoMigrate bool
 	DemoMode    bool // never call AniList; serve committed fixtures only
 	WebOrigin   string
+
+	// Auth
+	AuthTokenSeed   string // base64 ed25519 seed; empty in dev = ephemeral key
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
+	DiscordClientID string
+	DiscordSecret   string
+
+	EmailMode string // log | smtp
+}
+
+// DiscordEnabled reports whether the OAuth flow is configured.
+func (c Config) DiscordEnabled() bool {
+	return c.DiscordClientID != "" && c.DiscordSecret != ""
 }
 
 func (c Config) Dev() bool { return c.Env == "dev" }
@@ -51,7 +66,21 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{
+	accessTTL, err := duration("ACCESS_TOKEN_TTL", 15*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	refreshTTL, err := duration("REFRESH_TOKEN_TTL", 30*24*time.Hour)
+	if err != nil {
+		return Config{}, err
+	}
+
+	emailMode := str("EMAIL_MODE", "log")
+	if emailMode != "log" && emailMode != "smtp" {
+		return Config{}, fmt.Errorf("EMAIL_MODE must be log or smtp (got %q)", emailMode)
+	}
+
+	cfg := Config{
 		Env:         env,
 		Port:        port,
 		DatabaseURL: str("DATABASE_URL", "postgres://cour:cour@localhost:5434/cour?sslmode=disable"),
@@ -60,7 +89,30 @@ func Load() (Config, error) {
 		AutoMigrate: autoMigrate,
 		DemoMode:    demoMode,
 		WebOrigin:   strings.TrimRight(str("WEB_ORIGIN", "http://localhost:3000"), "/"),
-	}, nil
+
+		AuthTokenSeed:   str("AUTH_TOKEN_SEED", ""),
+		AccessTokenTTL:  accessTTL,
+		RefreshTokenTTL: refreshTTL,
+		DiscordClientID: str("DISCORD_CLIENT_ID", ""),
+		DiscordSecret:   str("DISCORD_CLIENT_SECRET", ""),
+		EmailMode:       emailMode,
+	}
+	if cfg.Env == "prod" && cfg.AuthTokenSeed == "" {
+		return Config{}, fmt.Errorf("AUTH_TOKEN_SEED is required in prod (sessions must survive restarts)")
+	}
+	return cfg, nil
+}
+
+func duration(key string, def time.Duration) (time.Duration, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a duration like 15m or 720h (got %q)", key, v)
+	}
+	return d, nil
 }
 
 func str(key, def string) string {

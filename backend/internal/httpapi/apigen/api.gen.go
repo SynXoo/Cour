@@ -4,6 +4,7 @@
 package apigen
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes bearerAuthContextKey = "bearerAuth.Scopes"
 )
 
 // Defines values for AiringStatus.
@@ -73,6 +79,27 @@ func (e Format) Valid() bool {
 	}
 }
 
+// Defines values for Role.
+const (
+	Admin Role = "admin"
+	Mod   Role = "mod"
+	User  Role = "user"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Mod:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Season.
 const (
 	FALL   Season = "FALL"
@@ -91,6 +118,21 @@ func (e Season) Valid() bool {
 	case SUMMER:
 		return true
 	case WINTER:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionResponseTokenType.
+const (
+	Bearer SessionResponseTokenType = "Bearer"
+)
+
+// Valid indicates whether the value is a known member of the SessionResponseTokenType enum.
+func (e SessionResponseTokenType) Valid() bool {
+	switch e {
+	case Bearer:
 		return true
 	default:
 		return false
@@ -193,12 +235,41 @@ type ErrorEnvelope struct {
 // Format defines model for Format.
 type Format string
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
 // PageInfo defines model for PageInfo.
 type PageInfo struct {
 	HasMore bool `json:"has_more"`
 	Page    int  `json:"page"`
 	PerPage int  `json:"per_page"`
 }
+
+// PasswordResetConfirm defines model for PasswordResetConfirm.
+type PasswordResetConfirm struct {
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
+// PasswordResetRequest defines model for PasswordResetRequest.
+type PasswordResetRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+
+	// Username 3-20 characters, letters/digits/underscore
+	Username string `json:"username"`
+}
+
+// Role defines model for Role.
+type Role string
 
 // ScheduleEntry defines model for ScheduleEntry.
 type ScheduleEntry struct {
@@ -222,6 +293,20 @@ type SeasonChart struct {
 	Year   int            `json:"year"`
 }
 
+// SessionResponse defines model for SessionResponse.
+type SessionResponse struct {
+	// AccessToken Short-lived JWT for the Authorization header
+	AccessToken string `json:"access_token"`
+
+	// ExpiresIn Access-token lifetime in seconds
+	ExpiresIn int                      `json:"expires_in"`
+	TokenType SessionResponseTokenType `json:"token_type"`
+	User      UserPrivate              `json:"user"`
+}
+
+// SessionResponseTokenType defines model for SessionResponse.TokenType.
+type SessionResponseTokenType string
+
 // Studio defines model for Studio.
 type Studio struct {
 	IsMain bool   `json:"is_main"`
@@ -234,8 +319,29 @@ type Tag struct {
 	Rank int    `json:"rank"`
 }
 
+// TokenRequest defines model for TokenRequest.
+type TokenRequest struct {
+	Token string `json:"token"`
+}
+
+// UserPrivate defines model for UserPrivate.
+type UserPrivate struct {
+	AvatarUrl      *string   `json:"avatar_url"`
+	Bio            string    `json:"bio"`
+	CreatedAt      time.Time `json:"created_at"`
+	Email          string    `json:"email"`
+	EmailVerified  bool      `json:"email_verified"`
+	FavoriteGenres []string  `json:"favorite_genres"`
+	Id             int64     `json:"id"`
+	Role           Role      `json:"role"`
+	Username       string    `json:"username"`
+}
+
 // Error defines model for Error.
 type Error = ErrorEnvelope
+
+// bearerAuthContextKey is the context key for bearerAuth security scheme
+type bearerAuthContextKey string
 
 // ListAnimeParams defines parameters for ListAnime.
 type ListAnimeParams struct {
@@ -248,11 +354,32 @@ type ListAnimeParams struct {
 	PerPage *int          `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+// DiscordCallbackParams defines parameters for DiscordCallback.
+type DiscordCallbackParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+}
+
 // GetScheduleParams defines parameters for GetSchedule.
 type GetScheduleParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
 	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
 }
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// ConfirmPasswordResetJSONRequestBody defines body for ConfirmPasswordReset for application/json ContentType.
+type ConfirmPasswordResetJSONRequestBody = PasswordResetConfirm
+
+// RequestPasswordResetJSONRequestBody defines body for RequestPasswordReset for application/json ContentType.
+type RequestPasswordResetJSONRequestBody = PasswordResetRequest
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody = RegisterRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = TokenRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -262,6 +389,36 @@ type ServerInterface interface {
 	// Anime detail with episodes
 	// (GET /anime/{id})
 	GetAnime(w http.ResponseWriter, r *http.Request, id int64)
+	// Begin Discord OAuth (redirects to discord.com)
+	// (GET /auth/discord)
+	DiscordStart(w http.ResponseWriter, r *http.Request)
+	// Discord OAuth callback (redirects back to the web app)
+	// (GET /auth/discord/callback)
+	DiscordCallback(w http.ResponseWriter, r *http.Request, params DiscordCallbackParams)
+	// Log in with email + password
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Revoke this session family and clear the cookie
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// The authenticated account
+	// (GET /auth/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
+	// Set a new password with a mailed token
+	// (POST /auth/password-reset/confirm)
+	ConfirmPasswordReset(w http.ResponseWriter, r *http.Request)
+	// Send a password-reset link
+	// (POST /auth/password-reset/request)
+	RequestPasswordReset(w http.ResponseWriter, r *http.Request)
+	// Rotate the refresh cookie into a fresh session
+	// (POST /auth/refresh)
+	RefreshSession(w http.ResponseWriter, r *http.Request)
+	// Create an account with email + password
+	// (POST /auth/register)
+	Register(w http.ResponseWriter, r *http.Request)
+	// Confirm an email address with a mailed token
+	// (POST /auth/verify-email)
+	VerifyEmail(w http.ResponseWriter, r *http.Request)
 	// Airing schedule for a time window
 	// (GET /schedule)
 	GetSchedule(w http.ResponseWriter, r *http.Request, params GetScheduleParams)
@@ -283,6 +440,66 @@ func (_ Unimplemented) ListAnime(w http.ResponseWriter, r *http.Request, params 
 // Anime detail with episodes
 // (GET /anime/{id})
 func (_ Unimplemented) GetAnime(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Begin Discord OAuth (redirects to discord.com)
+// (GET /auth/discord)
+func (_ Unimplemented) DiscordStart(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Discord OAuth callback (redirects back to the web app)
+// (GET /auth/discord/callback)
+func (_ Unimplemented) DiscordCallback(w http.ResponseWriter, r *http.Request, params DiscordCallbackParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Log in with email + password
+// (POST /auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke this session family and clear the cookie
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The authenticated account
+// (GET /auth/me)
+func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Set a new password with a mailed token
+// (POST /auth/password-reset/confirm)
+func (_ Unimplemented) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send a password-reset link
+// (POST /auth/password-reset/request)
+func (_ Unimplemented) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rotate the refresh cookie into a fresh session
+// (POST /auth/refresh)
+func (_ Unimplemented) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create an account with email + password
+// (POST /auth/register)
+func (_ Unimplemented) Register(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Confirm an email address with a mailed token
+// (POST /auth/verify-email)
+func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -435,6 +652,184 @@ func (siw *ServerInterfaceWrapper) GetAnime(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAnime(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscordStart operation middleware
+func (siw *ServerInterfaceWrapper) DiscordStart(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscordStart(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscordCallback operation middleware
+func (siw *ServerInterfaceWrapper) DiscordCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DiscordCallbackParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscordCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmPasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmPasswordReset(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestPasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestPasswordReset(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Register operation middleware
+func (siw *ServerInterfaceWrapper) Register(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Register(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyEmail(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -643,6 +1038,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/anime/{id}", wrapper.GetAnime)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/discord", wrapper.DiscordStart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/discord/callback", wrapper.DiscordCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password-reset/confirm", wrapper.ConfirmPasswordReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password-reset/request", wrapper.RequestPasswordReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/refresh", wrapper.RefreshSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/register", wrapper.Register)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/schedule", wrapper.GetSchedule)

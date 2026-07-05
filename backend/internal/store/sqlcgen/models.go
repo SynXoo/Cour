@@ -8,6 +8,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type AnimeFormat string
@@ -146,6 +148,91 @@ func (ns NullAnimeStatus) Value() (driver.Value, error) {
 	return string(ns.AnimeStatus), nil
 }
 
+type EmailTokenPurpose string
+
+const (
+	EmailTokenPurposeVerifyEmail   EmailTokenPurpose = "verify_email"
+	EmailTokenPurposeResetPassword EmailTokenPurpose = "reset_password"
+)
+
+func (e *EmailTokenPurpose) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EmailTokenPurpose(s)
+	case string:
+		*e = EmailTokenPurpose(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EmailTokenPurpose: %T", src)
+	}
+	return nil
+}
+
+type NullEmailTokenPurpose struct {
+	EmailTokenPurpose EmailTokenPurpose
+	Valid             bool // Valid is true if EmailTokenPurpose is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEmailTokenPurpose) Scan(value interface{}) error {
+	if value == nil {
+		ns.EmailTokenPurpose, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EmailTokenPurpose.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEmailTokenPurpose) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EmailTokenPurpose), nil
+}
+
+type UserRole string
+
+const (
+	UserRoleUser  UserRole = "user"
+	UserRoleMod   UserRole = "mod"
+	UserRoleAdmin UserRole = "admin"
+)
+
+func (e *UserRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserRole(s)
+	case string:
+		*e = UserRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+	}
+	return nil
+}
+
+type NullUserRole struct {
+	UserRole UserRole
+	Valid    bool // Valid is true if UserRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserRole), nil
+}
+
 type Anime struct {
 	ID                int64
 	AnilistID         int32
@@ -178,6 +265,16 @@ type Anime struct {
 	SearchDoc         interface{}
 }
 
+type EmailToken struct {
+	ID        int64
+	UserID    int64
+	Purpose   EmailTokenPurpose
+	TokenHash []byte
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 type Episode struct {
 	ID        int64
 	AnimeID   int64
@@ -185,4 +282,30 @@ type Episode struct {
 	Title     *string
 	AiringAt  *time.Time
 	CreatedAt time.Time
+}
+
+type RefreshToken struct {
+	ID        int64
+	UserID    int64
+	FamilyID  uuid.UUID
+	TokenHash []byte
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	RevokedAt *time.Time
+	CreatedAt time.Time
+}
+
+type User struct {
+	ID              int64
+	Email           string
+	Username        string
+	PasswordHash    *string
+	DiscordID       *string
+	AvatarUrl       *string
+	Bio             string
+	FavoriteGenres  []string
+	Role            UserRole
+	EmailVerifiedAt *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
