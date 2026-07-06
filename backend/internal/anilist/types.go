@@ -22,6 +22,7 @@ type Media struct {
 	Popularity   int      `json:"popularity"`
 	Trending     int      `json:"trending"`
 	IsAdult      bool     `json:"isAdult"`
+	UpdatedAt    *int64   `json:"updatedAt"` // unix seconds of last upstream edit
 	NextAiring   *Airing  `json:"nextAiringEpisode"`
 }
 

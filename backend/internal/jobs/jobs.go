@@ -19,12 +19,18 @@ import (
 
 // Task type names, namespaced by subsystem.
 const (
-	TypeSyncSeasons  = "anilist:sync_seasons"  // current + next season charts
-	TypeSyncAiring   = "anilist:sync_airing"   // airing schedule window
-	TypeSyncTrending = "anilist:sync_trending" // AniList's own trending signal
+	TypeSyncSeasons     = "anilist:sync_seasons"     // current + next season charts
+	TypeSyncAiring      = "anilist:sync_airing"      // airing schedule window
+	TypeSyncTrending    = "anilist:sync_trending"    // AniList's own trending signal
+	TypeSyncUpdated     = "anilist:sync_updated"     // media edited upstream since last watermark
+	TypeBackfillCatalog = "anilist:backfill_catalog" // one-time full-catalog crawl
 
 	TypeRecomputeDiscovery = "discovery:recompute" // trending scores + hidden gems
 )
+
+// backfillChunkPages bounds one backfill task to ~20s of rate-limited
+// requests; the handler chains the next chunk until the crawl finishes.
+const backfillChunkPages = 10
 
 // Queue names, by user-visible urgency.
 const (
@@ -36,6 +42,7 @@ const (
 type Deps struct {
 	Syncer    *anilist.Syncer
 	Discovery *discovery.Service
+	Enqueuer  *asynq.Client // for tasks that chain follow-up tasks
 	Log       *slog.Logger
 	DemoMode  bool
 }
@@ -44,6 +51,8 @@ func RegisterHandlers(mux *asynq.ServeMux, d Deps) {
 	mux.HandleFunc(TypeSyncSeasons, d.demoGate(d.handleSyncSeasons))
 	mux.HandleFunc(TypeSyncAiring, d.demoGate(d.handleSyncAiring))
 	mux.HandleFunc(TypeSyncTrending, d.demoGate(d.handleSyncTrending))
+	mux.HandleFunc(TypeSyncUpdated, d.demoGate(d.handleSyncUpdated))
+	mux.HandleFunc(TypeBackfillCatalog, d.demoGate(d.handleBackfillCatalog))
 	// Discovery works entirely on local data — never demo-gated.
 	mux.HandleFunc(TypeRecomputeDiscovery, d.handleRecomputeDiscovery)
 }
@@ -100,6 +109,34 @@ func (d Deps) handleSyncTrending(ctx context.Context, _ *asynq.Task) error {
 	return nil
 }
 
+func (d Deps) handleSyncUpdated(ctx context.Context, _ *asynq.Task) error {
+	if _, err := d.Syncer.SyncUpdated(ctx); err != nil {
+		return fmt.Errorf("sync updated: %w", err)
+	}
+	return nil
+}
+
+// handleBackfillCatalog advances the full-catalog crawl one chunk, then
+// chains the next chunk instead of holding one long-running task: each chunk
+// is short, retryable, and the chain survives worker restarts via the queue.
+// The cursor lives in Postgres, so a duplicate chain (e.g. bootstrap racing a
+// live chain after a restart) only re-crawls a page or two — upserts are
+// idempotent and both chains stop at the done flag.
+func (d Deps) handleBackfillCatalog(ctx context.Context, _ *asynq.Task) error {
+	done, err := d.Syncer.SyncCatalogChunk(ctx, backfillChunkPages)
+	if err != nil {
+		return fmt.Errorf("backfill catalog chunk: %w", err)
+	}
+	if done {
+		return nil
+	}
+	_, err = d.Enqueuer.Enqueue(asynq.NewTask(TypeBackfillCatalog, nil, asynq.Queue(QueueLow)))
+	if err != nil {
+		return fmt.Errorf("enqueue next backfill chunk: %w", err)
+	}
+	return nil
+}
+
 // Schedule registers the periodic jobs. Stagger offsets keep the AniList
 // bursts apart.
 func Schedule(s *asynq.Scheduler) error {
@@ -110,6 +147,7 @@ func Schedule(s *asynq.Scheduler) error {
 		{"@every 6h", asynq.NewTask(TypeSyncSeasons, nil, asynq.Queue(QueueDefault))},
 		{"@every 6h", asynq.NewTask(TypeSyncAiring, nil, asynq.Queue(QueueDefault))},
 		{"@every 1h", asynq.NewTask(TypeSyncTrending, nil, asynq.Queue(QueueLow))},
+		{"@every 6h", asynq.NewTask(TypeSyncUpdated, nil, asynq.Queue(QueueLow))},
 		// New-episode alerts scan the schedule regardless of demo mode —
 		// they read our own DB, not AniList.
 		{"@every 30m", asynq.NewTask("notify:episodes_aired", nil, asynq.Queue(QueueCritical))},
@@ -126,16 +164,22 @@ func Schedule(s *asynq.Scheduler) error {
 // Bootstrap enqueues one immediate run of every sync so a fresh install
 // populates without waiting for the first tick. Uniqueness suppresses
 // duplicates from worker restarts. Discovery always runs (it reads local
-// data); AniList syncs are skipped in demo mode.
+// data); AniList syncs are skipped in demo mode. The backfill enqueue is
+// cheap even on an already-mirrored install — its handler no-ops once the
+// crawl's done flag is set.
 func Bootstrap(client *asynq.Client, demoMode bool, log *slog.Logger) {
-	types := []string{TypeRecomputeDiscovery}
+	queues := map[string]string{TypeRecomputeDiscovery: QueueDefault}
 	if !demoMode {
-		types = append(types, TypeSyncSeasons, TypeSyncAiring, TypeSyncTrending)
+		queues[TypeSyncSeasons] = QueueDefault
+		queues[TypeSyncAiring] = QueueDefault
+		queues[TypeSyncTrending] = QueueLow
+		queues[TypeSyncUpdated] = QueueLow
+		queues[TypeBackfillCatalog] = QueueLow
 	}
-	for _, t := range types {
-		_, err := client.Enqueue(asynq.NewTask(t, nil), asynq.Queue(QueueDefault), asynq.Unique(30*time.Minute))
+	for typ, queue := range queues {
+		_, err := client.Enqueue(asynq.NewTask(typ, nil), asynq.Queue(queue), asynq.Unique(30*time.Minute))
 		if err != nil && !isDuplicate(err) {
-			log.Warn("bootstrap enqueue failed", "type", t, "err", err)
+			log.Warn("bootstrap enqueue failed", "type", typ, "err", err)
 		}
 	}
 }

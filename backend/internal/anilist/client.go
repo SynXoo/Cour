@@ -194,6 +194,45 @@ func (c *Client) TrendingPage(ctx context.Context, page, perPage int) ([]Media, 
 	return out.Page.Media, out.Page.PageInfo.HasNextPage, nil
 }
 
+// CatalogPage fetches one page of one catalog-crawl window, in id order.
+func (c *Client) CatalogPage(ctx context.Context, w catalogWindow, page, perPage int) ([]Media, bool, error) {
+	var out struct {
+		Page struct {
+			PageInfo pageInfo `json:"pageInfo"`
+			Media    []Media  `json:"media"`
+		} `json:"Page"`
+	}
+	vars := map[string]any{"page": page, "perPage": perPage}
+	if w.status != "" {
+		vars["status"] = w.status
+	}
+	if w.dateLesser > 0 {
+		vars["dateGreater"] = w.dateGreater
+		vars["dateLesser"] = w.dateLesser
+	}
+	err := c.do(ctx, queryCatalogPage, vars, &out)
+	if err != nil {
+		return nil, false, err
+	}
+	return out.Page.Media, out.Page.PageInfo.HasNextPage, nil
+}
+
+// UpdatedPage fetches one page of the catalog ordered by most recent upstream
+// edit; the caller decides where to stop reading.
+func (c *Client) UpdatedPage(ctx context.Context, page, perPage int) ([]Media, bool, error) {
+	var out struct {
+		Page struct {
+			PageInfo pageInfo `json:"pageInfo"`
+			Media    []Media  `json:"media"`
+		} `json:"Page"`
+	}
+	err := c.do(ctx, queryUpdatedPage, map[string]any{"page": page, "perPage": perPage}, &out)
+	if err != nil {
+		return nil, false, err
+	}
+	return out.Page.Media, out.Page.PageInfo.HasNextPage, nil
+}
+
 // AiringPage fetches one page of the airing schedule between two unix times.
 func (c *Client) AiringPage(ctx context.Context, from, to time.Time, page int) ([]AiringSchedule, bool, error) {
 	var out struct {

@@ -1,6 +1,7 @@
 package anilist
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +57,90 @@ func TestSeasonPageParses(t *testing.T) {
 	assert.Equal(t, "RELEASING", *m.Status)
 	assert.Equal(t, 12, *m.Episodes)
 	assert.Equal(t, 3, m.NextAiring.Episode)
+}
+
+const catalogPageBody = `{"data":{"Page":{"pageInfo":{"hasNextPage":true},"media":[
+  {"id":100,"title":{"romaji":"Old Classic"},"format":"TV","status":"FINISHED",
+   "episodes":26,"genres":["Drama"],"popularity":50000},
+  {"id":140,"title":{"romaji":"Old Movie"},"format":"MOVIE","status":"FINISHED",
+   "episodes":1,"genres":["Action"],"popularity":30000}
+]}}}`
+
+func TestCatalogPageDateWindow(t *testing.T) {
+	var got gqlRequest
+	c, _ := testClient(t, func(_ int32, w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(catalogPageBody))
+	})
+
+	win := catalogWindow{dateGreater: 19999999, dateLesser: 20010000, label: "2000"}
+	media, hasNext, err := c.CatalogPage(t.Context(), win, 3, 50)
+	require.NoError(t, err)
+	assert.True(t, hasNext)
+	require.Len(t, media, 2)
+	assert.Equal(t, 100, media[0].ID)
+
+	assert.EqualValues(t, 3, got.Variables["page"])
+	assert.EqualValues(t, 19999999, got.Variables["dateGreater"])
+	assert.EqualValues(t, 20010000, got.Variables["dateLesser"])
+	assert.NotContains(t, got.Variables, "status",
+		"an omitted variable must not be sent — null filters differ from absent ones")
+}
+
+func TestCatalogPageStatusWindow(t *testing.T) {
+	var got gqlRequest
+	c, _ := testClient(t, func(_ int32, w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(catalogPageBody))
+	})
+
+	win := catalogWindow{status: "NOT_YET_RELEASED", label: "not_yet_released"}
+	_, _, err := c.CatalogPage(t.Context(), win, 1, 50)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, "NOT_YET_RELEASED", got.Variables["status"])
+	assert.NotContains(t, got.Variables, "dateGreater")
+	assert.NotContains(t, got.Variables, "dateLesser")
+}
+
+func TestCatalogWindowsCoverEverySeam(t *testing.T) {
+	now := time.Date(2026, time.July, 1, 0, 0, 0, 0, time.UTC)
+	ws := catalogWindows(now)
+
+	require.Greater(t, len(ws), 50)
+	assert.Equal(t, "NOT_YET_RELEASED", ws[0].status)
+	assert.Equal(t, "CANCELLED", ws[1].status)
+	assert.Equal(t, "2028", ws[len(ws)-1].label, "must reach two years ahead for announcements")
+
+	// Exclusive bounds must tile with no gap: a title dated exactly Jan 1st
+	// of a boundary year belongs to exactly one window.
+	for i := 3; i < len(ws); i++ {
+		assert.Equal(t, ws[i-1].dateLesser, ws[i].dateGreater+1,
+			"gap between %s and %s", ws[i-1].label, ws[i].label)
+	}
+}
+
+func TestUpdatedPageParsesEditTimes(t *testing.T) {
+	var got gqlRequest
+	c, _ := testClient(t, func(_ int32, w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"Page":{"pageInfo":{"hasNextPage":false},"media":[
+			{"id":7,"title":{"romaji":"Edited Show"},"genres":[],"popularity":1,"updatedAt":1780000123}
+		]}}}`))
+	})
+
+	media, hasNext, err := c.UpdatedPage(t.Context(), 2, 50)
+	require.NoError(t, err)
+	assert.False(t, hasNext)
+	require.Len(t, media, 1)
+	require.NotNil(t, media[0].UpdatedAt)
+	assert.EqualValues(t, 1780000123, *media[0].UpdatedAt)
+
+	assert.EqualValues(t, 2, got.Variables["page"])
+	assert.Contains(t, got.Query, "sort: UPDATED_AT_DESC")
 }
 
 func TestRateLimit429HonorsRetryAfter(t *testing.T) {

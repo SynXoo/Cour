@@ -94,6 +94,21 @@ idempotent upserts keyed on `anilist_id`, cache invalidation on write, and a
 with zero external calls. Failure mode: caches serve stale, jobs retry with
 backoff — user-facing reads never block on AniList.
 
+The full catalog (~20k titles) is mirrored once by a **backfill crawl**.
+AniList caps offset pagination at 5,000 entries per query and has no id or
+updatedAt range filters, so the crawl partitions the catalog into windows
+that each fit under the cap (status windows for date-less entries, then
+startDate ranges: decades through 1979, yearly after). It runs in ~10-page
+chunks, each chunk an asynq task that chains the next, with the
+window/page cursor checkpointed in `sync_state` so restarts resume mid-crawl
+(~20 min of API time end to end). After that, an **incremental refresh**
+(every 6h) walks the `UPDATED_AT_DESC` feed down to a persisted watermark,
+picking up new announcements and upstream edits for a handful of requests
+per tick; if an edit spike overflows a tick's page budget, the watermark
+advances to the oldest edit actually seen, so progress is monotonic and
+later ticks converge. Season/trending/airing jobs remain the fast path for
+the current cour.
+
 ### Search
 Postgres-native: weighted generated tsvector (`simple` config — titles are
 names, stemming hurts) + `pg_trgm` GIN for typo tolerance, blended rank

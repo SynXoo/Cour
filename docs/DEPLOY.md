@@ -36,7 +36,8 @@ Discord OAuth redirect URI to register: `{WEB_ORIGIN}/api/v1/auth/discord/callba
 5. First deploy: run the seed once —
    `railway run --service api go run ./cmd/seed` (or exec the seed binary in
    the image) — or set `DEMO_MODE=false` and let the worker's bootstrap sync
-   pull the live catalog within a few minutes.
+   pull the current seasons within a few minutes and backfill the full
+   catalog (~20k titles) in the background over the following half hour.
 
 ## Fly.io
 

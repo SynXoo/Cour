@@ -56,10 +56,16 @@ func main() {
 		Logger: logger,
 	})
 
+	// Stays open for the process lifetime: handlers use it to chain follow-up
+	// tasks (catalog backfill chunks), not just for the bootstrap enqueues.
+	client := asynq.NewClient(redisOpt)
+	defer func() { _ = client.Close() }()
+
 	mux := asynq.NewServeMux()
 	jobs.RegisterHandlers(mux, jobs.Deps{
 		Syncer:    syncer,
 		Discovery: discovery.New(pool, appCache, discovery.DefaultTrendingConfig(), log),
+		Enqueuer:  client,
 		Log:       log,
 		DemoMode:  cfg.DemoMode,
 	})
@@ -71,9 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	client := asynq.NewClient(redisOpt)
 	jobs.Bootstrap(client, cfg.DemoMode, log)
-	_ = client.Close()
 
 	log.Info("worker starting", "env", cfg.Env, "demo_mode", cfg.DemoMode)
 	var g errgroup.Group
