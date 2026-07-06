@@ -28,8 +28,8 @@ every layer:
   literal inversion of the popularity chart.
 
 No streams, ever: Cour synchronizes *people* (threads today, live watch
-parties in [Phase 2](docs/PHASE_2.md)); everyone brings their own legal
-source.
+parties in [Phase 2](docs/WATCH_PARTIES.md)); everyone brings their own
+legal source.
 
 ## Quick start
 
@@ -93,7 +93,8 @@ carries the catalog).
 
 Deep dives: [ARCHITECTURE](docs/ARCHITECTURE.md) ·
 [DATA_MODEL + ERD](docs/DATA_MODEL.md) · [ALGORITHMS](docs/ALGORITHMS.md) ·
-[PHASE_2 watch parties](docs/PHASE_2.md) · [DEPLOY](docs/DEPLOY.md)
+[PHASE_2 roadmap](docs/PHASE_2.md) ·
+[WATCH_PARTIES](docs/WATCH_PARTIES.md) · [DEPLOY](docs/DEPLOY.md)
 
 ## Stack
 
@@ -118,9 +119,11 @@ hub · Trending Now · hidden gems · explainable recommendations · moderation
 (reports, soft-delete tombstones, mod roles, profanity hook) · Redis rate
 limiting · demo mode.
 
-**Phase 2 — designed, not built:** real-time watch parties (WebSocket rooms,
-shared playback clock, live timestamped reactions) on seams Phase 1 already
-exposes — see [docs/PHASE_2.md](docs/PHASE_2.md).
+**Phase 2 — planned:** live episode threads (streaming comments + presence),
+progress-aware spoiler safety, MAL/AniList list import, a "Tonight on Cour"
+home + logged-out landing, a mobile/layout pass, and real-time watch
+parties — roadmap in [docs/PHASE_2.md](docs/PHASE_2.md), party protocol in
+[docs/WATCH_PARTIES.md](docs/WATCH_PARTIES.md).
 
 ## License / data
 
