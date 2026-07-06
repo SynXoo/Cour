@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AnimeGrid } from "@/components/anime/anime-grid";
+import { Suspense } from "react";
 import { PageShell } from "@/components/page-shell";
-import { serverApi, type AnimeSummary, type Season } from "@/lib/api/client";
+import { serverApi, type Season } from "@/lib/api/client";
 import { SEASONS, nextSeason, prevSeason, seasonLabel } from "@/lib/anime";
+import { SeasonalView } from "./seasonal-view";
 
 type Params = { year: string; season: string };
 
@@ -25,12 +26,6 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
-const GROUPS: { label: string; formats: (string | null)[] }[] = [
-  { label: "TV", formats: ["TV", "TV_SHORT"] },
-  { label: "Movies", formats: ["MOVIE"] },
-  { label: "OVA / ONA / Specials", formats: ["OVA", "ONA", "SPECIAL", "MUSIC", null] },
-];
-
 export default async function SeasonalPage({ params }: { params: Promise<Params> }) {
   const parsed = parseParams(await params);
   if (!parsed) notFound();
@@ -43,11 +38,6 @@ export default async function SeasonalPage({ params }: { params: Promise<Params>
 
   const prev = prevSeason(season, year);
   const next = nextSeason(season, year);
-
-  const grouped = GROUPS.map((g) => ({
-    label: g.label,
-    anime: anime.filter((a: AnimeSummary) => g.formats.includes(a.format ?? null)),
-  })).filter((g) => g.anime.length > 0);
 
   return (
     <PageShell width="browse" className="flex flex-col gap-8">
@@ -71,17 +61,16 @@ export default async function SeasonalPage({ params }: { params: Promise<Params>
         </nav>
       </header>
 
-      {grouped.length === 0 ? (
+      {anime.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-16 text-center text-muted-foreground">
           No titles synced for this season yet.
         </p>
       ) : (
-        grouped.map((g) => (
-          <section key={g.label} aria-label={g.label} className="space-y-3">
-            <h2 className="text-lg font-semibold tracking-tight">{g.label}</h2>
-            <AnimeGrid anime={g.anime} priorityCount={g.label === "TV" ? 6 : 0} />
-          </section>
-        ))
+        // useSearchParams needs a Suspense boundary; the header above stays in
+        // the prerendered HTML while the interactive grid hydrates.
+        <Suspense fallback={null}>
+          <SeasonalView anime={anime} />
+        </Suspense>
       )}
     </PageShell>
   );
