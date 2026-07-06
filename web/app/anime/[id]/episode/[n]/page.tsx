@@ -51,36 +51,40 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
 
   return (
     <PageShell width="reading" className="flex flex-col gap-6">
-      <header className="flex items-center gap-4">
-        <Link
-          href={animeHref(anime)}
-          className="relative h-20 w-14 shrink-0 overflow-hidden rounded bg-muted"
-        >
-          {anime.cover_image && (
-            <Image src={anime.cover_image} alt="" fill sizes="56px" className="object-cover" />
-          )}
-        </Link>
-        <div className="min-w-0 flex-1">
-          <Link href={animeHref(anime)} className="text-sm text-muted-foreground hover:text-primary">
-            {displayTitle(anime)}
+      <header className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <Link
+            href={animeHref(anime)}
+            className="relative h-20 w-14 shrink-0 overflow-hidden rounded bg-muted"
+          >
+            {anime.cover_image && (
+              <Image src={anime.cover_image} alt="" fill sizes="56px" className="object-cover" />
+            )}
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">
-            Episode {episode.number}
-            {episode.title ? ` — ${episode.title}` : ""}
-          </h1>
-          {episode.airing_at && (
-            <p className="text-xs text-muted-foreground">
-              {upcoming
-                ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
-                : `Aired ${airDateLabel(episode.airing_at)}`}
-            </p>
-          )}
+          <div className="min-w-0 flex-1">
+            <Link href={animeHref(anime)} className="text-sm text-muted-foreground hover:text-primary">
+              {displayTitle(anime)}
+            </Link>
+            <h1 className="text-xl font-bold tracking-tight">
+              Episode {episode.number}
+              {episode.title ? ` — ${episode.title}` : ""}
+            </h1>
+            {episode.airing_at && (
+              <p className="text-xs text-muted-foreground">
+                {upcoming
+                  ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
+                  : `Aired ${airDateLabel(episode.airing_at)}`}
+              </p>
+            )}
+          </div>
         </div>
-        <nav aria-label="Episode navigation" className="flex shrink-0 gap-1.5 text-sm">
+        {/* Nav drops to its own full-width row on mobile so the title never
+            fights the prev/next buttons for horizontal space (M0.4). */}
+        <nav aria-label="Episode navigation" className="flex gap-1.5 text-sm md:shrink-0">
           {prev && (
             <Link
               href={`/anime/${anime.id}/episode/${prev}`}
-              className="rounded-md border border-border px-2.5 py-1.5 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              className="flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:min-h-0 md:px-2.5 md:py-1.5"
             >
               ← {prev}
             </Link>
@@ -88,7 +92,7 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
           {next && (
             <Link
               href={`/anime/${anime.id}/episode/${next}`}
-              className="rounded-md border border-border px-2.5 py-1.5 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              className="flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:min-h-0 md:px-2.5 md:py-1.5"
             >
               {next} →
             </Link>

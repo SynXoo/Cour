@@ -49,7 +49,7 @@ export default async function SeriesDiscussionPage({ params }: { params: Promise
             <Image src={anime.cover_image} alt="" fill sizes="56px" className="object-cover" />
           )}
         </Link>
-        <div>
+        <div className="min-w-0 flex-1">
           <Link href={animeHref(anime)} className="text-sm text-muted-foreground hover:text-primary">
             {displayTitle(anime)}
           </Link>

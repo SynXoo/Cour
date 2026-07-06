@@ -15,7 +15,7 @@ export function EpisodeList({ animeId, episodes }: { animeId: number; episodes: 
           <li key={e.number}>
             <Link
               href={`/anime/${animeId}/episode/${e.number}`}
-              className="flex items-baseline justify-between gap-3 rounded-md border border-border/60 bg-card px-3 py-2 text-sm transition-colors hover:border-primary/50"
+              className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border/60 bg-card px-3 py-2 text-sm transition-colors hover:border-primary/50 md:min-h-0 md:items-baseline"
             >
               <span className="flex min-w-0 items-baseline gap-2">
                 <span className="font-semibold">Ep {e.number}</span>

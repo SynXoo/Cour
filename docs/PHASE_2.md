@@ -41,9 +41,10 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 - [x] **M0.3** (F) Mobile foundation — bottom tab bar (Home · Seasonal ·
   Search · My list · Menu), header collapse on mobile, safe-area insets,
   toaster to top-center on mobile.
-- [ ] **M0.4** (O) 375 px audit — episode-thread header, composer row, tap
-  targets ≥ 44 px, grids; fix what the sweep finds; verify at
-  375/768/1024/1440/2560, light + dark.
+- [x] **M0.4** (O) 375 px audit — episode-thread header restructured (nav
+  drops to its own row < `md`; title/date stop wrapping) + 44 px touch
+  targets across the whole thread surface below `md`; app-wide button/input
+  mobile sizing deferred (Parking lot). Verified 375/768/1440/2560.
 - [ ] **M0.5** (O) Seasonal controls — client-side sort
   (popularity/score/title/weekday/newest) + genre/format/weekday filter
   chips, URL-synced; flatten format groups on any non-default view;
@@ -101,6 +102,7 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
 - 2026-07-06 · plan · Roadmap + ledger written; watch-party design moved to WATCH_PARTIES.md; sqlc drift committed. Nothing implemented yet.
+- 2026-07-06 · M0.4 · 375 px thread-surface audit. **Episode-thread header** (`episode/[n]/page.tsx`) rebuilt: outer `flex-col md:flex-row`, cover+title in a `min-w-0 flex-1` group, and the prev/next `nav` drops to its own row below `md` — at 375 the worst case (Chiikawa Ep 358, 3-digit + both arrows) stopped forcing "Episode 358" and the airing date to wrap; inline on the right at ≥ 768. **44 px touch targets below `md`** on every thread control, compact restored at `md:` (twMerge dedupes the base `h-8`/`h-7` vs `h-11`): composer timestamp input / Spoilers label / submit (thread-view.tsx), the Chronological/Timeline sort toggle, comment reaction chips + `+` picker (min-h/​min-w-11) + Reply/Delete (comment-item.tsx), the prev/next pills, and the episode-list rows (`episode-list.tsx`, the thread entry point; `items-center md:items-baseline` so the taller row centers). Emoji-picker popover got `flex-wrap max-w-[calc(100vw-2rem)]` so the bigger 44 px buttons can't overflow the viewport (residual: a popover opened from a far-right, heavily-reacted `+` can still clip — Parking lot). **Breakpoint = `md` (768)** deliberately, to match M0.3's bottom-nav boundary (`md:hidden`) so 640–768 (landscape phones) isn't a mixed "mobile nav + compact controls" band. Grids (AnimeGrid) already fine at 375 from M0.2. All changes are structural (flex/min-h/breakpoints), so light == dark by construction (preview can't screenshot light — M0.3). Verified in preview at 375/768/1440/2560; typecheck/lint/12 vitest green. **Not done:** app-wide button/input mobile sizing — the anime-detail action bar (Add to list/favorite/Discussion/Write review = 32–34 px) and other pages still use the compact scale; consistent fix belongs at the primitive level (→ Parking lot), not scattered page-by-page.
 - 2026-07-06 · M0.3 · New `components/bottom-nav.tsx` (client): fixed `md:hidden` tab bar — Home `/` (exact) · Seasonal · Search · My list + a Menu tab opening a bottom `Sheet` with the links the collapsed header drops (Schedule/Trending/Hidden Gems, + Feed/For you when authed); active tab = filled icon + `text-primary` (bell's pattern), `aria-current`, 64 px bar so every target ≥ 44 px. Header nav is `hidden md:flex`; bell+avatar wrapped in `ml-auto` cluster; tagline now `lg:inline` only (at 768 it forced the nav row into a 42 px scroll). Safe-areas: `viewport` export (`viewportFit: "cover"`) + env() padding on header top, bar bottom/l/r, sheet bottom; body gets `pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0` so content/footer clear the bar. Toaster: `position` flips top-center/bottom-right via new `lib/hooks/use-is-mobile.ts` (`useSyncExternalStore` matchMedia < 768) + `mobileOffset` top safe-area calc. 4 vitest tests (tabs/active/sheet/authed-menu). Verified in preview at 375/768/1440, dark + light-via-inspect (the preview screenshot pipeline force-darkens light pages — computed styles are the source of truth; a real light screenshot needs a normal browser). Also: fixed `Taskfile.yml` line 24 — unquoted `{{.CLI_ARGS}}` in a flow array is invalid YAML, `task` couldn't parse the file at all (pre-existing since scaffold; quote such entries). Committed the prior session's uncommitted side-rail parking-lot note. M0.4 note: bar/header/toaster done — audit composer row, thread header, tap targets page-by-page.
 - 2026-07-06 · M0.2 · New `components/page-shell.tsx` (`browse` `max-w-[88rem]` / `reading` `max-w-3xl` / `form` `max-w-xl`) replaces the one-size `max-w-6xl` `<main>` shell; root `<main>` is now bare `flex-1` and each of the 16 content pages wraps its content in `PageShell` (root `<div>` merged into it via `className`, or wrapped where `<article>`/client semantics must stay). `AnimeGrid` + the search-skeleton grid → `grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]` (reproduces the old 2→6 breakpoints and scales to 8 cols on the wide shell). Header/footer track `max-w-[88rem]`; `(auth)` layout gained `px-4` (main no longer supplies it); feed/notifications lost their self-centering `mx-auto max-w-2xl` (now the reading column); settings kept `max-w-xl`. Preview-verified at 375/1440: browse 1408 / reading 768 / form 576, header 1408 over the 768 reading column, `AnimeGrid` 8 cols @1440 & 2 cols @375 with no h-overflow, anime-detail `-mx-4`/`-mt-6` banner bleed intact, login padded at 375, 0 console errors. typecheck/lint/vitest all green.
 - 2026-07-06 · M0.1 · Delayed `Skeleton` (globals.css `.skeleton`: opacity-0 → 150 ms fade, then pulse; replaces `animate-pulse`; reduced-motion keeps the delay, drops the pulse) + `keepPreviousData` on `useMyList`. Verified logged-in in the dev preview at 375 px + desktop: 0 skeletons across 5 tab switches incl. never-fetched tabs; typecheck/lint/vitest green. SSR-prefetch **deferred** — one-time rotating refresh tokens + an RSC render can't re-set the rotated cookie, so a server-side refresh would revoke the client session; needs a non-rotating SSR read path (→ Parking lot). Prod-build A/B repro not re-run (needs a web-image rebuild); hypothesis B (skeleton flash) is code-confirmed and the two fixes apply regardless (§M0). Env notes for next session: `web/node_modules` was half-linked — `pnpm install` relinked it; `cour-web` launch config gained `autoPort` (Docker holds :3000 when the compose stack is up).
@@ -108,6 +110,27 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **App-wide mobile tap targets** (from M0.4) — the compact design scale
+  (`Button` `h-8`/`sm` `h-7`, `Input` `h-8`) means most non-thread controls
+  are 28–34 px on touch: the anime-detail action bar (Add to list /
+  favorite / Discussion / Write review), and presumably my-list tabs+rows,
+  search, settings, filter chips. M0.4 fixed the *thread surface* only.
+  Doing the rest page-by-page would leave the app inconsistent (some 44 px,
+  some 32 px), so the right fix is at the **primitive level**: give
+  `Button`/`Input` a mobile-default height (`h-11 md:h-8`, matching the
+  M0.3/M0.4 `md` boundary) or a dedicated touch size, then re-verify each
+  page's layout at 375/768/1440 (a header/nav/card/form-wide change — its
+  own task, not a drive-by). Keep the compact scale for pointer (≥ `md`).
+
+- **Reaction-picker edge clipping** (from M0.4) — the emoji popover is
+  `position: absolute` anchored to the `+` trigger with no edge detection.
+  M0.4 capped its width (`flex-wrap max-w-[calc(100vw-2rem)]`) so it can't
+  exceed the viewport, but a popover opened from a `+` sitting far-right
+  (a comment with several reaction chips before it) can still clip its right
+  edge on narrow screens. Proper fix: flip anchor side / shift-into-view
+  (a small `useLayoutEffect`, or Radix `Popover`/`DropdownMenu` with
+  collision handling instead of the bare `<details>`).
 
 - **SSR session/list hydration** (deferred from M0.1) — prefetch the
   signed-in list on the server so the list page arrives populated, *without*

@@ -73,9 +73,10 @@ export function ThreadView({
       ) : null}
 
       {allowTimestamps && anyTimestamps && (
-        <div className="flex gap-1" role="group" aria-label="Comment ordering">
+        <div className="flex gap-1.5" role="group" aria-label="Comment ordering">
           <Button
             size="sm"
+            className="h-11 md:h-7"
             variant={sort === "time" ? "secondary" : "ghost"}
             onClick={() => setSort("time")}
           >
@@ -83,6 +84,7 @@ export function ThreadView({
           </Button>
           <Button
             size="sm"
+            className="h-11 md:h-7"
             variant={sort === "timeline" ? "secondary" : "ghost"}
             onClick={() => setSort("timeline")}
           >
@@ -185,7 +187,7 @@ function Composer({
           <span className="truncate">
             Replying to <strong>@{replyTo.author.username}</strong>: {replyTo.body.slice(0, 80)}
           </span>
-          <button type="button" onClick={clearReply} className="shrink-0 underline">
+          <button type="button" onClick={clearReply} className="shrink-0 px-1 py-1 underline">
             cancel
           </button>
         </p>
@@ -205,14 +207,19 @@ function Composer({
             onChange={(e) => setStamp(e.target.value)}
             placeholder="12:34"
             aria-label="Moment timestamp (mm:ss)"
-            className="w-24 font-mono text-sm"
+            className="h-11 w-24 font-mono text-sm md:h-8"
           />
         )}
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label className="flex min-h-11 items-center gap-1.5 text-xs text-muted-foreground md:min-h-0">
           <Checkbox checked={spoilers} onCheckedChange={(v) => setSpoilers(v === true)} />
           Spoilers
         </label>
-        <Button size="sm" onClick={post} disabled={posting || body.trim() === ""} className="ml-auto">
+        <Button
+          size="sm"
+          onClick={post}
+          disabled={posting || body.trim() === ""}
+          className="ml-auto h-11 px-4 md:h-7 md:px-2.5"
+        >
           {posting ? "Posting…" : replyTo ? "Reply" : "Comment"}
         </Button>
       </div>

@@ -110,7 +110,7 @@ export function CommentItem({
         )}
 
         {!comment.deleted && (
-          <footer className="flex flex-wrap items-center gap-1">
+          <footer className="flex flex-wrap items-center gap-1.5">
             {visibleReactions.map((r) => (
               <button
                 key={r.emoji}
@@ -118,7 +118,7 @@ export function CommentItem({
                 onClick={() => react(r.emoji, !r.mine)}
                 aria-pressed={r.mine}
                 aria-label={`${r.emoji} reaction, ${r.count}`}
-                className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-2 text-xs transition-colors md:min-h-0 md:py-0.5 ${
                   r.mine
                     ? "border-primary/60 bg-primary/15 text-primary"
                     : "border-border/60 text-muted-foreground hover:border-primary/40"
@@ -128,11 +128,16 @@ export function CommentItem({
               </button>
             ))}
             <ReactionPicker onPick={(emoji) => react(emoji, true)} />
-            <Button variant="ghost" size="sm" onClick={() => onReply(comment)}>
+            <Button variant="ghost" size="sm" className="h-11 md:h-7" onClick={() => onReply(comment)}>
               Reply
             </Button>
             {isMine && (
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={remove}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-11 text-muted-foreground md:h-7"
+                onClick={remove}
+              >
                 Delete
               </Button>
             )}
@@ -192,18 +197,18 @@ function ReactionPicker({ onPick }: { onPick: (emoji: Emoji) => void }) {
   return (
     <details className="group relative">
       <summary
-        className="cursor-pointer list-none rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs text-muted-foreground hover:border-primary/40"
+        className="inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-full border border-dashed border-border/60 px-2 text-xs text-muted-foreground hover:border-primary/40 md:min-h-0 md:min-w-0 md:py-0.5"
         aria-label="Add reaction"
       >
         +
       </summary>
-      <div className="absolute z-10 mt-1 flex gap-1 rounded-lg border border-border bg-popover p-1.5 shadow-md">
+      <div className="absolute z-10 mt-1 flex max-w-[calc(100vw-2rem)] flex-wrap gap-1 rounded-lg border border-border bg-popover p-1.5 shadow-md">
         {(Object.keys(EMOJI_GLYPHS) as Emoji[]).map((emoji) => (
           <button
             key={emoji}
             type="button"
             aria-label={`React ${emoji}`}
-            className="rounded p-1 text-base hover:bg-accent"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-base hover:bg-accent md:min-h-0 md:min-w-0 md:p-1"
             onClick={(e) => {
               onPick(emoji);
               (e.currentTarget.closest("details") as HTMLDetailsElement).open = false;
