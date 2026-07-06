@@ -130,3 +130,36 @@
     @apply font-mono;
   }
 }
+
+/* Delayed skeleton: mounts invisible and fades in only after ~150 ms, so
+   sub-150 ms loads (a warm API, a cache-hit tab) never flash a gray "table"
+   for a couple of frames. The pulse starts after the fade so the two never
+   fight over opacity. One rule fixes every <Skeleton> in the app. */
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.skeleton {
+  animation:
+    skeleton-in 200ms ease-out 150ms both,
+    skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 350ms infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    /* Keep the anti-flash delay; drop the pulsing. */
+    animation: skeleton-in 1ms linear 150ms both;
+  }
+}

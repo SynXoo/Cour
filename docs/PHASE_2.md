@@ -31,9 +31,10 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 ### M0 — polish
 
-- [ ] **M0.1** (O) Flash fix — reproduce against a *prod* build first
-  (hypothesis A vs B, §M0); then delayed `Skeleton` (~150 ms),
-  `keepPreviousData` on `/list` tabs, SSR-prefetch the first list tab.
+- [x] **M0.1** (O) Flash fix — delayed `Skeleton` (~150 ms fade-in) +
+  `keepPreviousData` on `/list` tabs (both verified in preview).
+  SSR-prefetch deferred — fights the rotating-refresh auth model (§M0,
+  Parking lot).
 - [ ] **M0.2** (O) Layout widths — per-surface `PageShell` (browse ~88 rem /
   reading `max-w-3xl` / forms narrow), `AnimeGrid` auto-fill columns,
   header tracks the widest shell.
@@ -100,10 +101,21 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
 - 2026-07-06 · plan · Roadmap + ledger written; watch-party design moved to WATCH_PARTIES.md; sqlc drift committed. Nothing implemented yet.
+- 2026-07-06 · M0.1 · Delayed `Skeleton` (globals.css `.skeleton`: opacity-0 → 150 ms fade, then pulse; replaces `animate-pulse`; reduced-motion keeps the delay, drops the pulse) + `keepPreviousData` on `useMyList`. Verified logged-in in the dev preview at 375 px + desktop: 0 skeletons across 5 tab switches incl. never-fetched tabs; typecheck/lint/vitest green. SSR-prefetch **deferred** — one-time rotating refresh tokens + an RSC render can't re-set the rotated cookie, so a server-side refresh would revoke the client session; needs a non-rotating SSR read path (→ Parking lot). Prod-build A/B repro not re-run (needs a web-image rebuild); hypothesis B (skeleton flash) is code-confirmed and the two fixes apply regardless (§M0). Env notes for next session: `web/node_modules` was half-linked — `pnpm install` relinked it; `cour-web` launch config gained `autoPort` (Docker holds :3000 when the compose stack is up).
 
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **SSR session/list hydration** (deferred from M0.1) — prefetch the
+  signed-in list on the server so the list page arrives populated, *without*
+  tripping refresh-token rotation. Refresh tokens are one-time-use with
+  family-revocation, and an RSC render can't set the rotated cookie, so a
+  naive server-side refresh logs the user out. Options: a Next middleware
+  that refreshes and hands the access token to the render via a request
+  header, or a short-lived non-rotating SSR read token. Bonus: also lets
+  `app/page.tsx` render the authed home shell without a client refresh
+  round-trip (helps M3's cookie-branch routing).
 
 ---
 
@@ -205,8 +217,17 @@ Fixes worth doing regardless of which hypothesis wins:
 - **Delayed skeletons** everywhere: skeletons mount invisible and fade in
   after ~150 ms (CSS `animation-delay` on the `Skeleton` component), so
   sub-150 ms loads never flash. One component change fixes every page.
-- SSR-prefetch the first `/list` tab (React Query `HydrationBoundary`) so
-  the signed-in list page arrives populated.
+- ~~SSR-prefetch the first `/list` tab~~ — **deferred** (M0.1). Prefetching
+  an authed endpoint server-side means running the refresh-cookie exchange
+  during SSR, but refresh tokens are one-time-use with family-revocation on
+  reuse ([`auth/service.go` `Refresh`](../backend/internal/auth/service.go))
+  and an RSC page render can't set the rotated cookie back on the response.
+  The client's own mount-time `refreshSession()` would then replay the
+  now-used token and get the whole session revoked — logging the user out on
+  every visit to a prefetched page. Safe hydration needs a non-rotating SSR
+  read path (middleware refresh + header hand-off, or a short-lived server
+  token); that's its own task — see the Parking lot. The delayed skeleton +
+  `keepPreviousData` already remove the flash without it.
 
 ### Layout widths (the "big margins" question)
 

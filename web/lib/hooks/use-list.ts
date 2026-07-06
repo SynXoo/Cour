@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -91,6 +92,9 @@ export function useMyList(status?: ListStatus) {
   return useQuery({
     queryKey: [...myListKey, status ?? "all"],
     enabled: sessionStatus === "authed",
+    // Switching tabs keeps the previous tab's rows on screen while the next
+    // set loads, so tab changes never flash the skeleton (§M0.1).
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const res = await browserApi.GET("/me/list", {
         params: { query: status ? { status } : {} },
