@@ -658,6 +658,12 @@ type ReviewVote struct {
 	CreatedAt time.Time
 }
 
+type SyncState struct {
+	Key       string
+	Value     []byte
+	UpdatedAt time.Time
+}
+
 type Thread struct {
 	ID             int64
 	AnimeID        int64
