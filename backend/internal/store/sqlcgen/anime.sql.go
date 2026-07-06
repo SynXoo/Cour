@@ -11,7 +11,7 @@ import (
 )
 
 const browseAnime = `-- name: BrowseAnime :many
-SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc FROM anime
+SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc, mal_id FROM anime
 WHERE is_adult = FALSE
   AND ($3::text IS NULL OR $3 = ANY(genres))
   AND ($4::int IS NULL OR season_year = $4)
@@ -76,6 +76,7 @@ func (q *Queries) BrowseAnime(ctx context.Context, arg BrowseAnimeParams) ([]Ani
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SearchDoc,
+			&i.MalID,
 		); err != nil {
 			return nil, err
 		}
@@ -106,7 +107,7 @@ func (q *Queries) EnsureEpisodes(ctx context.Context, arg EnsureEpisodesParams) 
 }
 
 const getAnime = `-- name: GetAnime :one
-SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc FROM anime WHERE id = $1
+SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc, mal_id FROM anime WHERE id = $1
 `
 
 func (q *Queries) GetAnime(ctx context.Context, id int64) (Anime, error) {
@@ -142,12 +143,13 @@ func (q *Queries) GetAnime(ctx context.Context, id int64) (Anime, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SearchDoc,
+		&i.MalID,
 	)
 	return i, err
 }
 
 const getAnimeByAniListID = `-- name: GetAnimeByAniListID :one
-SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc FROM anime WHERE anilist_id = $1
+SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc, mal_id FROM anime WHERE anilist_id = $1
 `
 
 func (q *Queries) GetAnimeByAniListID(ctx context.Context, anilistID int32) (Anime, error) {
@@ -183,12 +185,13 @@ func (q *Queries) GetAnimeByAniListID(ctx context.Context, anilistID int32) (Ani
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SearchDoc,
+		&i.MalID,
 	)
 	return i, err
 }
 
 const listAiringBetween = `-- name: ListAiringBetween :many
-SELECT episodes.id, episodes.anime_id, episodes.number, episodes.title, episodes.airing_at, episodes.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc
+SELECT episodes.id, episodes.anime_id, episodes.number, episodes.title, episodes.airing_at, episodes.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM episodes
 JOIN anime ON anime.id = episodes.anime_id
 WHERE episodes.airing_at >= $1 AND episodes.airing_at < $2 AND anime.is_adult = FALSE
@@ -250,6 +253,7 @@ func (q *Queries) ListAiringBetween(ctx context.Context, arg ListAiringBetweenPa
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 		); err != nil {
 			return nil, err
 		}
@@ -262,7 +266,7 @@ func (q *Queries) ListAiringBetween(ctx context.Context, arg ListAiringBetweenPa
 }
 
 const listAnimeByIDs = `-- name: ListAnimeByIDs :many
-SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc FROM anime WHERE id = ANY($1::bigint[])
+SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc, mal_id FROM anime WHERE id = ANY($1::bigint[])
 `
 
 func (q *Queries) ListAnimeByIDs(ctx context.Context, dollar_1 []int64) ([]Anime, error) {
@@ -304,6 +308,7 @@ func (q *Queries) ListAnimeByIDs(ctx context.Context, dollar_1 []int64) ([]Anime
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SearchDoc,
+			&i.MalID,
 		); err != nil {
 			return nil, err
 		}
@@ -376,7 +381,7 @@ func (q *Queries) ListReleasingAnime(ctx context.Context) ([]ListReleasingAnimeR
 }
 
 const listSeason = `-- name: ListSeason :many
-SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc FROM anime
+SELECT id, anilist_id, title_romaji, title_english, title_native, synonyms, description, format, status, season, season_year, episodes_count, duration_min, genres, tags, studios, cover_image, cover_color, banner_image, average_score, popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode, synced_at, created_at, updated_at, search_doc, mal_id FROM anime
 WHERE season = $1 AND season_year = $2 AND is_adult = FALSE
 ORDER BY popularity DESC
 LIMIT $3
@@ -427,6 +432,7 @@ func (q *Queries) ListSeason(ctx context.Context, arg ListSeasonParams) ([]Anime
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SearchDoc,
+			&i.MalID,
 		); err != nil {
 			return nil, err
 		}
@@ -439,7 +445,7 @@ func (q *Queries) ListSeason(ctx context.Context, arg ListSeasonParams) ([]Anime
 }
 
 const searchAnime = `-- name: SearchAnime :many
-SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc,
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id,
   GREATEST(
     ts_rank(search_doc, websearch_to_tsquery('simple', $2::text)),
     word_similarity($2, title_romaji),
@@ -509,6 +515,7 @@ func (q *Queries) SearchAnime(ctx context.Context, arg SearchAnimeParams) ([]Sea
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 			&i.Rank,
 		); err != nil {
 			return nil, err
@@ -527,10 +534,10 @@ INSERT INTO anime (
   format, status, season, season_year, episodes_count, duration_min, genres,
   tags, studios, cover_image, cover_color, banner_image, average_score,
   popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode,
-  synced_at
+  mal_id, synced_at
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-  $18, $19, $20, $21, $22, $23, $24, now()
+  $18, $19, $20, $21, $22, $23, $24, $25, now()
 )
 ON CONFLICT (anilist_id) DO UPDATE SET
   title_romaji = EXCLUDED.title_romaji,
@@ -556,6 +563,7 @@ ON CONFLICT (anilist_id) DO UPDATE SET
   is_adult = EXCLUDED.is_adult,
   next_airing_at = EXCLUDED.next_airing_at,
   next_airing_episode = EXCLUDED.next_airing_episode,
+  mal_id = EXCLUDED.mal_id,
   synced_at = now()
 RETURNING id
 `
@@ -585,6 +593,7 @@ type UpsertAnimeParams struct {
 	IsAdult           bool
 	NextAiringAt      *time.Time
 	NextAiringEpisode *int32
+	MalID             *int32
 }
 
 func (q *Queries) UpsertAnime(ctx context.Context, arg UpsertAnimeParams) (int64, error) {
@@ -613,6 +622,7 @@ func (q *Queries) UpsertAnime(ctx context.Context, arg UpsertAnimeParams) (int64
 		arg.IsAdult,
 		arg.NextAiringAt,
 		arg.NextAiringEpisode,
+		arg.MalID,
 	)
 	var id int64
 	err := row.Scan(&id)

@@ -10,7 +10,7 @@ import (
 )
 
 const userCurrentlyWatching = `-- name: UserCurrentlyWatching :many
-SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, le.progress
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id, le.progress
 FROM list_entries le
 JOIN anime ON anime.id = le.anime_id
 WHERE le.user_id = $1 AND le.status = 'watching'
@@ -62,6 +62,7 @@ func (q *Queries) UserCurrentlyWatching(ctx context.Context, userID int64) ([]Us
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 			&i.Progress,
 		); err != nil {
 			return nil, err

@@ -84,7 +84,7 @@ func (q *Queries) CreateReview(ctx context.Context, arg CreateReviewParams) (Rev
 }
 
 const getReview = `-- name: GetReview :one
-SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.body, reviews.score, reviews.has_spoilers, reviews.helpful_count, reviews.deleted_at, reviews.created_at, reviews.updated_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc
+SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.body, reviews.score, reviews.has_spoilers, reviews.helpful_count, reviews.deleted_at, reviews.created_at, reviews.updated_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM reviews
 JOIN users ON users.id = reviews.user_id
 JOIN anime ON anime.id = reviews.anime_id
@@ -152,6 +152,7 @@ func (q *Queries) GetReview(ctx context.Context, id int64) (GetReviewRow, error)
 		&i.Anime.CreatedAt,
 		&i.Anime.UpdatedAt,
 		&i.Anime.SearchDoc,
+		&i.Anime.MalID,
 	)
 	return i, err
 }
@@ -207,7 +208,7 @@ func (q *Queries) GetUserReviewForAnime(ctx context.Context, arg GetUserReviewFo
 }
 
 const listReviewsByUser = `-- name: ListReviewsByUser :many
-SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.body, reviews.score, reviews.has_spoilers, reviews.helpful_count, reviews.deleted_at, reviews.created_at, reviews.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc
+SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.body, reviews.score, reviews.has_spoilers, reviews.helpful_count, reviews.deleted_at, reviews.created_at, reviews.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM reviews
 JOIN anime ON anime.id = reviews.anime_id
 WHERE reviews.user_id = $1 AND reviews.deleted_at IS NULL
@@ -275,6 +276,7 @@ func (q *Queries) ListReviewsByUser(ctx context.Context, arg ListReviewsByUserPa
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 		); err != nil {
 			return nil, err
 		}

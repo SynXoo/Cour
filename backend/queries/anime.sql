@@ -4,10 +4,10 @@ INSERT INTO anime (
   format, status, season, season_year, episodes_count, duration_min, genres,
   tags, studios, cover_image, cover_color, banner_image, average_score,
   popularity, anilist_trending, is_adult, next_airing_at, next_airing_episode,
-  synced_at
+  mal_id, synced_at
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-  $18, $19, $20, $21, $22, $23, $24, now()
+  $18, $19, $20, $21, $22, $23, $24, $25, now()
 )
 ON CONFLICT (anilist_id) DO UPDATE SET
   title_romaji = EXCLUDED.title_romaji,
@@ -33,6 +33,7 @@ ON CONFLICT (anilist_id) DO UPDATE SET
   is_adult = EXCLUDED.is_adult,
   next_airing_at = EXCLUDED.next_airing_at,
   next_airing_episode = EXCLUDED.next_airing_episode,
+  mal_id = EXCLUDED.mal_id,
   synced_at = now()
 RETURNING id;
 

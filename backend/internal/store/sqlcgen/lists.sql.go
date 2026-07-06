@@ -155,7 +155,7 @@ func (q *Queries) IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, e
 }
 
 const listEntriesForUser = `-- name: ListEntriesForUser :many
-SELECT list_entries.id, list_entries.user_id, list_entries.anime_id, list_entries.status, list_entries.score, list_entries.progress, list_entries.started_on, list_entries.finished_on, list_entries.created_at, list_entries.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc
+SELECT list_entries.id, list_entries.user_id, list_entries.anime_id, list_entries.status, list_entries.score, list_entries.progress, list_entries.started_on, list_entries.finished_on, list_entries.created_at, list_entries.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM list_entries
 JOIN anime ON anime.id = list_entries.anime_id
 WHERE list_entries.user_id = $1
@@ -224,6 +224,7 @@ func (q *Queries) ListEntriesForUser(ctx context.Context, arg ListEntriesForUser
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 		); err != nil {
 			return nil, err
 		}
@@ -236,7 +237,7 @@ func (q *Queries) ListEntriesForUser(ctx context.Context, arg ListEntriesForUser
 }
 
 const listFavorites = `-- name: ListFavorites :many
-SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, favorites.created_at AS favorited_at
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id, favorites.created_at AS favorited_at
 FROM favorites
 JOIN anime ON anime.id = favorites.anime_id
 WHERE favorites.user_id = $1
@@ -293,6 +294,7 @@ func (q *Queries) ListFavorites(ctx context.Context, arg ListFavoritesParams) ([
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 			&i.FavoritedAt,
 		); err != nil {
 			return nil, err

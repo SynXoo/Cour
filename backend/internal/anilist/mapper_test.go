@@ -17,6 +17,7 @@ func intp(n int) *int       { return &n }
 func TestMapMediaFull(t *testing.T) {
 	m := Media{
 		ID:          154587,
+		IDMal:       intp(52991),
 		Title:       Title{Romaji: "Sousou no Frieren", English: strp("Frieren"), Native: strp("葬送のフリーレン")},
 		Synonyms:    []string{"Frieren at the Funeral"},
 		Description: strp("An elf outlives her party."),
@@ -44,6 +45,7 @@ func TestMapMediaFull(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.EqualValues(t, 154587, p.AnilistID)
+	assert.EqualValues(t, 52991, *p.MalID)
 	assert.Equal(t, "Sousou no Frieren", p.TitleRomaji)
 	assert.Equal(t, "Frieren", *p.TitleEnglish)
 	assert.Equal(t, sqlcgen.AnimeFormatTV, *p.Format)
@@ -90,6 +92,7 @@ func TestMapMediaRejectsBrokenRecords(t *testing.T) {
 func TestMapMediaNilSlicesBecomeEmpty(t *testing.T) {
 	p, err := MapMedia(Media{ID: 2, Title: Title{Romaji: "Y"}})
 	require.NoError(t, err)
+	assert.Nil(t, p.MalID, "absent idMal maps to NULL, not 0")
 	assert.NotNil(t, p.Synonyms)
 	assert.NotNil(t, p.Genres)
 	assert.JSONEq(t, "[]", string(p.Tags))

@@ -76,7 +76,7 @@ func (q *Queries) FavoriteRowsForUsers(ctx context.Context, dollar_1 []int64) ([
 }
 
 const hiddenGems = `-- name: HiddenGems :many
-SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc FROM anime
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id FROM anime
 WHERE anime.season_year >= $1
   AND anime.is_adult = FALSE
   AND anime.average_score IS NOT NULL
@@ -142,6 +142,7 @@ func (q *Queries) HiddenGems(ctx context.Context, arg HiddenGemsParams) ([]Anime
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SearchDoc,
+			&i.MalID,
 		); err != nil {
 			return nil, err
 		}

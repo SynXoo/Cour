@@ -538,6 +538,7 @@ type Anime struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	SearchDoc         interface{}
+	MalID             *int32
 }
 
 type Comment struct {

@@ -3,6 +3,7 @@
   "media": [
     {
       "id": 185692,
+      "idMal": 60552,
       "title": {
         "romaji": "Kabushiki Gaisha Magi Lumiere 2nd Season",
         "english": "Magilumiere Magical Girls Inc. Season 2",
@@ -94,6 +95,7 @@
     },
     {
       "id": 195833,
+      "idMal": 62031,
       "title": {
         "romaji": "Honoo no Toukyuujyo Dodge Danko",
         "english": "Flaming Dodgeball Girl Danko",
@@ -160,6 +162,7 @@
     },
     {
       "id": 152677,
+      "idMal": 52480,
       "title": {
         "romaji": "Tantei wa mou, Shindeiru. Season 2",
         "english": null,
@@ -229,6 +232,7 @@
     },
     {
       "id": 207327,
+      "idMal": 63423,
       "title": {
         "romaji": "Doko yori mo Tooi Basho ni Iru Kimi e",
         "english": "To You in the Beyond",
@@ -297,6 +301,7 @@
     },
     {
       "id": 199426,
+      "idMal": 62590,
       "title": {
         "romaji": "Hotel Inhumans 2nd Season",
         "english": null,
@@ -338,6 +343,7 @@
     },
     {
       "id": 209642,
+      "idMal": 63772,
       "title": {
         "romaji": "Maebashi Witches: Majo Minarai no Emoemories",
         "english": null,
@@ -420,6 +426,7 @@
     },
     {
       "id": 213846,
+      "idMal": 64546,
       "title": {
         "romaji": "Ore dake Level Up na Ken: Beyond the System",
         "english": "Solo Leveling: Beyond the System",
@@ -469,6 +476,7 @@
     },
     {
       "id": 213860,
+      "idMal": 64553,
       "title": {
         "romaji": "Lv2 Kara Cheat datta Moto Yuusha Kouho no Mattari Isekai Life 2nd Season",
         "english": null,
@@ -522,6 +530,7 @@
     },
     {
       "id": 202079,
+      "idMal": 62907,
       "title": {
         "romaji": "Oji-san wa Kawaii Mono ga Osuki.",
         "english": null,
@@ -588,6 +597,7 @@
     },
     {
       "id": 1735,
+      "idMal": 1735,
       "title": {
         "romaji": "NARUTO: Shippuuden",
         "english": "Naruto: Shippuden",
@@ -814,6 +824,7 @@
     },
     {
       "id": 113415,
+      "idMal": 40748,
       "title": {
         "romaji": "Jujutsu Kaisen",
         "english": "JUJUTSU KAISEN",
@@ -1015,6 +1026,7 @@
     },
     {
       "id": 186822,
+      "idMal": 61035,
       "title": {
         "romaji": "Ki ni Natteru Hito ga Otoko ja Nakatta",
         "english": "The Guy She Was Interested In Wasn't a Guy At All",
@@ -1116,6 +1128,7 @@
     },
     {
       "id": 100166,
+      "idMal": 36456,
       "title": {
         "romaji": "Boku no Hero Academia 3",
         "english": "My Hero Academia Season 3",
@@ -1272,6 +1285,7 @@
     },
     {
       "id": 155723,
+      "idMal": null,
       "title": {
         "romaji": "Wushen Zhuzai: Da Wei Pian",
         "english": null,
@@ -1331,6 +1345,7 @@
     },
     {
       "id": 142274,
+      "idMal": 50418,
       "title": {
         "romaji": "Ninjala",
         "english": "Ninjala the Animation",
@@ -1413,6 +1428,7 @@
     },
     {
       "id": 190569,
+      "idMal": 61483,
       "title": {
         "romaji": "Tenmaku no Jaadugar",
         "english": "Jaadugar: A Witch in Mongolia",
@@ -1569,6 +1585,7 @@
     },
     {
       "id": 211711,
+      "idMal": 64107,
       "title": {
         "romaji": "Boku no Hero Academia: I am a hero too",
         "english": null,
@@ -1626,6 +1643,7 @@
     },
     {
       "id": 196356,
+      "idMal": 62102,
       "title": {
         "romaji": "Ibitte Konai Gibo to Gishi",
         "english": null,
@@ -1704,6 +1722,7 @@
     },
     {
       "id": 212144,
+      "idMal": 64180,
       "title": {
         "romaji": "Kizu darake Seijo yori Houfuku wo Komete Season2",
         "english": null,
@@ -1762,6 +1781,7 @@
     },
     {
       "id": 156822,
+      "idMal": 53580,
       "title": {
         "romaji": "Tensei Shitara Slime Datta Ken 3rd Season",
         "english": "That Time I Got Reincarnated as a Slime Season 3",
@@ -1987,6 +2007,7 @@
     },
     {
       "id": 2406,
+      "idMal": 2406,
       "title": {
         "romaji": "Sazae-san",
         "english": null,
@@ -2064,6 +2085,7 @@
     },
     {
       "id": 196187,
+      "idMal": 62076,
       "title": {
         "romaji": "Super no Ura de Yani Suu Futari",
         "english": "Smoking Behind the Supermarket with You",
@@ -2157,6 +2179,7 @@
     },
     {
       "id": 213657,
+      "idMal": 64503,
       "title": {
         "romaji": "Yozakura-san Chi no Daisakusen 2nd Season Part 2",
         "english": "Mission: Yozakura Family Season 2 Part 2",
@@ -2199,6 +2222,7 @@
     },
     {
       "id": 211778,
+      "idMal": 64084,
       "title": {
         "romaji": "Sekai Saikyou no Majo, Hajimemashita",
         "english": null,
@@ -2264,6 +2288,7 @@
     },
     {
       "id": 199547,
+      "idMal": 62601,
       "title": {
         "romaji": "MARRIAGETOXIN",
         "english": "MARRIAGETOXIN",
@@ -2445,6 +2470,7 @@
     },
     {
       "id": 174576,
+      "idMal": 58059,
       "title": {
         "romaji": "Tsue to Tsurugi no Wistoria",
         "english": "Wistoria: Wand and Sword",
@@ -2605,6 +2631,7 @@
     },
     {
       "id": 170019,
+      "idMal": 56876,
       "title": {
         "romaji": "Otonari no Tenshi-sama ni Itsunomanika Dame Ningen ni Sareteita Ken 2nd Season",
         "english": "The Angel Next Door Spoils Me Rotten2",
@@ -2733,6 +2760,7 @@
     },
     {
       "id": 192800,
+      "idMal": 61686,
       "title": {
         "romaji": "Heroine? Seijo? Iie, All Works Maid desu (Ko)!",
         "english": "Heroine? Saint? No, I’m an All-Works Maid (And Proud of It)!",
@@ -2870,6 +2898,7 @@
     },
     {
       "id": 207674,
+      "idMal": 63468,
       "title": {
         "romaji": "Ushiro no Shoumen Kamui-san",
         "english": "KAMUI ---He's behind you",
@@ -2954,6 +2983,7 @@
     },
     {
       "id": 199340,
+      "idMal": 62582,
       "title": {
         "romaji": "Seishun Buta Yarou wa Dear Friend no Yume wo Minai",
         "english": "Rascal Does Not Dream of a Dear Friend",
@@ -3047,6 +3077,7 @@
     },
     {
       "id": 194393,
+      "idMal": 61839,
       "title": {
         "romaji": "Aishiteru Game wo Owarasetai",
         "english": "I Want to End this Love Game",
@@ -3135,6 +3166,7 @@
     },
     {
       "id": 132474,
+      "idMal": 48760,
       "title": {
         "romaji": "Gaikotsu Kishi-sama, Tadaima Isekai e Odekakechuu",
         "english": "Skeleton Knight in Another World",
@@ -3319,6 +3351,7 @@
     },
     {
       "id": 127720,
+      "idMal": 45576,
       "title": {
         "romaji": "Mushoku Tensei: Isekai Ittara Honki Dasu Part 2",
         "english": "Mushoku Tensei: Jobless Reincarnation Cour 2",
@@ -3532,6 +3565,7 @@
     },
     {
       "id": 213188,
+      "idMal": 64388,
       "title": {
         "romaji": "Jueshi Zhan Hun 2",
         "english": null,
@@ -3584,6 +3618,7 @@
     },
     {
       "id": 186742,
+      "idMal": 61014,
       "title": {
         "romaji": "Toaru Anbu no ITEM",
         "english": null,
@@ -3630,6 +3665,7 @@
     },
     {
       "id": 194317,
+      "idMal": 61831,
       "title": {
         "romaji": "Saikyou no Ousama, Nidome no Jinsei wa Nani wo Suru? 2nd Season",
         "english": "The Beginning After the End Season 2",
@@ -3778,6 +3814,7 @@
     },
     {
       "id": 213878,
+      "idMal": null,
       "title": {
         "romaji": "4th Project (Provisional Title)",
         "english": null,
@@ -3816,6 +3853,7 @@
     },
     {
       "id": 199111,
+      "idMal": 62542,
       "title": {
         "romaji": "Grand Blue Season 3",
         "english": "Grand Blue Dreaming Season 3",
@@ -3886,6 +3924,7 @@
     },
     {
       "id": 178083,
+      "idMal": 59088,
       "title": {
         "romaji": "Tokyo Revengers: Santen Sensou-hen",
         "english": null,
@@ -3955,6 +3994,7 @@
     },
     {
       "id": 160803,
+      "idMal": 54344,
       "title": {
         "romaji": "Mahou Shoujo Ikusei Keikaku: restart",
         "english": null,
@@ -4035,6 +4075,7 @@
     },
     {
       "id": 171110,
+      "idMal": 57466,
       "title": {
         "romaji": "Honzuki no Gekokujou: Ryoushu no Youjo",
         "english": "Ascendance of a Bookworm: Adopted Daughter of an Archduke",
@@ -4217,6 +4258,7 @@
     },
     {
       "id": 171627,
+      "idMal": 57555,
       "title": {
         "romaji": "Chainsaw Man: Reze-hen",
         "english": "Chainsaw Man – The Movie: Reze Arc",
@@ -4421,6 +4463,7 @@
     },
     {
       "id": 198376,
+      "idMal": 62430,
       "title": {
         "romaji": "BanG Dream! Yume∞Mita",
         "english": "BanG Dream! YUME∞MITA",
@@ -4552,6 +4595,7 @@
     },
     {
       "id": 212799,
+      "idMal": 64326,
       "title": {
         "romaji": "Marronnier Oukoku no Shichinin no Kishi",
         "english": null,
@@ -4625,6 +4669,7 @@
     },
     {
       "id": 269,
+      "idMal": 269,
       "title": {
         "romaji": "BLEACH",
         "english": "Bleach",
@@ -4844,6 +4889,7 @@
     },
     {
       "id": 210031,
+      "idMal": 63832,
       "title": {
         "romaji": "Seihantai na Kimi to Boku 2nd Season",
         "english": "You and I Are Polar Opposites Season 2",
@@ -4953,6 +4999,7 @@
     },
     {
       "id": 211308,
+      "idMal": 64012,
       "title": {
         "romaji": "THE RIBBON HERO",
         "english": "THE RIBBON HERO",
@@ -5057,6 +5104,7 @@
     },
     {
       "id": 209032,
+      "idMal": 63667,
       "title": {
         "romaji": "Mahou no Shimai LuluttoLilly Part 2",
         "english": null,
@@ -5112,6 +5160,7 @@
     },
     {
       "id": 16498,
+      "idMal": 16498,
       "title": {
         "romaji": "Shingeki no Kyojin",
         "english": "Attack on Titan",
@@ -5328,6 +5377,7 @@
     },
     {
       "id": 208824,
+      "idMal": 63641,
       "title": {
         "romaji": "Plannosaurus Gachi Koseibutsu-bu",
         "english": null,
@@ -5376,6 +5426,7 @@
     },
     {
       "id": 213658,
+      "idMal": 64505,
       "title": {
         "romaji": "Diamond no Ace act II: Second Season Part 2",
         "english": null,
@@ -5437,6 +5488,7 @@
     },
     {
       "id": 213359,
+      "idMal": 64435,
       "title": {
         "romaji": "Yami Shibai 17",
         "english": "Theatre of Darkness: Yamishibai 17",
@@ -5485,6 +5537,7 @@
     },
     {
       "id": 202386,
+      "idMal": 62933,
       "title": {
         "romaji": "Shou 3 Ashibe QQ Goma-chan",
         "english": null,
@@ -5529,6 +5582,7 @@
     },
     {
       "id": 197754,
+      "idMal": 62331,
       "title": {
         "romaji": "LIAR GAME",
         "english": "LIAR GAME",
@@ -5631,6 +5685,7 @@
     },
     {
       "id": 133007,
+      "idMal": 48820,
       "title": {
         "romaji": "Mahou Shoujo Madoka☆Magica: Walpurgis no Kaiten",
         "english": "Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
@@ -5732,6 +5787,7 @@
     },
     {
       "id": 205116,
+      "idMal": 63219,
       "title": {
         "romaji": "Aware! Meisaku-kun (2026)",
         "english": null,
@@ -5777,6 +5833,7 @@
     },
     {
       "id": 190143,
+      "idMal": 61443,
       "title": {
         "romaji": "Shunkashuutou Daikousha: Haru no Mai",
         "english": "Agents of the Four Seasons: Dance of Spring",
@@ -5972,6 +6029,7 @@
     },
     {
       "id": 205909,
+      "idMal": 63293,
       "title": {
         "romaji": "Hotaru no Yomeiri",
         "english": "Firefly Wedding",
@@ -6064,6 +6122,7 @@
     },
     {
       "id": 212888,
+      "idMal": 64340,
       "title": {
         "romaji": "Temppal: Item no Chikara",
         "english": "Overgeared",
@@ -6115,6 +6174,7 @@
     },
     {
       "id": 11061,
+      "idMal": 11061,
       "title": {
         "romaji": "HUNTER×HUNTER (2011)",
         "english": "Hunter x Hunter (2011)",
@@ -6322,6 +6382,7 @@
     },
     {
       "id": 185262,
+      "idMal": 60460,
       "title": {
         "romaji": "Hell Mode: Yarikomi-zuki no Gamer wa Haisettei no Isekai de Musou Suru",
         "english": "HELL MODE: The Hardcore Gamer Dominates in Another World with Garbage Balancing",
@@ -6471,6 +6532,7 @@
     },
     {
       "id": 124080,
+      "idMal": 42897,
       "title": {
         "romaji": "Horimiya",
         "english": "Horimiya",
@@ -6634,6 +6696,7 @@
     },
     {
       "id": 210482,
+      "idMal": 61469,
       "title": {
         "romaji": "JoJo no Kimyou na Bouken: Steel Ball Run - 2nd - 3rd STAGE",
         "english": "STEEL BALL RUN JoJo's Bizarre Adventure 2nd - 3rd STAGE",
@@ -6711,6 +6774,7 @@
     },
     {
       "id": 172463,
+      "idMal": 57658,
       "title": {
         "romaji": "Jujutsu Kaisen: Shimetsu Kaiyuu - Zenpen",
         "english": "JUJUTSU KAISEN Season 3: The Culling Game Part 1",
@@ -6897,6 +6961,7 @@
     },
     {
       "id": 135865,
+      "idMal": 49233,
       "title": {
         "romaji": "Youjo Senki II",
         "english": "Saga of Tanya the Evil Season 2",
@@ -7035,6 +7100,7 @@
     },
     {
       "id": 209669,
+      "idMal": 63780,
       "title": {
         "romaji": "Hanazakari no Kimitachi e 2nd Season",
         "english": "Hana-Kimi Season 2",
@@ -7155,6 +7221,7 @@
     },
     {
       "id": 203490,
+      "idMal": 63061,
       "title": {
         "romaji": "Uchi no Otouto-domo ga Sumimasen",
         "english": "Please Excuse My Younger Brothers",
@@ -7281,6 +7348,7 @@
     },
     {
       "id": 202429,
+      "idMal": 62973,
       "title": {
         "romaji": "Wareware wa Uchuujin",
         "english": null,
@@ -7341,6 +7409,7 @@
     },
     {
       "id": 213506,
+      "idMal": 64378,
       "title": {
         "romaji": "Hokuto no Ken: Kenou-gun Zako-tachi no Banka 2",
         "english": null,
@@ -7386,6 +7455,7 @@
     },
     {
       "id": 185756,
+      "idMal": 60601,
       "title": {
         "romaji": "Tensei Kizoku, Kantei Skill de Nariagaru 3rd Season",
         "english": null,
@@ -7432,6 +7502,7 @@
     },
     {
       "id": 5114,
+      "idMal": 5114,
       "title": {
         "romaji": "Hagane no Renkinjutsushi: FULLMETAL ALCHEMIST",
         "english": "Fullmetal Alchemist: Brotherhood",
@@ -7712,6 +7783,7 @@
     },
     {
       "id": 120377,
+      "idMal": 42310,
       "title": {
         "romaji": "Cyberpunk: Edgerunners",
         "english": "Cyberpunk: Edgerunners",
@@ -7905,6 +7977,7 @@
     },
     {
       "id": 198946,
+      "idMal": 62513,
       "title": {
         "romaji": "Clevatess II: Majuu no Ou to Itsuwari no Yuusha Denshou",
         "english": "Clevatess Season 2",
@@ -7972,6 +8045,7 @@
     },
     {
       "id": 209800,
+      "idMal": 63047,
       "title": {
         "romaji": "Yoroi Shinden Samurai Troopers Part 2",
         "english": "Yoroi-Shinden Samurai Troopers Cour 2",
@@ -8022,6 +8096,7 @@
     },
     {
       "id": 213733,
+      "idMal": 64531,
       "title": {
         "romaji": "Kanojo Saimin",
         "english": null,
@@ -8077,6 +8152,7 @@
     },
     {
       "id": 200455,
+      "idMal": 62753,
       "title": {
         "romaji": "Yowaki MAX Reijou Nano ni, Ratsuwan Konyakusha-sama no Kake ni Notte Shimatta",
         "english": null,
@@ -8148,6 +8224,7 @@
     },
     {
       "id": 145064,
+      "idMal": 51009,
       "title": {
         "romaji": "Jujutsu Kaisen 2nd Season",
         "english": "JUJUTSU KAISEN Season 2",
@@ -8373,6 +8450,7 @@
     },
     {
       "id": 105333,
+      "idMal": 38691,
       "title": {
         "romaji": "Dr. STONE",
         "english": "Dr. STONE",
@@ -8495,6 +8573,7 @@
     },
     {
       "id": 207141,
+      "idMal": 63403,
       "title": {
         "romaji": "Yani Neko",
         "english": "Chainsmoker Cat",
@@ -8620,6 +8699,7 @@
     },
     {
       "id": 197715,
+      "idMal": 62322,
       "title": {
         "romaji": "LV999 no Murabito",
         "english": "The Villager of Level 999",
@@ -8745,6 +8825,7 @@
     },
     {
       "id": 198409,
+      "idMal": 62435,
       "title": {
         "romaji": "Sekai Saikyou no Kouei: Meikyuukoku no Shinjin Tansakusha",
         "english": "The World's Strongest Rearguard",
@@ -8809,6 +8890,7 @@
     },
     {
       "id": 200230,
+      "idMal": 62683,
       "title": {
         "romaji": "Let's Go Kaikigumi",
         "english": "Let's go KAIKIGUMI",
@@ -8869,6 +8951,7 @@
     },
     {
       "id": 195516,
+      "idMal": 61987,
       "title": {
         "romaji": "Kusuriya no Hitorigoto 3rd Season",
         "english": "The Apothecary Diaries Season 3",
@@ -8963,6 +9046,7 @@
     },
     {
       "id": 178868,
+      "idMal": 59204,
       "title": {
         "romaji": "Magic Knight Rayearth (2026)",
         "english": null,
@@ -9082,6 +9166,7 @@
     },
     {
       "id": 202390,
+      "idMal": 39168,
       "title": {
         "romaji": "Girls und Panzer: Saishuushou 5",
         "english": null,
@@ -9144,6 +9229,7 @@
     },
     {
       "id": 209132,
+      "idMal": 63713,
       "title": {
         "romaji": "Junket Bank",
         "english": null,
@@ -9203,6 +9289,7 @@
     },
     {
       "id": 199748,
+      "idMal": 62617,
       "title": {
         "romaji": "Koko wa Ore ni Makasete Saki ni Ike to Ittekara 10-nen ga Tattara Densetsu ni Natteita.",
         "english": "I Became a Legend After My 10 Year-Long Last Stand",
@@ -9298,6 +9385,7 @@
     },
     {
       "id": 199594,
+      "idMal": 62615,
       "title": {
         "romaji": "Tetsuryou! meet with Tetsudou Musume",
         "english": null,
@@ -9369,6 +9457,7 @@
     },
     {
       "id": 213845,
+      "idMal": null,
       "title": {
         "romaji": "Here U Are",
         "english": null,
@@ -9430,6 +9519,7 @@
     },
     {
       "id": 167152,
+      "idMal": 56009,
       "title": {
         "romaji": "Yuusha Kei ni Shosu: Choubatsu Yuusha 9004-tai Keimu Kiroku",
         "english": "Sentenced to Be a Hero",
@@ -9584,6 +9674,7 @@
     },
     {
       "id": 3588,
+      "idMal": 3588,
       "title": {
         "romaji": "Soul Eater",
         "english": "Soul Eater",
@@ -9775,6 +9866,7 @@
     },
     {
       "id": 8336,
+      "idMal": 8336,
       "title": {
         "romaji": "Hanakappa",
         "english": null,
@@ -9837,6 +9929,7 @@
     },
     {
       "id": 187260,
+      "idMal": 61126,
       "title": {
         "romaji": "Kimi ga Shinu made Koi wo Shitai",
         "english": "I Want to Love You Till Your Dying Day",
@@ -9963,6 +10056,7 @@
     },
     {
       "id": 197178,
+      "idMal": 62233,
       "title": {
         "romaji": "ONE PIECE HEROINES",
         "english": "ONE PIECE HEROINES",
@@ -10027,6 +10121,7 @@
     },
     {
       "id": 169080,
+      "idMal": 56613,
       "title": {
         "romaji": "Azur Lane: Bisoku Zenshin! Ni!!",
         "english": "Anime AzurLane: Slow Ahead! Season 2",
@@ -10087,6 +10182,7 @@
     },
     {
       "id": 235,
+      "idMal": 235,
       "title": {
         "romaji": "Meitantei Conan",
         "english": "Detective Conan",
@@ -10298,6 +10394,7 @@
     },
     {
       "id": 176373,
+      "idMal": null,
       "title": {
         "romaji": "Shiranuhi",
         "english": null,
@@ -10352,6 +10449,7 @@
     },
     {
       "id": 172192,
+      "idMal": 57612,
       "title": {
         "romaji": "Kikansha no Mahou wa Tokubetsu desu 2nd Season",
         "english": "A Returner's Magic Should be Special Season 2",
@@ -10409,6 +10507,7 @@
     },
     {
       "id": 169581,
+      "idMal": 56733,
       "title": {
         "romaji": "Magical★Explorer: Eroge no Yuujin Chara ni Tensei Shitakedo, Game Chishiki Tsukatte Jiyuu ni Ikiru",
         "english": null,
@@ -10481,6 +10580,7 @@
     },
     {
       "id": 21613,
+      "idMal": 32615,
       "title": {
         "romaji": "Youjo Senki",
         "english": "Saga of Tanya the Evil",
@@ -10618,6 +10718,7 @@
     },
     {
       "id": 213356,
+      "idMal": 64398,
       "title": {
         "romaji": "Guangyin Zhi Wai 2",
         "english": "Beyond Time's Gaze 2",
@@ -10674,6 +10775,7 @@
     },
     {
       "id": 209541,
+      "idMal": 63773,
       "title": {
         "romaji": "PetitCure: Precure Fairies Season 3",
         "english": null,
@@ -10741,6 +10843,7 @@
     },
     {
       "id": 205896,
+      "idMal": 63292,
       "title": {
         "romaji": "Shinja Zero no Megami-sama to Hajimeru Isekai Kouryaku",
         "english": null,
@@ -10802,6 +10905,7 @@
     },
     {
       "id": 147105,
+      "idMal": 51553,
       "title": {
         "romaji": "Tongari Boushi no Atelier",
         "english": "Witch Hat Atelier",
@@ -10985,6 +11089,7 @@
     },
     {
       "id": 186863,
+      "idMal": 61048,
       "title": {
         "romaji": "Neko to Ryuu",
         "english": "The Cat and the Dragon",
@@ -11098,6 +11203,7 @@
     },
     {
       "id": 196223,
+      "idMal": 62079,
       "title": {
         "romaji": "Cyborg 009: Nemesis",
         "english": null,
@@ -11190,6 +11296,7 @@
     },
     {
       "id": 196219,
+      "idMal": 62080,
       "title": {
         "romaji": "Mujikaku Seijo wa Kyou mo Muishiki ni Chikara wo Tare Nagasu",
         "english": "The Oblivious Saint Can't Contain Her Power",
@@ -11322,6 +11429,7 @@
     },
     {
       "id": 209504,
+      "idMal": 63752,
       "title": {
         "romaji": "Suterare Seijo no Isekai Gohantabi: Kakure Skill de Camping Car wo Shoukan Shimashita",
         "english": "The Forsaken Saintess and Her Foodie Roadtrip in Another World",
@@ -11403,6 +11511,7 @@
     },
     {
       "id": 213665,
+      "idMal": 63878,
       "title": {
         "romaji": "Migawari Reijou wo Sukutta no wa Reikoku Mujihi na Koori no Ouji no Ai deshita",
         "english": null,
@@ -11452,6 +11561,7 @@
     },
     {
       "id": 195604,
+      "idMal": 61967,
       "title": {
         "romaji": "Black Clover 2nd Season",
         "english": "Black Clover Season 2",
@@ -11516,6 +11626,7 @@
     },
     {
       "id": 211877,
+      "idMal": 64131,
       "title": {
         "romaji": "Kanojo no Tomodachi",
         "english": null,
@@ -11571,6 +11682,7 @@
     },
     {
       "id": 108465,
+      "idMal": 39535,
       "title": {
         "romaji": "Mushoku Tensei: Isekai Ittara Honki Dasu",
         "english": "Mushoku Tensei: Jobless Reincarnation",
@@ -11822,6 +11934,7 @@
     },
     {
       "id": 163134,
+      "idMal": 54857,
       "title": {
         "romaji": "Re:Zero kara Hajimeru Isekai Seikatsu 3rd Season",
         "english": "Re:ZERO -Starting Life in Another World- Season 3",
@@ -12033,6 +12146,7 @@
     },
     {
       "id": 213831,
+      "idMal": null,
       "title": {
         "romaji": "Snack HAZAMA",
         "english": "Snack Hazama",
@@ -12100,6 +12214,7 @@
     },
     {
       "id": 212575,
+      "idMal": 64291,
       "title": {
         "romaji": "Sare Tsuma wa Ubawaretai",
         "english": null,
@@ -12143,6 +12258,7 @@
     },
     {
       "id": 209499,
+      "idMal": 63751,
       "title": {
         "romaji": "TANK CHAIR: Sensha Isu",
         "english": null,
@@ -12199,6 +12315,7 @@
     },
     {
       "id": 104276,
+      "idMal": 38408,
       "title": {
         "romaji": "Boku no Hero Academia 4",
         "english": "My Hero Academia Season 4",
@@ -12382,6 +12499,7 @@
     },
     {
       "id": 202508,
+      "idMal": 62981,
       "title": {
         "romaji": "Kami no Shizuku",
         "english": "The Drops of God",
@@ -12488,6 +12606,7 @@
     },
     {
       "id": 159309,
+      "idMal": 54000,
       "title": {
         "romaji": "Otomege Sekai wa Mob ni Kibishii Sekai desu 2",
         "english": "Trapped in a Dating Sim: The World of Otome Games is Tough for Mobs Season 2",
@@ -12587,6 +12706,7 @@
     },
     {
       "id": 204060,
+      "idMal": 63100,
       "title": {
         "romaji": "Tetsunabe no Jan!",
         "english": "Iron Wok Jan!",
@@ -12654,6 +12774,7 @@
     },
     {
       "id": 212617,
+      "idMal": 64373,
       "title": {
         "romaji": "Inaka ni wa Kore Kurai Shika Goraku ga nai",
         "english": null,
@@ -12711,6 +12832,7 @@
     },
     {
       "id": 194116,
+      "idMal": 64019,
       "title": {
         "romaji": "Saishuu Gakushou Hibike! Euphonium - Kouhen",
         "english": null,
@@ -12770,6 +12892,7 @@
     },
     {
       "id": 207329,
+      "idMal": 63431,
       "title": {
         "romaji": "Tsuihou Sareta Cheat Fuyo Majutsushi wa Kimama na Second Life wo Ouka Suru.: Ore wa Buki dake ja Naku, Arayuru Mono ni \"Kyouka Point\" wo Fuyo Dekiru shi, Ore no Ishi de Itsudemo Kouka wo Kaijo Dekiru kedo, Nokotta Hitotachi Daijoubu?",
         "english": null,
@@ -12830,6 +12953,7 @@
     },
     {
       "id": 195600,
+      "idMal": 62001,
       "title": {
         "romaji": "Yomi no Tsugai",
         "english": "Daemons of the Shadow Realm",
@@ -12955,6 +13079,7 @@
     },
     {
       "id": 202957,
+      "idMal": 63042,
       "title": {
         "romaji": "Meitantei Precure!",
         "english": "Star Detective Precure!",
@@ -13102,6 +13227,7 @@
     },
     {
       "id": 206523,
+      "idMal": 63352,
       "title": {
         "romaji": "Onegai AiPri",
         "english": null,
@@ -13236,6 +13362,7 @@
     },
     {
       "id": 200637,
+      "idMal": 62811,
       "title": {
         "romaji": "Kimi no Koto ga Dai Dai Dai Dai Daisuki na 100-nin no Kanojo 3rd Season",
         "english": "The 100 Girlfriends Who Really, Really, Really, Really, REALLY Love You Season 3",
@@ -13322,6 +13449,7 @@
     },
     {
       "id": 182205,
+      "idMal": 59970,
       "title": {
         "romaji": "Tensei Shitara Slime Datta Ken 4th Season",
         "english": "That Time I Got Reincarnated as a Slime Season 4",
@@ -13519,6 +13647,7 @@
     },
     {
       "id": 97940,
+      "idMal": 34572,
       "title": {
         "romaji": "Black Clover",
         "english": "Black Clover",
@@ -13767,6 +13896,7 @@
     },
     {
       "id": 166613,
+      "idMal": 55825,
       "title": {
         "romaji": "Jigokuraku 2nd Season",
         "english": "Hell’s Paradise Season 2",
@@ -13903,6 +14033,7 @@
     },
     {
       "id": 184356,
+      "idMal": 63316,
       "title": {
         "romaji": "Dogul Wang",
         "english": "Tomb Raider King",
@@ -13986,6 +14117,7 @@
     },
     {
       "id": 185542,
+      "idMal": 60522,
       "title": {
         "romaji": "Gaikotsu Kishi-sama, Tadaima Isekai e Odekakechuu II",
         "english": "Skeleton Knight in Another World Season 2",
@@ -14072,6 +14204,7 @@
     },
     {
       "id": 207254,
+      "idMal": null,
       "title": {
         "romaji": "Thunder 3",
         "english": "Thunder 3",
@@ -14159,6 +14292,7 @@
     },
     {
       "id": 176314,
+      "idMal": 58518,
       "title": {
         "romaji": "Sasaki to Pii-chan Season 2",
         "english": "Sasaki and Peeps Season 2",
@@ -14229,6 +14363,7 @@
     },
     {
       "id": 189046,
+      "idMal": 61316,
       "title": {
         "romaji": "Re:Zero kara Hajimeru Isekai Seikatsu 4th Season",
         "english": "Re:ZERO -Starting Life in Another World- Season 4",
@@ -14424,6 +14559,7 @@
     },
     {
       "id": 177637,
+      "idMal": 58878,
       "title": {
         "romaji": "Sayonara Lara",
         "english": "Goodbye, Lara",
@@ -14506,6 +14642,7 @@
     },
     {
       "id": 213067,
+      "idMal": 64405,
       "title": {
         "romaji": "Netorareta Bakunyuu Tsuma-tachi 2",
         "english": null,
@@ -14555,6 +14692,7 @@
     },
     {
       "id": 213686,
+      "idMal": 64529,
       "title": {
         "romaji": "NTR Kishi",
         "english": null,
@@ -14600,6 +14738,7 @@
     },
     {
       "id": 213097,
+      "idMal": 64357,
       "title": {
         "romaji": "TOMICA \u0026 TOM Season 2",
         "english": null,
@@ -14649,6 +14788,7 @@
     },
     {
       "id": 180745,
+      "idMal": 59708,
       "title": {
         "romaji": "Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e 4th Season 2-nensei-hen Ichi Gakki",
         "english": "Classroom of the Elite 4th Season: Second Year, First Semester",
@@ -14878,6 +15018,7 @@
     },
     {
       "id": 182483,
+      "idMal": 60028,
       "title": {
         "romaji": "Hime Kishi wa Barbaroi no Yome",
         "english": "The Warrior Princess and the Barbaric King",
@@ -15051,6 +15192,7 @@
     },
     {
       "id": 208225,
+      "idMal": 63537,
       "title": {
         "romaji": "\"Kimi wo Aisuru Ki wa nai\" to Itta Jiki Koushaku-sama ga Naze ka Dekiai Shitekimasu",
         "english": "The Duke’s Son Claims He Won’t Love Me Yet Showers Me with Adoration",
@@ -15129,6 +15271,7 @@
     },
     {
       "id": 204011,
+      "idMal": 63098,
       "title": {
         "romaji": "PSYЯEN",
         "english": null,
@@ -15198,6 +15341,7 @@
     },
     {
       "id": 207191,
+      "idMal": 63409,
       "title": {
         "romaji": "Doumo, Suki na Hito ni Horegusuri wo Irai Sareta Majo desu.",
         "english": null,
@@ -15271,6 +15415,7 @@
     },
     {
       "id": 161645,
+      "idMal": 54492,
       "title": {
         "romaji": "Kusuriya no Hitorigoto",
         "english": "The Apothecary Diaries",
@@ -15491,6 +15636,7 @@
     },
     {
       "id": 103303,
+      "idMal": 62856,
       "title": {
         "romaji": "Nijusseiki Denki Mokuroku: Eureka・Evrika",
         "english": "Sparks of Tomorrow",
@@ -15578,6 +15724,7 @@
     },
     {
       "id": 201667,
+      "idMal": 62883,
       "title": {
         "romaji": "Bungou Stray Dogs Wan! 2",
         "english": "Bungo Stray Dogs WAN! 2",
@@ -15696,6 +15843,7 @@
     },
     {
       "id": 206814,
+      "idMal": 63367,
       "title": {
         "romaji": "Dragon Ball Super: Beerus",
         "english": null,
@@ -15772,6 +15920,7 @@
     },
     {
       "id": 178972,
+      "idMal": 59217,
       "title": {
         "romaji": "GROTESQQQUE",
         "english": null,
@@ -15831,6 +15980,7 @@
     },
     {
       "id": 199007,
+      "idMal": 62524,
       "title": {
         "romaji": "#Zombie Sagashitemasu",
         "english": null,
@@ -15894,6 +16044,7 @@
     },
     {
       "id": 187869,
+      "idMal": 61186,
       "title": {
         "romaji": "Kamiina Botan, Yoeru Sugata wa Yuri no Hana",
         "english": "Botan Kamiina Fully Blossoms When Drunk",
@@ -16083,6 +16234,7 @@
     },
     {
       "id": 204656,
+      "idMal": 63151,
       "title": {
         "romaji": "mofusand",
         "english": null,
@@ -16161,6 +16313,7 @@
     },
     {
       "id": 188525,
+      "idMal": 61280,
       "title": {
         "romaji": "Kore Kaite Shine",
         "english": "Draw This, Then Die!",
@@ -16296,6 +16449,7 @@
     },
     {
       "id": 213666,
+      "idMal": 63514,
       "title": {
         "romaji": "Perfect Addiction",
         "english": "Perfect Addiction",
@@ -16360,6 +16514,7 @@
     },
     {
       "id": 187402,
+      "idMal": 61153,
       "title": {
         "romaji": "Tensei shita Dai Seijo wa, Seijo de Aru Koto wo Hita Kakusu",
         "english": null,
@@ -16425,6 +16580,7 @@
     },
     {
       "id": 209983,
+      "idMal": 63817,
       "title": {
         "romaji": "Hell Mode: Yarikomi-zuki no Gamer wa Haisettei no Isekai de Musou Suru 2nd Season",
         "english": "HELL MODE: The Hardcore Gamer Dominates in Another World with Garbage Balancing Season 2",
@@ -16493,6 +16649,7 @@
     },
     {
       "id": 207809,
+      "idMal": 63489,
       "title": {
         "romaji": "Sora wa Akai Kawa no Hotori",
         "english": "Red River",
@@ -16603,6 +16760,7 @@
     },
     {
       "id": 208754,
+      "idMal": 63736,
       "title": {
         "romaji": "Unanswered//butterfly: Sword Art Online",
         "english": null,
@@ -16666,6 +16824,7 @@
     },
     {
       "id": 200294,
+      "idMal": 62696,
       "title": {
         "romaji": "Choujun! Choujou Senpai",
         "english": null,
@@ -16738,6 +16897,7 @@
     },
     {
       "id": 966,
+      "idMal": 966,
       "title": {
         "romaji": "Crayon Shin-chan",
         "english": "Shin Chan",
@@ -16836,6 +16996,7 @@
     },
     {
       "id": 178789,
+      "idMal": 59193,
       "title": {
         "romaji": "Mushoku Tensei III: Isekai Ittara Honki Dasu",
         "english": "Mushoku Tensei: Jobless Reincarnation Season 3",
@@ -17036,6 +17197,7 @@
     },
     {
       "id": 203880,
+      "idMal": 63082,
       "title": {
         "romaji": "Reiwa no Dara-san",
         "english": "Dara-san of the Reiwa Era",
@@ -17190,6 +17352,7 @@
     },
     {
       "id": 186541,
+      "idMal": 60948,
       "title": {
         "romaji": "Mezametara Saikyou Soubi to Uchuusen-mochi datta node, Ikkodate Mezashite Youhei to shite Jiyuu ni Ikitai",
         "english": "Reborn as a Space Mercenary: I Woke Up Piloting the Strongest Starship!",
@@ -17275,6 +17438,7 @@
     },
     {
       "id": 203473,
+      "idMal": 63053,
       "title": {
         "romaji": "Kyoufu Collector",
         "english": null,
@@ -17328,6 +17492,7 @@
     },
     {
       "id": 202250,
+      "idMal": 62922,
       "title": {
         "romaji": "Kashita Maryoku wa [Revo Barai] de Kyousei Choushuu",
         "english": null,
@@ -17395,6 +17560,7 @@
     },
     {
       "id": 213847,
+      "idMal": 61546,
       "title": {
         "romaji": "Star Wars: Visions - Kyuuninme no Jedi",
         "english": "Star Wars: Visions Presents - The Ninth Jedi",
@@ -17451,6 +17617,7 @@
     },
     {
       "id": 213750,
+      "idMal": 64519,
       "title": {
         "romaji": "Bananya At-Home Party",
         "english": null,
@@ -17540,6 +17707,7 @@
     },
     {
       "id": 140842,
+      "idMal": 50250,
       "title": {
         "romaji": "Chiikawa",
         "english": "Chiikawa",
@@ -17645,6 +17813,7 @@
     },
     {
       "id": 187166,
+      "idMal": 61107,
       "title": {
         "romaji": "Ganso! Bandori-chan",
         "english": "GANSO! BanG Dream Chan",
@@ -17792,6 +17961,7 @@
     },
     {
       "id": 21,
+      "idMal": 21,
       "title": {
         "romaji": "ONE PIECE",
         "english": "ONE PIECE",
@@ -18204,6 +18374,7 @@
     },
     {
       "id": 184492,
+      "idMal": 60310,
       "title": {
         "romaji": "Mairimashita! Iruma-kun 4",
         "english": "Welcome to Demon School! Iruma-kun Season 4",
@@ -18312,6 +18483,7 @@
     },
     {
       "id": 146065,
+      "idMal": 51179,
       "title": {
         "romaji": "Mushoku Tensei II: Isekai Ittara Honki Dasu",
         "english": "Mushoku Tensei: Jobless Reincarnation Season 2",
@@ -18576,6 +18748,7 @@
     },
     {
       "id": 154587,
+      "idMal": 52991,
       "title": {
         "romaji": "Sousou no Frieren",
         "english": "Frieren: Beyond Journey’s End",
@@ -18783,6 +18956,7 @@
     },
     {
       "id": 208044,
+      "idMal": 63508,
       "title": {
         "romaji": "Rakudai Kenja no Gakuin Musou: Nidome no Tensei, S-Rank Cheat Majutsushi Boukenroku",
         "english": "From Overshadowed to Overpowered: Second Reincarnation of a Talentless Sage",
@@ -18946,6 +19120,7 @@
     },
     {
       "id": 205289,
+      "idMal": 63221,
       "title": {
         "romaji": "Norman the Snowman: Kodomo-tachi no Hitotsuboshi",
         "english": null,
@@ -18995,6 +19170,7 @@
     },
     {
       "id": 188388,
+      "idMal": 61269,
       "title": {
         "romaji": "DIGIMON BEATBREAK",
         "english": "DIGIMON BEATBREAK",
@@ -19162,6 +19338,7 @@
     },
     {
       "id": 205772,
+      "idMal": 63276,
       "title": {
         "romaji": "Candy Caries",
         "english": null,
@@ -19228,6 +19405,7 @@
     },
     {
       "id": 195571,
+      "idMal": 61999,
       "title": {
         "romaji": "Shuiro no Kamen",
         "english": "The Vermilion Mask",
@@ -19281,6 +19459,7 @@
     },
     {
       "id": 211270,
+      "idMal": 63788,
       "title": {
         "romaji": "Fei Ren Zai 3 Part 2",
         "english": null,
@@ -19336,6 +19515,7 @@
     },
     {
       "id": 194829,
+      "idMal": 61897,
       "title": {
         "romaji": "Katainaka no Ossan, Kensei ni Naru II",
         "english": "From Old Country Bumpkin to Master Swordsman Season 2",
@@ -19409,6 +19589,7 @@
     },
     {
       "id": 198709,
+      "idMal": 62476,
       "title": {
         "romaji": "Tefuda ga Oome no Victoria",
         "english": "Victoria of Many Faces",
@@ -19504,6 +19685,7 @@
     },
     {
       "id": 212308,
+      "idMal": 64210,
       "title": {
         "romaji": "Pan no Akachan (TV)",
         "english": null,
@@ -19586,6 +19768,7 @@
     },
     {
       "id": 199068,
+      "idMal": 62534,
       "title": {
         "romaji": "Shin Tennis no Ouji-sama: U-17 WORLD CUP Kesshou Member Ketteisen",
         "english": null,
@@ -19652,6 +19835,7 @@
     },
     {
       "id": 20,
+      "idMal": 20,
       "title": {
         "romaji": "NARUTO",
         "english": "Naruto",
@@ -19882,6 +20066,7 @@
     },
     {
       "id": 188529,
+      "idMal": 61254,
       "title": {
         "romaji": "Ugoku! Neko Mukashi Banashi",
         "english": "Cat Tales",
@@ -19973,6 +20158,7 @@
     },
     {
       "id": 191656,
+      "idMal": 61578,
       "title": {
         "romaji": "Seitokai ni mo Ana wa Aru!",
         "english": null,
@@ -20047,6 +20233,7 @@
     },
     {
       "id": 186497,
+      "idMal": 60852,
       "title": {
         "romaji": "Koori no Jouheki",
         "english": "The Ramparts of Ice",
@@ -20169,6 +20356,7 @@
     },
     {
       "id": 202269,
+      "idMal": 62936,
       "title": {
         "romaji": "Toumei na Yoru ni Kakeru Kimi to, Me ni Mienai Koi wo Shita.",
         "english": "Love Unseen Beneath the Clear Night Sky",
@@ -20249,6 +20437,7 @@
     },
     {
       "id": 202717,
+      "idMal": 63011,
       "title": {
         "romaji": "Chiikawa: Ningyo no Shima no Himitsu",
         "english": null,
@@ -20321,6 +20510,7 @@
     },
     {
       "id": 212574,
+      "idMal": 64292,
       "title": {
         "romaji": "Pure x Holic: Junketsu Otome to Kon’in Kankei!? The Animation",
         "english": null,
@@ -20371,6 +20561,7 @@
     },
     {
       "id": 213732,
+      "idMal": 64530,
       "title": {
         "romaji": "Mujikaku na Osananajimi to Kyoumi Honi de Yatte Mitara THE ANIMATION",
         "english": null,
@@ -20420,6 +20611,7 @@
     },
     {
       "id": 213427,
+      "idMal": 64325,
       "title": {
         "romaji": "Pie no Mi: Oshi no Mori e Youkoso!",
         "english": null,
@@ -20479,6 +20671,7 @@
     },
     {
       "id": 200929,
+      "idMal": 62844,
       "title": {
         "romaji": "Kusuriya no Hitorigoto: Bouhi no Hihou",
         "english": null,
@@ -20536,6 +20729,7 @@
     },
     {
       "id": 101922,
+      "idMal": 38000,
       "title": {
         "romaji": "Kimetsu no Yaiba",
         "english": "Demon Slayer: Kimetsu no Yaiba",
@@ -20723,6 +20917,7 @@
     },
     {
       "id": 213703,
+      "idMal": 62948,
       "title": {
         "romaji": "Jiaonang Jihua: Qiji",
         "english": null,
@@ -20762,6 +20957,7 @@
     },
     {
       "id": 187538,
+      "idMal": 61169,
       "title": {
         "romaji": "BLACK TORCH",
         "english": "BLACK TORCH",
@@ -20850,6 +21046,7 @@
     },
     {
       "id": 209961,
+      "idMal": 63819,
       "title": {
         "romaji": "Shibou Yuugi de Meshi wo Kuu. 44:CLOUDY BEACH",
         "english": null,
@@ -20927,6 +21124,7 @@
     },
     {
       "id": 199066,
+      "idMal": 62535,
       "title": {
         "romaji": "Hanaori-san wa Tensei Shite mo Kenka ga Shitai",
         "english": "Hanaori-san Still Wants to Fight in the Next Life",
@@ -21009,6 +21207,7 @@
     },
     {
       "id": 212272,
+      "idMal": 64250,
       "title": {
         "romaji": "Deco x Deco THE ANIMATION",
         "english": null,
@@ -21060,6 +21259,7 @@
     },
     {
       "id": 182300,
+      "idMal": 59983,
       "title": {
         "romaji": "Tsue to Tsurugi no Wistoria Season 2",
         "english": "Wistoria: Wand and Sword Season 2",
@@ -21195,6 +21395,7 @@
     },
     {
       "id": 127230,
+      "idMal": 44511,
       "title": {
         "romaji": "Chainsaw Man",
         "english": "Chainsaw Man",
@@ -21388,6 +21589,7 @@
     },
     {
       "id": 177699,
+      "idMal": 58929,
       "title": {
         "romaji": "Koukaku Kidoutai: THE GHOST IN THE SHELL",
         "english": "THE GHOST IN THE SHELL",
@@ -21513,6 +21715,7 @@
     },
     {
       "id": 159042,
+      "idMal": 53913,
       "title": {
         "romaji": "Tensei Shitara Ken Deshita 2nd Season",
         "english": null,
@@ -21620,6 +21823,7 @@
     },
     {
       "id": 212503,
+      "idMal": 64254,
       "title": {
         "romaji": "Hyouken no Majutsushi ga Sekai wo Suberu II",
         "english": null,
@@ -21681,6 +21885,7 @@
     },
     {
       "id": 206949,
+      "idMal": 63382,
       "title": {
         "romaji": "Kyouran Reijou Nia Liston",
         "english": null,
@@ -21738,6 +21943,7 @@
     },
     {
       "id": 190704,
+      "idMal": 61501,
       "title": {
         "romaji": "Kanan-sama wa Akumade Choroi",
         "english": "Mistress Kanan is Devilishly Easy",
@@ -21921,6 +22127,7 @@
     },
     {
       "id": 196017,
+      "idMal": 62051,
       "title": {
         "romaji": "Grow Up Show: Himawari no Circus-dan",
         "english": "Grow Up Show",
@@ -22003,6 +22210,7 @@
     },
     {
       "id": 213068,
+      "idMal": 64344,
       "title": {
         "romaji": "Jyuоu Mujin Dandivine",
         "english": null,
@@ -22068,6 +22276,7 @@
     },
     {
       "id": 206914,
+      "idMal": 63375,
       "title": {
         "romaji": "Nippon Sangoku",
         "english": "NIPPON SANGOKU: The Three Nations of the Crimson Sun",
@@ -22204,6 +22413,7 @@
     },
     {
       "id": 161680,
+      "idMal": 55003,
       "title": {
         "romaji": "1LDK+JK Ikinari Doukyo? Micchaku!? Hatsu Ecchi!!?",
         "english": null,
@@ -22295,6 +22505,7 @@
     },
     {
       "id": 183231,
+      "idMal": 60153,
       "title": {
         "romaji": "Rilakkuma",
         "english": "RILAKKUMA",
@@ -22358,6 +22569,7 @@
     },
     {
       "id": 180136,
+      "idMal": 59741,
       "title": {
         "romaji": "Tsuihou Sareta Tensei Juukishi wa Game Chishiki de Musou Suru",
         "english": "The Exiled Heavy Knight Knows How to Game the System",
@@ -22484,6 +22696,7 @@
     },
     {
       "id": 199408,
+      "idMal": 62289,
       "title": {
         "romaji": "Buchigire Reijou wa Houfuku wo Chikaimashita.: Madousho no Chikara de Sokoku wo Tataki Tsubushimasu",
         "english": "A Livid Lady’s Guide to Getting Even: How I Crushed My Homeland with My Mighty Grimoires",
@@ -22559,6 +22772,7 @@
     },
     {
       "id": 187316,
+      "idMal": 61140,
       "title": {
         "romaji": "Gensou Suikoden",
         "english": null,
@@ -22615,6 +22829,7 @@
     },
     {
       "id": 209219,
+      "idMal": 63712,
       "title": {
         "romaji": "Tensei Goblin Dakedo Shitsumon Aru?",
         "english": null,
@@ -22671,6 +22886,7 @@
     },
     {
       "id": 21459,
+      "idMal": 31964,
       "title": {
         "romaji": "Boku no Hero Academia",
         "english": "My Hero Academia",
@@ -22804,6 +23020,7 @@
     },
     {
       "id": 206950,
+      "idMal": 63383,
       "title": {
         "romaji": "Kumarba Season 3",
         "english": null,
@@ -22869,6 +23086,7 @@
     },
     {
       "id": 163793,
+      "idMal": 63964,
       "title": {
         "romaji": "Cheongchun Blossom: Uriui Bom",
         "english": null,
@@ -22927,6 +23145,7 @@
     },
     {
       "id": 204466,
+      "idMal": 63150,
       "title": {
         "romaji": "Otome Kaijuu Caramelise",
         "english": "KAIJU GIRL CARAMELISE",
@@ -23091,6 +23310,7 @@
     },
     {
       "id": 128757,
+      "idMal": 46488,
       "title": {
         "romaji": "Tai-Ari deshita.: Ojou-sama wa Kakutou Game nante Shinai",
         "english": "Young Ladies Don't Play Fighting Games",
@@ -23195,6 +23415,7 @@
     },
     {
       "id": 169583,
+      "idMal": 56735,
       "title": {
         "romaji": "Tenkousaki no Seiso Karen na Bishoujo ga, Mukashi Danshi to Omotte Issho ni Asonda Osananajimi datta Ken",
         "english": "Oh Boy, Was I Wrong About Her",
@@ -23265,6 +23486,7 @@
     },
     {
       "id": 185874,
+      "idMal": 60636,
       "title": {
         "romaji": "BLEACH: Sennen Kessen-hen - Kashin-tan",
         "english": "BLEACH: Thousand-Year Blood War - The Calamity",
@@ -23376,6 +23598,7 @@
     },
     {
       "id": 108992,
+      "idMal": 63802,
       "title": {
         "romaji": "Mebius Dust",
         "english": "MEBIUS DUST",
@@ -23459,6 +23682,7 @@
     },
     {
       "id": 187990,
+      "idMal": null,
       "title": {
         "romaji": "Battle Spirits [Re] Zekkai No Ku",
         "english": null,
@@ -23504,6 +23728,7 @@
     },
     {
       "id": 194207,
+      "idMal": 62039,
       "title": {
         "romaji": "Pan Dorobou",
         "english": null,
@@ -23563,6 +23788,7 @@
     },
     {
       "id": 213872,
+      "idMal": 64551,
       "title": {
         "romaji": "Hitoribocchi no Isekai Kouryaku 2nd Season",
         "english": null,
@@ -23607,6 +23833,7 @@
     },
     {
       "id": 1535,
+      "idMal": 1535,
       "title": {
         "romaji": "DEATH NOTE",
         "english": "Death Note",
@@ -23818,6 +24045,7 @@
     },
     {
       "id": 204269,
+      "idMal": 63125,
       "title": {
         "romaji": "Odekake Kozame Season 2",
         "english": "Little Shark's Day Out Season 2",
@@ -23883,6 +24111,7 @@
     },
     {
       "id": 182616,
+      "idMal": 60059,
       "title": {
         "romaji": "Nige Jouzu no Wakagimi 2nd Season",
         "english": "The Elusive Samurai Season 2",
@@ -23967,6 +24196,7 @@
     },
     {
       "id": 206521,
+      "idMal": 63347,
       "title": {
         "romaji": "World Is Dancing",
         "english": "The World Is Dancing",
@@ -24095,6 +24325,7 @@
     },
     {
       "id": 196218,
+      "idMal": 62078,
       "title": {
         "romaji": "Ryoumin 0-Nin Start no Henkyou Ryoushu-sama",
         "english": "The Frontier Lord Begins with Zero Subjects",
@@ -24211,6 +24442,7 @@
     },
     {
       "id": 169582,
+      "idMal": 56736,
       "title": {
         "romaji": "Saikyou Degarashi Ouji no Anyaku Teii Arasoi: Munou wo Enjiru SS Rank Ouji wa Koui Keishou-sen wo Kage kara Shihai suru",
         "english": "The Insipid Prince's Furtive Grab for the Throne",
@@ -24279,6 +24511,7 @@
     },
     {
       "id": 204650,
+      "idMal": 63181,
       "title": {
         "romaji": "Tougen Anki: Nikko・Kegon no Taki-hen",
         "english": "Tougen Anki: Nikko Kegon Falls Arc",
@@ -24330,6 +24563,7 @@
     },
     {
       "id": 169580,
+      "idMal": 56734,
       "title": {
         "romaji": "Class de 2-banme ni Kawaii Onnanoko to Tomodachi ni Natta",
         "english": "I Made Friends with the Second Prettiest Girl in My Class",
@@ -24466,6 +24700,7 @@
     },
     {
       "id": 166873,
+      "idMal": 55888,
       "title": {
         "romaji": "Mushoku Tensei II: Isekai Ittara Honki Dasu Part 2",
         "english": "Mushoku Tensei: Jobless Reincarnation Season 2 Part 2",
@@ -24711,6 +24946,7 @@
     },
     {
       "id": 206819,
+      "idMal": 63366,
       "title": {
         "romaji": "Kimi to Hanabi to Yakusoku to",
         "english": null,
@@ -24786,6 +25022,7 @@
     },
     {
       "id": 202896,
+      "idMal": null,
       "title": {
         "romaji": "Cheat Item Kanrikyoku no Oshigoto EX Sanzan Yarareta Ato Dashi Douse Zenbu Wasureru kara Higaisha Tsumamigui Shitemo Ii yo ne",
         "english": null,
@@ -24826,6 +25063,7 @@
     },
     {
       "id": 206682,
+      "idMal": 63356,
       "title": {
         "romaji": "Soreike! Anpanman: Pantan to Yakusoku no Hoshi",
         "english": null,
@@ -24860,6 +25098,7 @@
     },
     {
       "id": 195539,
+      "idMal": 61990,
       "title": {
         "romaji": "Cyberpunk: Edgerunners 2",
         "english": "Cyberpunk: Edgerunners 2",
@@ -24944,6 +25183,7 @@
     },
     {
       "id": 199588,
+      "idMal": 62604,
       "title": {
         "romaji": "Otaku ni Yasashii Gal wa Inai!?",
         "english": "Gals Can't Be Kind to Otaku!?",
@@ -25082,6 +25322,7 @@
     },
     {
       "id": 213702,
+      "idMal": 64516,
       "title": {
         "romaji": "Tongari Boushi no Atelier 2nd Season",
         "english": "Witch Hat Atelier Season 2",
@@ -25179,6 +25420,7 @@
     },
     {
       "id": 9253,
+      "idMal": 9253,
       "title": {
         "romaji": "Steins;Gate",
         "english": "Steins;Gate",
@@ -25418,6 +25660,7 @@
     },
     {
       "id": 185875,
+      "idMal": 60637,
       "title": {
         "romaji": "Mahou Shoujo Lyrical Nanoha EXCEEDS Gun Blaze Vengeance",
         "english": "Magical Girl Lyrical Nanoha EXCEEDS Gun Blaze Vengeance",
@@ -25512,6 +25755,7 @@
     },
     {
       "id": 213861,
+      "idMal": 64537,
       "title": {
         "romaji": "Let's Roll, Cinnamoroll! 2",
         "english": "Let's Roll, Cinnamoroll! 2",
@@ -25558,6 +25802,7 @@
     },
     {
       "id": 203275,
+      "idMal": null,
       "title": {
         "romaji": "Demons' Crest",
         "english": "Devils' Crest",
@@ -25630,6 +25875,7 @@
     },
     {
       "id": 206163,
+      "idMal": 63323,
       "title": {
         "romaji": "Soukou Kihei Votoms: Haiiro no Hexe",
         "english": null,
@@ -25692,6 +25938,7 @@
     },
     {
       "id": 197824,
+      "idMal": 62146,
       "title": {
         "romaji": "Isekai Nonbiri Nouka 2",
         "english": "Farming Life in Another World 2",
@@ -25868,6 +26115,7 @@
     },
     {
       "id": 182255,
+      "idMal": 59978,
       "title": {
         "romaji": "Sousou no Frieren 2nd Season",
         "english": "Frieren: Beyond Journey’s End Season 2",
@@ -26052,6 +26300,7 @@
     },
     {
       "id": 208749,
+      "idMal": 63765,
       "title": {
         "romaji": "Nuki Nuki ♡ Zupposism",
         "english": null,
@@ -26095,6 +26344,7 @@
     },
     {
       "id": 212652,
+      "idMal": null,
       "title": {
         "romaji": "Kidou Keisatsu Patlabor EZY File 2",
         "english": null,
@@ -26140,6 +26390,7 @@
     },
     {
       "id": 189123,
+      "idMal": 61323,
       "title": {
         "romaji": "Ao no Hako Season 2",
         "english": "Blue Box Season 2",
@@ -26239,6 +26490,7 @@
     },
     {
       "id": 21355,
+      "idMal": 31240,
       "title": {
         "romaji": "Re:Zero kara Hajimeru Isekai Seikatsu",
         "english": "Re:ZERO -Starting Life in Another World-",
@@ -26475,6 +26727,7 @@
     },
     {
       "id": 206249,
+      "idMal": 63324,
       "title": {
         "romaji": "Iwamoto-senpai no Suisen",
         "english": "Recommendations from Iwamoto-Senpai",
@@ -26552,6 +26805,7 @@
     },
     {
       "id": 213066,
+      "idMal": 64404,
       "title": {
         "romaji": "Muramata-san no Aijou",
         "english": null,
@@ -26601,6 +26855,7 @@
     },
     {
       "id": 209562,
+      "idMal": 63764,
       "title": {
         "romaji": "Vertex Force",
         "english": null,
@@ -26656,6 +26911,7 @@
     },
     {
       "id": 198654,
+      "idMal": 63903,
       "title": {
         "romaji": "Meitantei Precure! Fushigi na Niwa to Futari no Himitsu",
         "english": null,
@@ -26712,6 +26968,7 @@
     },
     {
       "id": 196613,
+      "idMal": null,
       "title": {
         "romaji": "Dou Po Cangqiong: Nian Fan 4",
         "english": null,
@@ -26796,6 +27053,7 @@
     },
     {
       "id": 208685,
+      "idMal": 63619,
       "title": {
         "romaji": "Onaji Zemi no Someya-san ga Sexy Joyuu Datta Hanashi.",
         "english": "My Classmate’s a Sexy Actress, and Now We Live Together?!",
@@ -26868,6 +27126,7 @@
     },
     {
       "id": 157330,
+      "idMal": 57961,
       "title": {
         "romaji": "Rakuen Tsuihou: Kokoro no Resonance",
         "english": null,
@@ -26934,6 +27193,7 @@
     },
     {
       "id": 196935,
+      "idMal": 62164,
       "title": {
         "romaji": "Akane-banashi",
         "english": "Akane-banashi",
@@ -27081,6 +27341,7 @@
     },
     {
       "id": 194389,
+      "idMal": 62005,
       "title": {
         "romaji": "Koala Enikki",
         "english": "Koala's Diary",
@@ -27158,6 +27419,7 @@
     },
     {
       "id": 188139,
+      "idMal": 61240,
       "title": {
         "romaji": "Futsutsuka na Akujo de wa Gozaimasu ga: Suuguu Chouso Torikae Den",
         "english": "Though I Am an Inept Villainess",
@@ -27254,6 +27516,7 @@
     },
     {
       "id": 194219,
+      "idMal": 61814,
       "title": {
         "romaji": "Oni no Hanayome",
         "english": "The Ogre's Bride",
@@ -27350,6 +27613,7 @@
     },
     {
       "id": 213877,
+      "idMal": 64555,
       "title": {
         "romaji": "MURCIÉLAGO",
         "english": null,
@@ -27431,6 +27695,7 @@
     },
     {
       "id": 137664,
+      "idMal": 64375,
       "title": {
         "romaji": "Cheng Huang Lu",
         "english": null,
@@ -27486,6 +27751,7 @@
     },
     {
       "id": 211232,
+      "idMal": 64431,
       "title": {
         "romaji": "Majo no Tani no Yoru",
         "english": null,
@@ -27531,6 +27797,7 @@
     },
     {
       "id": 197543,
+      "idMal": 62270,
       "title": {
         "romaji": "BanG Dream! Ave Mujica: prima aurora",
         "english": null,
@@ -27601,6 +27868,7 @@
     },
     {
       "id": 198113,
+      "idMal": 62391,
       "title": {
         "romaji": "Kill Ao",
         "english": "KILL BLUE",
@@ -27764,6 +28032,7 @@
     },
     {
       "id": 213484,
+      "idMal": 62957,
       "title": {
         "romaji": "Bai Ri Cheng Wang",
         "english": "Crowned in a Hundred Days",
@@ -27852,6 +28121,7 @@
     },
     {
       "id": 191788,
+      "idMal": 61603,
       "title": {
         "romaji": "Aoashi 2nd Season",
         "english": null,
@@ -27911,6 +28181,7 @@
     },
     {
       "id": 208025,
+      "idMal": 63509,
       "title": {
         "romaji": "Dark Summoner to Dekiteiru",
         "english": "I'm Dating a Dark Summoner",
@@ -27975,6 +28246,7 @@
     },
     {
       "id": 209709,
+      "idMal": 63901,
       "title": {
         "romaji": "Sirotan",
         "english": null,
@@ -28025,6 +28297,7 @@
     },
     {
       "id": 211181,
+      "idMal": null,
       "title": {
         "romaji": "Mu Shen Ji 4",
         "english": null,
@@ -28096,6 +28369,7 @@
     },
     {
       "id": 118123,
+      "idMal": 44042,
       "title": {
         "romaji": "Holo no Graffiti",
         "english": null,
@@ -28324,6 +28598,7 @@
     },
     {
       "id": 208829,
+      "idMal": 63512,
       "title": {
         "romaji": "Crayon Shin-chan: Kikikaikai! Ora no Youkai Vacation",
         "english": null,
@@ -28395,6 +28670,7 @@
     },
     {
       "id": 213426,
+      "idMal": null,
       "title": {
         "romaji": "Chikyuu Daisuki! Kikkun",
         "english": null,
@@ -28437,6 +28713,7 @@
     },
     {
       "id": 193883,
+      "idMal": 61765,
       "title": {
         "romaji": "Chibi Godzilla no Gyakushuu 3",
         "english": "Chibi Godzilla Raids Again Season 3",
@@ -28499,6 +28776,7 @@
     },
     {
       "id": 213297,
+      "idMal": 63149,
       "title": {
         "romaji": "Yun Shen Buzhi Meng Special: Zhu Ming Zhi Yi",
         "english": "Eclipse of Illusion SP: The Miasma War",
@@ -28559,6 +28837,7 @@
     },
     {
       "id": 201514,
+      "idMal": 62876,
       "title": {
         "romaji": "Saijo no Osewa: Takane no Hanadarake na Meimonkou de, Gakuin Ichi no Ojou-sama (Seikatsu Nouryoku Kaimu) wo Kagenagara Osewa suru Koto ni Narimashita",
         "english": "Rich Girl Caretaker: I'm Secretly the Caregiver of the Most Popular Girl in This Rich Kid School",
@@ -28650,6 +28929,7 @@
     },
     {
       "id": 198044,
+      "idMal": 64053,
       "title": {
         "romaji": "Juurin Oukoku: Elf Oukoku wa Kyodai Naedoko ni",
         "english": null,
@@ -28708,6 +28988,7 @@
     },
     {
       "id": 213805,
+      "idMal": 64534,
       "title": {
         "romaji": "Koori no Jouheki 2nd Season",
         "english": "The Ramparts of Ice Season 2",
@@ -28797,6 +29078,7 @@
     },
     {
       "id": 137683,
+      "idMal": 51836,
       "title": {
         "romaji": "Douluo Dalu 2: Jueshi Tangmen",
         "english": "Soul Land 2: The Peerless Tang Clan",
@@ -28878,6 +29160,7 @@
     },
     {
       "id": 209872,
+      "idMal": 63801,
       "title": {
         "romaji": "Ranma 1/2 (2024) 3rd Season",
         "english": "Ranma1/2 (2024) Season 3",
@@ -28969,6 +29252,7 @@
     },
     {
       "id": 211338,
+      "idMal": 64095,
       "title": {
         "romaji": "Harem-tou e Youkoso!",
         "english": null,
@@ -29020,6 +29304,7 @@
     },
     {
       "id": 196012,
+      "idMal": 62048,
       "title": {
         "romaji": "MAO",
         "english": "MAO",
@@ -29148,6 +29433,7 @@
     },
     {
       "id": 185646,
+      "idMal": 60534,
       "title": {
         "romaji": "Koupen-chan",
         "english": null,
@@ -29226,6 +29512,7 @@
     },
     {
       "id": 199221,
+      "idMal": 62568,
       "title": {
         "romaji": "Dr. STONE: SCIENCE FUTURE Part 3",
         "english": "Dr. STONE SCIENCE FUTURE Cour 3",
@@ -29359,6 +29646,7 @@
     },
     {
       "id": 8687,
+      "idMal": 8687,
       "title": {
         "romaji": "Doraemon (2005)",
         "english": null,
@@ -29457,6 +29745,7 @@
     },
     {
       "id": 160275,
+      "idMal": 54250,
       "title": {
         "romaji": "Made in Abyss: Mezameru Shinpi",
         "english": null,
@@ -29549,6 +29838,7 @@
     },
     {
       "id": 196974,
+      "idMal": 62171,
       "title": {
         "romaji": "Kuroneko to Majo no Kyoushitsu",
         "english": "The Classroom of the Black Cat and a Witch",
@@ -29712,6 +30002,7 @@
     },
     {
       "id": 209502,
+      "idMal": 63754,
       "title": {
         "romaji": "Shiotaiou no Satou-san ga Ore ni dake Amai",
         "english": null,
@@ -29766,6 +30057,7 @@
     },
     {
       "id": 204431,
+      "idMal": 63138,
       "title": {
         "romaji": "Kaijuu 8-gou: Narumi no Heijitsu",
         "english": null,
@@ -29808,6 +30100,7 @@
     },
     {
       "id": 213298,
+      "idMal": null,
       "title": {
         "romaji": "Yuruyuru Zukan",
         "english": null,
@@ -29859,6 +30152,7 @@
     },
     {
       "id": 20958,
+      "idMal": 25777,
       "title": {
         "romaji": "Shingeki no Kyojin Season 2",
         "english": "Attack on Titan Season 2",
@@ -30094,6 +30388,7 @@
     },
     {
       "id": 137653,
+      "idMal": 55809,
       "title": {
         "romaji": "Xian Ni",
         "english": "Renegade Immortal",

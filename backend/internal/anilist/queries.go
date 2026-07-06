@@ -3,6 +3,7 @@ package anilist
 // One shared field set so every sync path upserts identical data.
 const mediaFields = `
   id
+  idMal
   title { romaji english native }
   synonyms
   description(asHtml: false)

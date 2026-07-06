@@ -68,6 +68,7 @@ func MapMedia(m Media) (sqlcgen.UpsertAnimeParams, error) {
 
 	p := sqlcgen.UpsertAnimeParams{
 		AnilistID:       int32(m.ID),
+		MalID:           toInt32(m.IDMal),
 		TitleRomaji:     m.Title.Romaji,
 		TitleEnglish:    m.Title.English,
 		TitleNative:     m.Title.Native,

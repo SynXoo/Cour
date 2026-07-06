@@ -4,6 +4,7 @@ package anilist
 // stores. Field names match AniList's JSON exactly.
 type Media struct {
 	ID           int      `json:"id"`
+	IDMal        *int     `json:"idMal"` // MyAnimeList id; null when AniList has no mapping
 	Title        Title    `json:"title"`
 	Synonyms     []string `json:"synonyms"`
 	Description  *string  `json:"description"`

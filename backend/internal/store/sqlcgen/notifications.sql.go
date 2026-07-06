@@ -11,7 +11,7 @@ import (
 )
 
 const airedEpisodesBetween = `-- name: AiredEpisodesBetween :many
-SELECT episodes.id, episodes.anime_id, episodes.number, episodes.title, episodes.airing_at, episodes.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc
+SELECT episodes.id, episodes.anime_id, episodes.number, episodes.title, episodes.airing_at, episodes.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM episodes
 JOIN anime ON anime.id = episodes.anime_id
 WHERE episodes.airing_at > $1 AND episodes.airing_at <= $2
@@ -72,6 +72,7 @@ func (q *Queries) AiredEpisodesBetween(ctx context.Context, arg AiredEpisodesBet
 			&i.Anime.CreatedAt,
 			&i.Anime.UpdatedAt,
 			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
 		); err != nil {
 			return nil, err
 		}
