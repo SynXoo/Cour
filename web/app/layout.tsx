@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { BottomNav } from "@/components/bottom-nav";
 import { Providers } from "@/components/providers";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -17,6 +18,12 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// Extend the page under the notch/home-indicator so the header and bottom
+// tab bar can pad themselves with env(safe-area-inset-*).
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -38,11 +45,13 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-mono", jetbrainsMono.variable)}
       suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col">
+      {/* Mobile bottom padding = the fixed 4-rem tab bar + safe area. */}
+      <body className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <Providers>
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          <BottomNav />
         </Providers>
       </body>
     </html>

@@ -12,15 +12,17 @@ const nav = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-14 w-full max-w-[88rem] items-center gap-6 px-4">
         <Link href="/" className="flex items-baseline gap-1 text-lg font-bold tracking-tight">
           <span className="text-primary">Cour</span>
-          <span className="hidden text-xs font-normal text-muted-foreground sm:inline">
+          {/* lg+: below that the tagline squeezes the nav links into a scroll. */}
+          <span className="hidden text-xs font-normal text-muted-foreground lg:inline">
             this season, together
           </span>
         </Link>
-        <nav aria-label="Primary" className="flex flex-1 items-center gap-1 overflow-x-auto">
+        {/* Below md the tab bar + its Menu sheet carry these destinations. */}
+        <nav aria-label="Primary" className="hidden flex-1 items-center gap-1 overflow-x-auto md:flex">
           {nav.map((item) => (
             <Link
               key={item.href}
@@ -31,8 +33,10 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <NotificationBell />
-        <UserMenu />
+        <div className="ml-auto flex items-center gap-3 md:gap-6">
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </div>
     </header>
   );

@@ -5,8 +5,10 @@ import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/lib/auth/session";
+import { useIsMobile } from "@/lib/hooks/use-is-mobile";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile();
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -25,7 +27,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <SessionProvider>
           {children}
-          <Toaster richColors position="bottom-right" />
+          {/* Top-center on mobile — bottom toasts would collide with the
+              tab bar. mobileOffset keeps them clear of the notch now that
+              the viewport extends under it. */}
+          <Toaster
+            richColors
+            position={isMobile ? "top-center" : "bottom-right"}
+            mobileOffset={{ top: "calc(env(safe-area-inset-top) + 1rem)" }}
+          />
         </SessionProvider>
       </ThemeProvider>
     </QueryClientProvider>

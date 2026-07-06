@@ -21,7 +21,7 @@ tasks:
 
   down:
     desc: Stop everything (add -- -v to also drop data volumes)
-    cmds: [docker compose down {{.CLI_ARGS}}]
+    cmds: ["docker compose down {{.CLI_ARGS}}"]
 
   api:
     desc: Run the API natively with dev defaults
