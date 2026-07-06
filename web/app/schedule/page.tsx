@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { PageShell } from "@/components/page-shell";
 import { serverApi, type ScheduleEntry } from "@/lib/api/client";
 import { displayTitle, untilLabel } from "@/lib/anime";
 
@@ -32,7 +33,7 @@ export default async function SchedulePage() {
   }
 
   return (
-    <div className="flex flex-col gap-8 py-2">
+    <PageShell width="browse" className="flex flex-col gap-8">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">This week</h1>
         <p className="text-sm text-muted-foreground">
@@ -78,6 +79,6 @@ export default async function SchedulePage() {
           </section>
         ))
       )}
-    </div>
+    </PageShell>
   );
 }

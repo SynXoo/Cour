@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnimeGrid } from "@/components/anime/anime-grid";
+import { PageShell } from "@/components/page-shell";
 import { FollowButton } from "@/components/social/follow-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +54,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
   ];
 
   return (
-    <div className="flex flex-col gap-8 py-2">
+    <PageShell width="browse" className="flex flex-col gap-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Avatar className="h-20 w-20 text-xl">
           {profile.avatar_url && <AvatarImage src={profile.avatar_url} alt="" />}
@@ -162,6 +163,6 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
           <AnimeGrid anime={profile.favorites} />
         </section>
       )}
-    </div>
+    </PageShell>
   );
 }

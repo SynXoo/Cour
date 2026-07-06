@@ -57,7 +57,7 @@ export function SearchClient() {
           Search failed — try again in a moment.
         </p>
       ) : isFetching && results.length === 0 ? (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-6">
           {Array.from({ length: 12 }).map((_, i) => (
             <li key={i} className="space-y-2">
               <Skeleton className="aspect-[2/3] rounded-lg" />

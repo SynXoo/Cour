@@ -7,6 +7,7 @@ import { EpisodeList } from "@/components/anime/episode-list";
 import { FavoriteButton } from "@/components/anime/favorite-button";
 import { ListEditor } from "@/components/anime/list-editor";
 import { AnimeReviews } from "@/components/reviews/anime-reviews";
+import { PageShell } from "@/components/page-shell";
 import { serverApi, type AnimeDetail } from "@/lib/api/client";
 import { formatLabel, seasonLabel, untilLabel } from "@/lib/anime";
 
@@ -47,6 +48,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
   const topTags = [...anime.tags].sort((a, b) => b.rank - a.rank).slice(0, 12);
 
   return (
+    <PageShell width="browse">
     <article className="-mt-6 flex flex-col gap-6">
       {/* Banner */}
       <div className="relative -mx-4 h-40 overflow-hidden sm:h-56 md:rounded-b-xl">
@@ -170,5 +172,6 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
         Data from AniList · last synced {new Date(anime.synced_at).toLocaleString()}
       </p>
     </article>
+    </PageShell>
   );
 }

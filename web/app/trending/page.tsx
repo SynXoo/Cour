@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AnimeGrid } from "@/components/anime/anime-grid";
+import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default async function TrendingPage() {
   const computedAt = res?.data?.computed_at;
 
   return (
-    <div className="flex flex-col gap-6 py-2">
+    <PageShell width="browse" className="flex flex-col gap-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Trending Now</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
@@ -42,6 +43,6 @@ export default async function TrendingPage() {
       ) : (
         <AnimeGrid anime={anime} priorityCount={6} />
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ReviewCard } from "@/components/reviews/review-card";
+import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { animeHref, displayTitle } from "@/lib/anime";
@@ -37,7 +38,7 @@ export default async function ReviewPage({ params }: { params: Promise<Params> }
 
   const anime = review.anime;
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 py-4">
+    <PageShell width="reading" className="flex flex-col gap-6">
       <Link
         href={animeHref(anime)}
         className="group flex items-center gap-3 rounded-lg border border-border/60 bg-card p-3"
@@ -54,6 +55,6 @@ export default async function ReviewPage({ params }: { params: Promise<Params> }
       </Link>
 
       <ReviewCard review={review} clampBody={false} />
-    </div>
+    </PageShell>
   );
 }

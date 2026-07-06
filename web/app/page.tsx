@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AnimeGrid } from "@/components/anime/anime-grid";
 import { ScheduleStrip } from "@/components/anime/schedule-strip";
+import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 import { currentSeason, seasonLabel } from "@/lib/anime";
 
@@ -25,21 +26,23 @@ export default async function HomePage() {
 
   if (seasonal.length === 0) {
     return (
-      <section className="flex flex-col items-center gap-4 py-24 text-center">
-        <h1 className="max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Anime tracking for people watching{" "}
-          <span className="text-primary">this season</span>
-        </h1>
-        <p className="max-w-xl text-balance text-muted-foreground">
-          The catalog is still syncing — run <code className="rounded bg-muted px-1.5 py-0.5">task seed</code>{" "}
-          or give the worker a minute, then refresh.
-        </p>
-      </section>
+      <PageShell width="browse">
+        <section className="flex flex-col items-center gap-4 py-24 text-center">
+          <h1 className="max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
+            Anime tracking for people watching{" "}
+            <span className="text-primary">this season</span>
+          </h1>
+          <p className="max-w-xl text-balance text-muted-foreground">
+            The catalog is still syncing — run <code className="rounded bg-muted px-1.5 py-0.5">task seed</code>{" "}
+            or give the worker a minute, then refresh.
+          </p>
+        </section>
+      </PageShell>
     );
   }
 
   return (
-    <div className="flex flex-col gap-10 py-2">
+    <PageShell width="browse" className="flex flex-col gap-10">
       {schedule.length > 0 && (
         <section aria-labelledby="airing-next" className="space-y-3">
           <div className="flex items-baseline justify-between">
@@ -82,6 +85,6 @@ export default async function HomePage() {
         </div>
         <AnimeGrid anime={seasonal.slice(0, 12)} priorityCount={6} />
       </section>
-    </div>
+    </PageShell>
   );
 }

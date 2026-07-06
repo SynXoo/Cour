@@ -95,7 +95,7 @@ function SettingsForm() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-8 py-4">
+    <div className="flex flex-col gap-8 py-4">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 
       {user && !user.email_verified && (

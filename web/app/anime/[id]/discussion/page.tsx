@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ThreadView } from "@/components/discussions/thread-view";
+import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { animeHref, displayTitle } from "@/lib/anime";
@@ -38,7 +39,7 @@ export default async function SeriesDiscussionPage({ params }: { params: Promise
   const { thread, anime } = data;
 
   return (
-    <div className="flex flex-col gap-6 py-2">
+    <PageShell width="reading" className="flex flex-col gap-6">
       <header className="flex items-center gap-4">
         <Link
           href={animeHref(anime)}
@@ -64,6 +65,6 @@ export default async function SeriesDiscussionPage({ params }: { params: Promise
       </header>
 
       <ThreadView threadId={thread.id} allowTimestamps={false} />
-    </div>
+    </PageShell>
   );
 }

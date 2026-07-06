@@ -82,7 +82,7 @@ export function NotificationsClient() {
   const anyUnread = items.some((n) => !n.read);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 py-2">
+    <div className="flex flex-col gap-4 py-2">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
         {anyUnread && (

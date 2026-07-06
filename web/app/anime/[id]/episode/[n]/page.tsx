@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ThreadView } from "@/components/discussions/thread-view";
+import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { airDateLabel, animeHref, displayTitle, isUpcoming, untilLabel } from "@/lib/anime";
@@ -49,7 +50,7 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
       : null;
 
   return (
-    <div className="flex flex-col gap-6 py-2">
+    <PageShell width="reading" className="flex flex-col gap-6">
       <header className="flex items-center gap-4">
         <Link
           href={animeHref(anime)}
@@ -109,6 +110,6 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
         anchor a comment to a moment with a timestamp like 12:34 · bring your
         own legal stream.
       </p>
-    </div>
+    </PageShell>
   );
 }

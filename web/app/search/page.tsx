@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageShell } from "@/components/page-shell";
 import { SearchClient } from "./search-client";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function SearchPage() {
-  return <SearchClient />;
+  return (
+    <PageShell width="browse">
+      <SearchClient />
+    </PageShell>
+  );
 }

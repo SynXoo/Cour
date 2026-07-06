@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnimeGrid } from "@/components/anime/anime-grid";
+import { PageShell } from "@/components/page-shell";
 import { serverApi, type AnimeSummary, type Season } from "@/lib/api/client";
 import { SEASONS, nextSeason, prevSeason, seasonLabel } from "@/lib/anime";
 
@@ -49,7 +50,7 @@ export default async function SeasonalPage({ params }: { params: Promise<Params>
   })).filter((g) => g.anime.length > 0);
 
   return (
-    <div className="flex flex-col gap-8 py-2">
+    <PageShell width="browse" className="flex flex-col gap-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">
           {seasonLabel(season)} {year}
@@ -82,6 +83,6 @@ export default async function SeasonalPage({ params }: { params: Promise<Params>
           </section>
         ))
       )}
-    </div>
+    </PageShell>
   );
 }

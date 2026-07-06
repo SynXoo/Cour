@@ -35,9 +35,9 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
   `keepPreviousData` on `/list` tabs (both verified in preview).
   SSR-prefetch deferred — fights the rotating-refresh auth model (§M0,
   Parking lot).
-- [ ] **M0.2** (O) Layout widths — per-surface `PageShell` (browse ~88 rem /
+- [x] **M0.2** (O) Layout widths — per-surface `PageShell` (browse ~88 rem /
   reading `max-w-3xl` / forms narrow), `AnimeGrid` auto-fill columns,
-  header tracks the widest shell.
+  header tracks the widest shell (verified 375/1440 in preview).
 - [ ] **M0.3** (F) Mobile foundation — bottom tab bar (Home · Seasonal ·
   Search · My list · Menu), header collapse on mobile, safe-area insets,
   toaster to top-center on mobile.
@@ -101,6 +101,7 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
 - 2026-07-06 · plan · Roadmap + ledger written; watch-party design moved to WATCH_PARTIES.md; sqlc drift committed. Nothing implemented yet.
+- 2026-07-06 · M0.2 · New `components/page-shell.tsx` (`browse` `max-w-[88rem]` / `reading` `max-w-3xl` / `form` `max-w-xl`) replaces the one-size `max-w-6xl` `<main>` shell; root `<main>` is now bare `flex-1` and each of the 16 content pages wraps its content in `PageShell` (root `<div>` merged into it via `className`, or wrapped where `<article>`/client semantics must stay). `AnimeGrid` + the search-skeleton grid → `grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]` (reproduces the old 2→6 breakpoints and scales to 8 cols on the wide shell). Header/footer track `max-w-[88rem]`; `(auth)` layout gained `px-4` (main no longer supplies it); feed/notifications lost their self-centering `mx-auto max-w-2xl` (now the reading column); settings kept `max-w-xl`. Preview-verified at 375/1440: browse 1408 / reading 768 / form 576, header 1408 over the 768 reading column, `AnimeGrid` 8 cols @1440 & 2 cols @375 with no h-overflow, anime-detail `-mx-4`/`-mt-6` banner bleed intact, login padded at 375, 0 console errors. typecheck/lint/vitest all green.
 - 2026-07-06 · M0.1 · Delayed `Skeleton` (globals.css `.skeleton`: opacity-0 → 150 ms fade, then pulse; replaces `animate-pulse`; reduced-motion keeps the delay, drops the pulse) + `keepPreviousData` on `useMyList`. Verified logged-in in the dev preview at 375 px + desktop: 0 skeletons across 5 tab switches incl. never-fetched tabs; typecheck/lint/vitest green. SSR-prefetch **deferred** — one-time rotating refresh tokens + an RSC render can't re-set the rotated cookie, so a server-side refresh would revoke the client session; needs a non-rotating SSR read path (→ Parking lot). Prod-build A/B repro not re-run (needs a web-image rebuild); hypothesis B (skeleton flash) is code-confirmed and the two fixes apply regardless (§M0). Env notes for next session: `web/node_modules` was half-linked — `pnpm install` relinked it; `cour-web` launch config gained `autoPort` (Docker holds :3000 when the compose stack is up).
 
 ### Parking lot

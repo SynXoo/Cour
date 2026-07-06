@@ -74,7 +74,7 @@ export function FeedClient() {
   const items = feed.data?.pages.flatMap((p) => p.data) ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 py-2">
+    <div className="flex flex-col gap-4 py-2">
       <h1 className="text-2xl font-bold tracking-tight">Feed</h1>
 
       {feed.isLoading || status === "loading" ? (

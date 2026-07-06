@@ -16,7 +16,7 @@ export function AnimeGrid({
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-6">
       {anime.map((a, i) => (
         <li key={a.id}>
           <AnimeCard anime={a} priority={i < priorityCount} />
