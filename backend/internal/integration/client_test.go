@@ -4,6 +4,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -61,6 +62,25 @@ func (c *apiClient) do(method, path string, body any, out any) int {
 	return resp.StatusCode
 }
 
+// resetRegisterRateLimit deletes the per-IP register limiter state,
+// whatever key prefix the redis_rate version in use writes under.
+func resetRegisterRateLimit(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	var cursor uint64
+	for {
+		keys, next, err := testRedis.Scan(ctx, cursor, "*rl:auth:register*", 100).Result()
+		require.NoError(t, err)
+		if len(keys) > 0 {
+			require.NoError(t, testRedis.Del(ctx, keys...).Err())
+		}
+		if next == 0 {
+			return
+		}
+		cursor = next
+	}
+}
+
 type sessionResponse struct {
 	AccessToken string `json:"access_token"`
 	User        struct {
@@ -70,8 +90,11 @@ type sessionResponse struct {
 }
 
 // register creates a fresh user and leaves the client authenticated.
+// The whole suite registers from 127.0.0.1, so the 5/min credential limiter
+// is reset first — rate limiting is not what any of these tests exercise.
 func (c *apiClient) register(name string) sessionResponse {
 	c.t.Helper()
+	resetRegisterRateLimit(c.t)
 	var session sessionResponse
 	status := c.do(http.MethodPost, "/api/v1/auth/register", map[string]any{
 		"email":    fmt.Sprintf("%s@test.local", name),

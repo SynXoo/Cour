@@ -114,6 +114,45 @@ func (q *Queries) GetListEntry(ctx context.Context, arg GetListEntryParams) (Lis
 	return i, err
 }
 
+const importUpsertListEntry = `-- name: ImportUpsertListEntry :exec
+INSERT INTO list_entries (user_id, anime_id, status, score, progress, started_on, finished_on)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (user_id, anime_id) DO UPDATE SET
+  status = EXCLUDED.status,
+  score = EXCLUDED.score,
+  progress = EXCLUDED.progress,
+  started_on = COALESCE(EXCLUDED.started_on, list_entries.started_on),
+  finished_on = COALESCE(EXCLUDED.finished_on, list_entries.finished_on)
+`
+
+type ImportUpsertListEntryParams struct {
+	UserID     int64
+	AnimeID    int64
+	Status     ListStatus
+	Score      *int16
+	Progress   int32
+	StartedOn  *time.Time
+	FinishedOn *time.Time
+}
+
+// The import bulk-apply write path: one upsert, NO activity insert — imports
+// must never feed the activity spine (docs/PHASE_2.md §M1, zero-activity
+// rule), or they would flood follower feeds and poison trending. Status,
+// score, and progress are the import's to win; dates only fill in when the
+// source actually has them.
+func (q *Queries) ImportUpsertListEntry(ctx context.Context, arg ImportUpsertListEntryParams) error {
+	_, err := q.db.Exec(ctx, importUpsertListEntry,
+		arg.UserID,
+		arg.AnimeID,
+		arg.Status,
+		arg.Score,
+		arg.Progress,
+		arg.StartedOn,
+		arg.FinishedOn,
+	)
+	return err
+}
+
 const insertActivity = `-- name: InsertActivity :exec
 INSERT INTO activities (user_id, type, anime_id, ref_id, payload)
 VALUES ($1, $2, $3, $4, $5)
@@ -229,6 +268,32 @@ func (q *Queries) ListEntriesForUser(ctx context.Context, arg ListEntriesForUser
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntryAnimeIDs = `-- name: ListEntryAnimeIDs :many
+SELECT anime_id FROM list_entries WHERE user_id = $1
+`
+
+// The user's full tracked set (no limit) — merge-mode imports filter
+// against it and conflict counts derive from it.
+func (q *Queries) ListEntryAnimeIDs(ctx context.Context, userID int64) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listEntryAnimeIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var anime_id int64
+		if err := rows.Scan(&anime_id); err != nil {
+			return nil, err
+		}
+		items = append(items, anime_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

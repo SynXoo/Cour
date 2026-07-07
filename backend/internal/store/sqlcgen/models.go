@@ -239,6 +239,95 @@ func (ns NullEmailTokenPurpose) Value() (driver.Value, error) {
 	return string(ns.EmailTokenPurpose), nil
 }
 
+type ImportSource string
+
+const (
+	ImportSourceAnilist ImportSource = "anilist"
+	ImportSourceMal     ImportSource = "mal"
+)
+
+func (e *ImportSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ImportSource(s)
+	case string:
+		*e = ImportSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ImportSource: %T", src)
+	}
+	return nil
+}
+
+type NullImportSource struct {
+	ImportSource ImportSource
+	Valid        bool // Valid is true if ImportSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullImportSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.ImportSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ImportSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullImportSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ImportSource), nil
+}
+
+type ImportStatus string
+
+const (
+	ImportStatusPending    ImportStatus = "pending"
+	ImportStatusProcessing ImportStatus = "processing"
+	ImportStatusReady      ImportStatus = "ready"
+	ImportStatusCommitting ImportStatus = "committing"
+	ImportStatusDone       ImportStatus = "done"
+	ImportStatusFailed     ImportStatus = "failed"
+	ImportStatusSuperseded ImportStatus = "superseded"
+)
+
+func (e *ImportStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ImportStatus(s)
+	case string:
+		*e = ImportStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ImportStatus: %T", src)
+	}
+	return nil
+}
+
+type NullImportStatus struct {
+	ImportStatus ImportStatus
+	Valid        bool // Valid is true if ImportStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullImportStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ImportStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ImportStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullImportStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ImportStatus), nil
+}
+
 type ListStatus string
 
 const (
@@ -590,6 +679,19 @@ type Follow struct {
 	FollowerID int64
 	FolloweeID int64
 	CreatedAt  time.Time
+}
+
+type ImportJob struct {
+	ID        int64
+	UserID    int64
+	Source    ImportSource
+	Status    ImportStatus
+	Payload   []byte
+	Rows      []byte
+	Counts    []byte
+	Error     *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type ListEntry struct {

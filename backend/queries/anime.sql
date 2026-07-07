@@ -109,3 +109,28 @@ ORDER BY episodes.airing_at;
 
 -- name: ListReleasingAnime :many
 SELECT id, anilist_id FROM anime WHERE status = 'RELEASING';
+
+-- name: MatchAnimeByAniListIDs :many
+SELECT id, anilist_id FROM anime WHERE anilist_id = ANY($1::int[]);
+
+-- name: MatchAnimeByMALIDs :many
+SELECT id, mal_id FROM anime WHERE mal_id = ANY($1::int[]);
+
+-- name: MatchAnimeByTitle :many
+-- Import matching fallback: whole-title trigram similarity (not
+-- word_similarity — import titles are complete titles, and word matching
+-- would score "Death Note" a perfect 1.0 against "Death Note: Rewrite").
+-- The % prefilter keeps the GIN indexes in play; synonyms join the ranking
+-- but not the filter (unnest can't use an index). No is_adult filter:
+-- private lists legitimately track what the browse surfaces hide.
+SELECT sqlc.embed(anime),
+  GREATEST(
+    similarity(@query::text, title_romaji),
+    similarity(@query, coalesce(title_english, '')),
+    (SELECT COALESCE(MAX(similarity(@query, s)), 0::real) FROM unnest(synonyms) AS s)
+  )::float8 AS similarity
+FROM anime
+WHERE title_romaji % @query OR coalesce(title_english, '') % @query
+ORDER BY similarity DESC, popularity DESC
+LIMIT $1;
+

@@ -518,6 +518,113 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /import/anilist:
+    post:
+      operationId: startAniListImport
+      summary: Import a public AniList list by username
+      description: >
+        Creates an import job and processes it in the background (fetch,
+        parse, match against the local catalog). Poll the job until it is
+        `ready`, then commit. One import may run at a time per user; a new
+        import supersedes an uncommitted preview. Unavailable in demo mode.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartAniListImportRequest" }
+      responses:
+        "202":
+          description: Import job created and queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /import/mal:
+    post:
+      operationId: startMALImport
+      summary: Import a MyAnimeList XML export (.xml or .xml.gz)
+      description: >
+        Upload the official MAL export file. The file is parsed
+        synchronously (malformed files fail immediately); matching runs in
+        the background. Poll the job until it is `ready`, then commit.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: MAL export, plain XML or gzipped
+      responses:
+        "202":
+          description: Import job created and queued for matching
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /import/jobs/{id}:
+    get:
+      operationId: getImportJob
+      summary: Import job status and match preview
+      description: >
+        `rows` is populated once the job is `ready`: each source entry with
+        its converted values, match outcome, and (when matched) the target
+        anime. Poll every ~2s while `pending`/`processing`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: The job with preview rows when available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJobDetail" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /import/jobs/{id}/commit:
+    post:
+      operationId: commitImportJob
+      summary: Apply a ready import to the user's list
+      description: >
+        Applies matched rows in one transaction — without emitting any
+        activity events (imports never appear in feeds or trending).
+        `merge` skips titles already on the list; `overwrite` lets the
+        import win. Review-bucket rows are skipped unless resolved via
+        `resolutions`; a resolution with a null `anime_id` excludes the row.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitImportRequest" }
+      responses:
+        "200":
+          description: Import applied; final counts on the returned job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJobDetail" }
+        default:
+          $ref: "#/components/responses/Error"
+
   /anime:
     get:
       operationId: listAnime
@@ -1261,6 +1368,120 @@ components:
         action:
           type: string
           enum: [resolved, dismissed]
+
+    ImportSource:
+      type: string
+      enum: [anilist, mal]
+
+    ImportStatus:
+      type: string
+      description: >
+        pending/processing — being fetched and matched; ready — preview
+        available, awaiting commit; committing — apply in flight; done —
+        applied; failed — fetch or parse error (see `error`); superseded —
+        replaced by a newer import before commit.
+      enum: [pending, processing, ready, committing, done, failed, superseded]
+
+    ImportMatch:
+      type: string
+      description: >
+        How the row found its target: by source id, by title similarity,
+        or not at all (`review` — resolve manually or it is skipped).
+      enum: [id, title, review]
+
+    StartAniListImportRequest:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 2
+          maxLength: 30
+          description: AniList username; the list must be public
+
+    ImportCounts:
+      type: object
+      description: Zero until the relevant stage has run.
+      required: [total, matched, review, conflicts, applied, skipped]
+      properties:
+        total: { type: integer, description: Parsed source rows }
+        matched: { type: integer, description: Rows with a target anime }
+        review: { type: integer, description: Rows needing manual resolution }
+        conflicts: { type: integer, description: Matched rows already on the list at preview time }
+        applied: { type: integer, description: Rows written by the commit }
+        skipped: { type: integer, description: Rows the commit left out (merge conflicts, unresolved reviews, exclusions) }
+
+    ImportJob:
+      type: object
+      required: [id, source, status, counts, error, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        source: { $ref: "#/components/schemas/ImportSource" }
+        status: { $ref: "#/components/schemas/ImportStatus" }
+        counts: { $ref: "#/components/schemas/ImportCounts" }
+        error:
+          type: string
+          nullable: true
+          description: Human-readable failure reason, when failed
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ImportRow:
+      type: object
+      required: [row_index, title, status, score, progress, match, anime, on_list]
+      properties:
+        row_index:
+          type: integer
+          description: Stable index into the job's parsed rows; key for `resolutions`
+        title: { type: string, description: Title as it appears in the source }
+        status: { $ref: "#/components/schemas/ListStatus" }
+        score: { type: integer, nullable: true, minimum: 1, maximum: 10 }
+        progress: { type: integer, minimum: 0 }
+        started_on: { type: string, format: date, nullable: true }
+        finished_on: { type: string, format: date, nullable: true }
+        match: { $ref: "#/components/schemas/ImportMatch" }
+        anime:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/AnimeSummary" }]
+          description: The matched target; null for review rows
+        on_list:
+          type: boolean
+          description: Already on the user's list when the preview was built
+
+    ImportJobDetail:
+      allOf:
+        - $ref: "#/components/schemas/ImportJob"
+        - type: object
+          required: [rows]
+          properties:
+            rows:
+              type: array
+              description: Empty until the job is ready
+              items: { $ref: "#/components/schemas/ImportRow" }
+
+    ImportResolution:
+      type: object
+      required: [row_index, anime_id]
+      properties:
+        row_index: { type: integer, minimum: 0 }
+        anime_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Target anime for this row; null excludes the row
+
+    CommitImportRequest:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [merge, overwrite]
+          description: merge skips titles already on the list; overwrite lets the import win
+        resolutions:
+          type: array
+          maxItems: 10000
+          items: { $ref: "#/components/schemas/ImportResolution" }
 
     TrendingList:
       type: object

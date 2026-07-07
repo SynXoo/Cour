@@ -20,6 +20,7 @@ import (
 	"cour/internal/discovery"
 	"cour/internal/discussions"
 	"cour/internal/httpapi/apigen"
+	"cour/internal/imports"
 	"cour/internal/lists"
 	"cour/internal/mail"
 	"cour/internal/moderation"
@@ -50,6 +51,7 @@ type apiServer struct {
 	notificationHandlers
 	discoveryHandlers
 	moderationHandlers
+	importHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -131,6 +133,16 @@ func NewRouter(d Deps) (http.Handler, error) {
 		moderationHandlers: moderationHandlers{
 			svc: moderation.New(d.Pool, d.Log),
 			log: d.Log,
+		},
+		importHandlers: importHandlers{
+			// The API process creates and commits jobs; processing happens
+			// in the worker, so no AniList fetcher here — just the producer.
+			svc: imports.New(d.Pool, nil,
+				imports.NewEnqueuer(d.Cfg.RedisAddr, d.Log).ProcessJob,
+				d.Cfg.DemoMode, d.Log),
+			q:        queries,
+			demoMode: d.Cfg.DemoMode,
+			log:      d.Log,
 		},
 	}
 

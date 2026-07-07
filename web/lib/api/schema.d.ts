@@ -433,6 +433,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report content or a user to the moderators */
+        post: operations["fileReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mod/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open reports queue (moderators only) */
+        get: operations["listOpenReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mod/reports/{reportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a report as resolved or dismissed (moderators only) */
+        post: operations["resolveReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/anilist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a public AniList list by username
+         * @description Creates an import job and processes it in the background (fetch, parse, match against the local catalog). Poll the job until it is `ready`, then commit. One import may run at a time per user; a new import supersedes an uncommitted preview. Unavailable in demo mode.
+         */
+        post: operations["startAniListImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/mal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a MyAnimeList XML export (.xml or .xml.gz)
+         * @description Upload the official MAL export file. The file is parsed synchronously (malformed files fail immediately); matching runs in the background. Poll the job until it is `ready`, then commit.
+         */
+        post: operations["startMALImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Import job status and match preview
+         * @description `rows` is populated once the job is `ready`: each source entry with its converted values, match outcome, and (when matched) the target anime. Poll every ~2s while `pending`/`processing`.
+         */
+        get: operations["getImportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/jobs/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a ready import to the user's list
+         * @description Applies matched rows in one transaction — without emitting any activity events (imports never appear in feeds or trending). `merge` skips titles already on the list; `overwrite` lets the import win. Review-bucket rows are skipped unless resolved via `resolutions`; a resolution with a null `anime_id` excludes the row.
+         */
+        post: operations["commitImportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/anime": {
         parameters: {
             query?: never;
@@ -933,6 +1064,117 @@ export interface components {
         HelpfulState: {
             helpful_count: number;
             voted: boolean;
+        };
+        /** @enum {string} */
+        ReportSubject: "review" | "comment" | "user";
+        FileReportRequest: {
+            subject_type: components["schemas"]["ReportSubject"];
+            /** Format: int64 */
+            subject_id: number;
+            reason: string;
+        };
+        Report: {
+            /** Format: int64 */
+            id: number;
+            subject_type: components["schemas"]["ReportSubject"];
+            /** Format: int64 */
+            subject_id: number;
+            reason: string;
+            /** @description Reporter's username */
+            reporter: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReportList: {
+            data: components["schemas"]["Report"][];
+            /** Format: int64 */
+            next_cursor: number | null;
+        };
+        ResolveReportRequest: {
+            /** @enum {string} */
+            action: "resolved" | "dismissed";
+        };
+        /** @enum {string} */
+        ImportSource: "anilist" | "mal";
+        /**
+         * @description pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
+         * @enum {string}
+         */
+        ImportStatus: "pending" | "processing" | "ready" | "committing" | "done" | "failed" | "superseded";
+        /**
+         * @description How the row found its target: by source id, by title similarity, or not at all (`review` — resolve manually or it is skipped).
+         * @enum {string}
+         */
+        ImportMatch: "id" | "title" | "review";
+        StartAniListImportRequest: {
+            /** @description AniList username; the list must be public */
+            username: string;
+        };
+        /** @description Zero until the relevant stage has run. */
+        ImportCounts: {
+            /** @description Parsed source rows */
+            total: number;
+            /** @description Rows with a target anime */
+            matched: number;
+            /** @description Rows needing manual resolution */
+            review: number;
+            /** @description Matched rows already on the list at preview time */
+            conflicts: number;
+            /** @description Rows written by the commit */
+            applied: number;
+            /** @description Rows the commit left out (merge conflicts */
+            skipped: number;
+        };
+        ImportJob: {
+            /** Format: int64 */
+            id: number;
+            source: components["schemas"]["ImportSource"];
+            status: components["schemas"]["ImportStatus"];
+            counts: components["schemas"]["ImportCounts"];
+            /** @description Human-readable failure reason, when failed */
+            error: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ImportRow: {
+            /** @description Stable index into the job's parsed rows; key for `resolutions` */
+            row_index: number;
+            /** @description Title as it appears in the source */
+            title: string;
+            status: components["schemas"]["ListStatus"];
+            score: number | null;
+            progress: number;
+            /** Format: date */
+            started_on?: string | null;
+            /** Format: date */
+            finished_on?: string | null;
+            match: components["schemas"]["ImportMatch"];
+            /** @description The matched target; null for review rows */
+            anime: components["schemas"]["AnimeSummary"] | null;
+            /** @description Already on the user's list when the preview was built */
+            on_list: boolean;
+        };
+        ImportJobDetail: components["schemas"]["ImportJob"] & {
+            /** @description Empty until the job is ready */
+            rows: components["schemas"]["ImportRow"][];
+        };
+        ImportResolution: {
+            row_index: number;
+            /**
+             * Format: int64
+             * @description Target anime for this row; null excludes the row
+             */
+            anime_id: number | null;
+        };
+        CommitImportRequest: {
+            /**
+             * @description merge skips titles already on the list; overwrite lets the import win
+             * @enum {string}
+             */
+            mode: "merge" | "overwrite";
+            resolutions?: components["schemas"]["ImportResolution"][];
         };
         TrendingList: {
             data: components["schemas"]["AnimeSummary"][];
@@ -1857,6 +2099,184 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    fileReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Filed (duplicates are absorbed silently) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOpenReports: {
+        parameters: {
+            query?: {
+                cursor?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resolveReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startAniListImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartAniListImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Import job created and queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startMALImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description MAL export, plain XML or gzipped
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Import job created and queued for matching */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJob"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job with preview rows when available */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    commitImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Import applied; final counts on the returned job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobDetail"];
+                };
             };
             default: components["responses"]["Error"];
         };

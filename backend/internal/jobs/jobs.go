@@ -15,6 +15,7 @@ import (
 
 	"cour/internal/anilist"
 	"cour/internal/discovery"
+	"cour/internal/imports"
 )
 
 // Task type names, namespaced by subsystem.
@@ -42,6 +43,7 @@ const (
 type Deps struct {
 	Syncer    *anilist.Syncer
 	Discovery *discovery.Service
+	Imports   *imports.Service
 	Enqueuer  *asynq.Client // for tasks that chain follow-up tasks
 	Log       *slog.Logger
 	DemoMode  bool
@@ -55,6 +57,33 @@ func RegisterHandlers(mux *asynq.ServeMux, d Deps) {
 	mux.HandleFunc(TypeBackfillCatalog, d.demoGate(d.handleBackfillCatalog))
 	// Discovery works entirely on local data — never demo-gated.
 	mux.HandleFunc(TypeRecomputeDiscovery, d.handleRecomputeDiscovery)
+	// Imports are NOT demo-gated: MAL uploads work offline against the
+	// fixture catalog; the AniList path guards demo mode internally.
+	mux.HandleFunc(imports.TaskProcess, d.handleImportProcess)
+}
+
+// handleImportProcess runs one import's fetch/match stage. On the final
+// retry a still-failing job is marked failed rather than abandoned — a job
+// stranded in 'processing' would block that user's imports forever (the
+// one-active-import index).
+func (d Deps) handleImportProcess(ctx context.Context, t *asynq.Task) error {
+	jobID, err := imports.ParseProcessTask(t)
+	if err != nil {
+		return fmt.Errorf("%v: %w", err, asynq.SkipRetry)
+	}
+	err = d.Imports.Process(ctx, jobID)
+	if err == nil {
+		return nil
+	}
+	retried, _ := asynq.GetRetryCount(ctx)
+	maxRetry, _ := asynq.GetMaxRetry(ctx)
+	if retried >= maxRetry {
+		d.Log.Error("import processing exhausted retries", "job", jobID, "err", err)
+		if failErr := d.Imports.Fail(ctx, jobID, "processing failed repeatedly; try again later"); failErr != nil {
+			d.Log.Error("marking exhausted import failed", "job", jobID, "err", failErr)
+		}
+	}
+	return fmt.Errorf("process import %d: %w", jobID, err)
 }
 
 func (d Deps) handleRecomputeDiscovery(ctx context.Context, _ *asynq.Task) error {

@@ -70,6 +70,15 @@ type gqlError struct {
 	Message string `json:"message"`
 }
 
+// GraphQLError is a semantic error returned by AniList itself (unknown user,
+// private list, bad query) — never retried, and callers can errors.As on it
+// to distinguish "the request is wrong" from "the network is down".
+type GraphQLError struct {
+	Message string
+}
+
+func (e *GraphQLError) Error() string { return "anilist: graphql error: " + e.Message }
+
 type gqlEnvelope struct {
 	Data   json.RawMessage `json:"data"`
 	Errors []gqlError      `json:"errors"`
@@ -154,7 +163,7 @@ func (c *Client) attempt(ctx context.Context, body []byte, dest any) (time.Durat
 		return -1, fmt.Errorf("anilist: decode envelope: %w", err)
 	}
 	if len(env.Errors) > 0 {
-		return -1, fmt.Errorf("anilist: graphql error: %s", env.Errors[0].Message)
+		return -1, &GraphQLError{Message: env.Errors[0].Message}
 	}
 	if err := json.Unmarshal(env.Data, dest); err != nil {
 		return -1, fmt.Errorf("anilist: decode data: %w", err)

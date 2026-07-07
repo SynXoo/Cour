@@ -14,6 +14,7 @@ import (
 	"cour/internal/cache"
 	"cour/internal/config"
 	"cour/internal/discovery"
+	"cour/internal/imports"
 	"cour/internal/jobs"
 	"cour/internal/logging"
 	"cour/internal/notify"
@@ -41,7 +42,8 @@ func main() {
 
 	queries := sqlcgen.New(pool)
 	appCache := cache.New(rdb)
-	syncer := anilist.NewSyncer(anilist.NewClient(log), queries, appCache, log)
+	anilistClient := anilist.NewClient(log)
+	syncer := anilist.NewSyncer(anilistClient, queries, appCache, log)
 
 	redisOpt := asynq.RedisClientOpt{Addr: cfg.RedisAddr}
 	logger := jobs.SlogLogger{L: log}
@@ -65,9 +67,12 @@ func main() {
 	jobs.RegisterHandlers(mux, jobs.Deps{
 		Syncer:    syncer,
 		Discovery: discovery.New(pool, appCache, discovery.DefaultTrendingConfig(), log),
-		Enqueuer:  client,
-		Log:       log,
-		DemoMode:  cfg.DemoMode,
+		// The worker only processes jobs (the API creates them), so no
+		// enqueue func.
+		Imports:  imports.New(pool, anilistClient, nil, cfg.DemoMode, log),
+		Enqueuer: client,
+		Log:      log,
+		DemoMode: cfg.DemoMode,
 	})
 	notify.NewHandlers(queries, rdb, log).Register(mux)
 

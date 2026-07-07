@@ -85,6 +85,24 @@ func (e AiringStatus) Valid() bool {
 	}
 }
 
+// Defines values for CommitImportRequestMode.
+const (
+	Merge     CommitImportRequestMode = "merge"
+	Overwrite CommitImportRequestMode = "overwrite"
+)
+
+// Valid indicates whether the value is a known member of the CommitImportRequestMode enum.
+func (e CommitImportRequestMode) Valid() bool {
+	switch e {
+	case Merge:
+		return true
+	case Overwrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Emoji.
 const (
 	Cry      Emoji = "cry"
@@ -148,27 +166,99 @@ func (e Format) Valid() bool {
 	}
 }
 
+// Defines values for ImportMatch.
+const (
+	ImportMatchId     ImportMatch = "id"
+	ImportMatchReview ImportMatch = "review"
+	ImportMatchTitle  ImportMatch = "title"
+)
+
+// Valid indicates whether the value is a known member of the ImportMatch enum.
+func (e ImportMatch) Valid() bool {
+	switch e {
+	case ImportMatchId:
+		return true
+	case ImportMatchReview:
+		return true
+	case ImportMatchTitle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportSource.
+const (
+	Anilist ImportSource = "anilist"
+	Mal     ImportSource = "mal"
+)
+
+// Valid indicates whether the value is a known member of the ImportSource enum.
+func (e ImportSource) Valid() bool {
+	switch e {
+	case Anilist:
+		return true
+	case Mal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ImportStatus.
+const (
+	Committing ImportStatus = "committing"
+	Done       ImportStatus = "done"
+	Failed     ImportStatus = "failed"
+	Pending    ImportStatus = "pending"
+	Processing ImportStatus = "processing"
+	Ready      ImportStatus = "ready"
+	Superseded ImportStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the ImportStatus enum.
+func (e ImportStatus) Valid() bool {
+	switch e {
+	case Committing:
+		return true
+	case Done:
+		return true
+	case Failed:
+		return true
+	case Pending:
+		return true
+	case Processing:
+		return true
+	case Ready:
+		return true
+	case Superseded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListStatus.
 const (
-	ListStatusCompleted ListStatus = "completed"
-	ListStatusDropped   ListStatus = "dropped"
-	ListStatusPaused    ListStatus = "paused"
-	ListStatusPlanning  ListStatus = "planning"
-	ListStatusWatching  ListStatus = "watching"
+	Completed ListStatus = "completed"
+	Dropped   ListStatus = "dropped"
+	Paused    ListStatus = "paused"
+	Planning  ListStatus = "planning"
+	Watching  ListStatus = "watching"
 )
 
 // Valid indicates whether the value is a known member of the ListStatus enum.
 func (e ListStatus) Valid() bool {
 	switch e {
-	case ListStatusCompleted:
+	case Completed:
 		return true
-	case ListStatusDropped:
+	case Dropped:
 		return true
-	case ListStatusPaused:
+	case Paused:
 		return true
-	case ListStatusPlanning:
+	case Planning:
 		return true
-	case ListStatusWatching:
+	case Watching:
 		return true
 	default:
 		return false
@@ -415,6 +505,16 @@ type CommentList struct {
 	Data []Comment `json:"data"`
 }
 
+// CommitImportRequest defines model for CommitImportRequest.
+type CommitImportRequest struct {
+	// Mode merge skips titles already on the list; overwrite lets the import win
+	Mode        CommitImportRequestMode `json:"mode"`
+	Resolutions *[]ImportResolution     `json:"resolutions,omitempty"`
+}
+
+// CommitImportRequestMode merge skips titles already on the list; overwrite lets the import win
+type CommitImportRequestMode string
+
 // DiscoveryList defines model for DiscoveryList.
 type DiscoveryList struct {
 	Data []AnimeSummary `json:"data"`
@@ -491,6 +591,101 @@ type HelpfulState struct {
 	HelpfulCount int  `json:"helpful_count"`
 	Voted        bool `json:"voted"`
 }
+
+// ImportCounts Zero until the relevant stage has run.
+type ImportCounts struct {
+	// Applied Rows written by the commit
+	Applied int `json:"applied"`
+
+	// Conflicts Matched rows already on the list at preview time
+	Conflicts int `json:"conflicts"`
+
+	// Matched Rows with a target anime
+	Matched int `json:"matched"`
+
+	// Review Rows needing manual resolution
+	Review int `json:"review"`
+
+	// Skipped Rows the commit left out (merge conflicts
+	Skipped int `json:"skipped"`
+
+	// Total Parsed source rows
+	Total int `json:"total"`
+}
+
+// ImportJob defines model for ImportJob.
+type ImportJob struct {
+	// Counts Zero until the relevant stage has run.
+	Counts    ImportCounts `json:"counts"`
+	CreatedAt time.Time    `json:"created_at"`
+
+	// Error Human-readable failure reason, when failed
+	Error  *string      `json:"error"`
+	Id     int64        `json:"id"`
+	Source ImportSource `json:"source"`
+
+	// Status pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
+	Status    ImportStatus `json:"status"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// ImportJobDetail defines model for ImportJobDetail.
+type ImportJobDetail struct {
+	// Counts Zero until the relevant stage has run.
+	Counts    ImportCounts `json:"counts"`
+	CreatedAt time.Time    `json:"created_at"`
+
+	// Error Human-readable failure reason, when failed
+	Error *string `json:"error"`
+	Id    int64   `json:"id"`
+
+	// Rows Empty until the job is ready
+	Rows   []ImportRow  `json:"rows"`
+	Source ImportSource `json:"source"`
+
+	// Status pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
+	Status    ImportStatus `json:"status"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// ImportMatch How the row found its target: by source id, by title similarity, or not at all (`review` — resolve manually or it is skipped).
+type ImportMatch string
+
+// ImportResolution defines model for ImportResolution.
+type ImportResolution struct {
+	// AnimeId Target anime for this row; null excludes the row
+	AnimeId  *int64 `json:"anime_id"`
+	RowIndex int    `json:"row_index"`
+}
+
+// ImportRow defines model for ImportRow.
+type ImportRow struct {
+	// Anime The matched target; null for review rows
+	Anime      *AnimeSummary       `json:"anime"`
+	FinishedOn *openapi_types.Date `json:"finished_on,omitempty"`
+
+	// Match How the row found its target: by source id, by title similarity, or not at all (`review` — resolve manually or it is skipped).
+	Match ImportMatch `json:"match"`
+
+	// OnList Already on the user's list when the preview was built
+	OnList   bool `json:"on_list"`
+	Progress int  `json:"progress"`
+
+	// RowIndex Stable index into the job's parsed rows; key for `resolutions`
+	RowIndex  int                 `json:"row_index"`
+	Score     *int                `json:"score"`
+	StartedOn *openapi_types.Date `json:"started_on,omitempty"`
+	Status    ListStatus          `json:"status"`
+
+	// Title Title as it appears in the source
+	Title string `json:"title"`
+}
+
+// ImportSource defines model for ImportSource.
+type ImportSource string
+
+// ImportStatus pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
+type ImportStatus string
 
 // ListEntry defines model for ListEntry.
 type ListEntry struct {
@@ -757,6 +952,12 @@ type SessionResponse struct {
 // SessionResponseTokenType defines model for SessionResponse.TokenType.
 type SessionResponseTokenType string
 
+// StartAniListImportRequest defines model for StartAniListImportRequest.
+type StartAniListImportRequest struct {
+	// Username AniList username; the list must be public
+	Username string `json:"username"`
+}
+
 // Studio defines model for Studio.
 type Studio struct {
 	IsMain bool   `json:"is_main"`
@@ -906,6 +1107,12 @@ type DiscordCallbackParams struct {
 	State *string `form:"state,omitempty" json:"state,omitempty"`
 }
 
+// StartMALImportMultipartBody defines parameters for StartMALImport.
+type StartMALImportMultipartBody struct {
+	// File MAL export, plain XML or gzipped
+	File openapi_types.File `json:"file"`
+}
+
 // GetMyFeedParams defines parameters for GetMyFeed.
 type GetMyFeedParams struct {
 	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -963,6 +1170,15 @@ type RegisterJSONRequestBody = RegisterRequest
 
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = TokenRequest
+
+// StartAniListImportJSONRequestBody defines body for StartAniListImport for application/json ContentType.
+type StartAniListImportJSONRequestBody = StartAniListImportRequest
+
+// CommitImportJobJSONRequestBody defines body for CommitImportJob for application/json ContentType.
+type CommitImportJobJSONRequestBody = CommitImportRequest
+
+// StartMALImportMultipartRequestBody defines body for StartMALImport for multipart/form-data ContentType.
+type StartMALImportMultipartRequestBody StartMALImportMultipartBody
 
 // UpsertMyListEntryJSONRequestBody defines body for UpsertMyListEntry for application/json ContentType.
 type UpsertMyListEntryJSONRequestBody = UpsertListEntryRequest
@@ -1053,6 +1269,18 @@ type ServerInterface interface {
 	// Recent, highly-rated, under-watched titles
 	// (GET /hidden-gems)
 	GetHiddenGems(w http.ResponseWriter, r *http.Request)
+	// Import a public AniList list by username
+	// (POST /import/anilist)
+	StartAniListImport(w http.ResponseWriter, r *http.Request)
+	// Import job status and match preview
+	// (GET /import/jobs/{id})
+	GetImportJob(w http.ResponseWriter, r *http.Request, id int64)
+	// Apply a ready import to the user's list
+	// (POST /import/jobs/{id}/commit)
+	CommitImportJob(w http.ResponseWriter, r *http.Request, id int64)
+	// Import a MyAnimeList XML export (.xml or .xml.gz)
+	// (POST /import/mal)
+	StartMALImport(w http.ResponseWriter, r *http.Request)
 	// The authenticated user's favorites
 	// (GET /me/favorites)
 	GetMyFavorites(w http.ResponseWriter, r *http.Request)
@@ -1293,6 +1521,30 @@ func (_ Unimplemented) AddReaction(w http.ResponseWriter, r *http.Request, comme
 // Recent, highly-rated, under-watched titles
 // (GET /hidden-gems)
 func (_ Unimplemented) GetHiddenGems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Import a public AniList list by username
+// (POST /import/anilist)
+func (_ Unimplemented) StartAniListImport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Import job status and match preview
+// (GET /import/jobs/{id})
+func (_ Unimplemented) GetImportJob(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Apply a ready import to the user's list
+// (POST /import/jobs/{id}/commit)
+func (_ Unimplemented) CommitImportJob(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Import a MyAnimeList XML export (.xml or .xml.gz)
+// (POST /import/mal)
+func (_ Unimplemented) StartMALImport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2163,6 +2415,110 @@ func (siw *ServerInterfaceWrapper) GetHiddenGems(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHiddenGems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartAniListImport operation middleware
+func (siw *ServerInterfaceWrapper) StartAniListImport(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartAniListImport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetImportJob operation middleware
+func (siw *ServerInterfaceWrapper) GetImportJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetImportJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CommitImportJob operation middleware
+func (siw *ServerInterfaceWrapper) CommitImportJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CommitImportJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartMALImport operation middleware
+func (siw *ServerInterfaceWrapper) StartMALImport(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartMALImport(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3409,6 +3765,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hidden-gems", wrapper.GetHiddenGems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/import/anilist", wrapper.StartAniListImport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/import/jobs/{id}", wrapper.GetImportJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/import/jobs/{id}/commit", wrapper.CommitImportJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/import/mal", wrapper.StartMALImport)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/favorites", wrapper.GetMyFavorites)

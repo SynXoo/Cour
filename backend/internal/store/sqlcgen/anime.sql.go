@@ -444,6 +444,145 @@ func (q *Queries) ListSeason(ctx context.Context, arg ListSeasonParams) ([]Anime
 	return items, nil
 }
 
+const matchAnimeByAniListIDs = `-- name: MatchAnimeByAniListIDs :many
+SELECT id, anilist_id FROM anime WHERE anilist_id = ANY($1::int[])
+`
+
+type MatchAnimeByAniListIDsRow struct {
+	ID        int64
+	AnilistID int32
+}
+
+func (q *Queries) MatchAnimeByAniListIDs(ctx context.Context, dollar_1 []int32) ([]MatchAnimeByAniListIDsRow, error) {
+	rows, err := q.db.Query(ctx, matchAnimeByAniListIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MatchAnimeByAniListIDsRow
+	for rows.Next() {
+		var i MatchAnimeByAniListIDsRow
+		if err := rows.Scan(&i.ID, &i.AnilistID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const matchAnimeByMALIDs = `-- name: MatchAnimeByMALIDs :many
+SELECT id, mal_id FROM anime WHERE mal_id = ANY($1::int[])
+`
+
+type MatchAnimeByMALIDsRow struct {
+	ID    int64
+	MalID *int32
+}
+
+func (q *Queries) MatchAnimeByMALIDs(ctx context.Context, dollar_1 []int32) ([]MatchAnimeByMALIDsRow, error) {
+	rows, err := q.db.Query(ctx, matchAnimeByMALIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MatchAnimeByMALIDsRow
+	for rows.Next() {
+		var i MatchAnimeByMALIDsRow
+		if err := rows.Scan(&i.ID, &i.MalID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const matchAnimeByTitle = `-- name: MatchAnimeByTitle :many
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id,
+  GREATEST(
+    similarity($2::text, title_romaji),
+    similarity($2, coalesce(title_english, '')),
+    (SELECT COALESCE(MAX(similarity($2, s)), 0::real) FROM unnest(synonyms) AS s)
+  )::float8 AS similarity
+FROM anime
+WHERE title_romaji % $2 OR coalesce(title_english, '') % $2
+ORDER BY similarity DESC, popularity DESC
+LIMIT $1
+`
+
+type MatchAnimeByTitleParams struct {
+	Limit int32
+	Query string
+}
+
+type MatchAnimeByTitleRow struct {
+	Anime      Anime
+	Similarity float64
+}
+
+// Import matching fallback: whole-title trigram similarity (not
+// word_similarity — import titles are complete titles, and word matching
+// would score "Death Note" a perfect 1.0 against "Death Note: Rewrite").
+// The % prefilter keeps the GIN indexes in play; synonyms join the ranking
+// but not the filter (unnest can't use an index). No is_adult filter:
+// private lists legitimately track what the browse surfaces hide.
+func (q *Queries) MatchAnimeByTitle(ctx context.Context, arg MatchAnimeByTitleParams) ([]MatchAnimeByTitleRow, error) {
+	rows, err := q.db.Query(ctx, matchAnimeByTitle, arg.Limit, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MatchAnimeByTitleRow
+	for rows.Next() {
+		var i MatchAnimeByTitleRow
+		if err := rows.Scan(
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchAnime = `-- name: SearchAnime :many
 SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id,
   GREATEST(

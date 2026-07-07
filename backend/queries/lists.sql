@@ -49,3 +49,23 @@ LIMIT $2;
 -- name: InsertActivity :exec
 INSERT INTO activities (user_id, type, anime_id, ref_id, payload)
 VALUES ($1, $2, $3, $4, $5);
+
+-- name: ListEntryAnimeIDs :many
+-- The user's full tracked set (no limit) — merge-mode imports filter
+-- against it and conflict counts derive from it.
+SELECT anime_id FROM list_entries WHERE user_id = $1;
+
+-- name: ImportUpsertListEntry :exec
+-- The import bulk-apply write path: one upsert, NO activity insert — imports
+-- must never feed the activity spine (docs/PHASE_2.md §M1, zero-activity
+-- rule), or they would flood follower feeds and poison trending. Status,
+-- score, and progress are the import's to win; dates only fill in when the
+-- source actually has them.
+INSERT INTO list_entries (user_id, anime_id, status, score, progress, started_on, finished_on)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (user_id, anime_id) DO UPDATE SET
+  status = EXCLUDED.status,
+  score = EXCLUDED.score,
+  progress = EXCLUDED.progress,
+  started_on = COALESCE(EXCLUDED.started_on, list_entries.started_on),
+  finished_on = COALESCE(EXCLUDED.finished_on, list_entries.finished_on);

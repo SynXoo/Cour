@@ -18,12 +18,15 @@ type listHandlers struct {
 	log *slog.Logger
 }
 
+// Note: the apigen constant names are bare (Watching, not
+// ListStatusWatching) — oapi-codegen only prefixes enum members while their
+// names collide across enums, and adding the import enums reshuffled that.
 var validListStatuses = map[apigen.ListStatus]sqlcgen.ListStatus{
-	apigen.ListStatusWatching:  sqlcgen.ListStatusWatching,
-	apigen.ListStatusCompleted: sqlcgen.ListStatusCompleted,
-	apigen.ListStatusPlanning:  sqlcgen.ListStatusPlanning,
-	apigen.ListStatusPaused:    sqlcgen.ListStatusPaused,
-	apigen.ListStatusDropped:   sqlcgen.ListStatusDropped,
+	apigen.Watching:  sqlcgen.ListStatusWatching,
+	apigen.Completed: sqlcgen.ListStatusCompleted,
+	apigen.Planning:  sqlcgen.ListStatusPlanning,
+	apigen.Paused:    sqlcgen.ListStatusPaused,
+	apigen.Dropped:   sqlcgen.ListStatusDropped,
 }
 
 func (h listHandlers) GetMyList(w http.ResponseWriter, r *http.Request, params apigen.GetMyListParams) {
