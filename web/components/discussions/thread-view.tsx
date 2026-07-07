@@ -13,7 +13,22 @@ import { browserApi } from "@/lib/api/client";
 import { useSession } from "@/lib/auth/session";
 import { useThreadEvents } from "@/lib/hooks/use-thread-events";
 import { formatTimestamp, parseTimestamp } from "@/lib/timestamp";
-import { CommentItem, groupReplies, LiveCommentsContext, type Comment } from "./comment-item";
+import {
+  CommentItem,
+  CommentsIndexContext,
+  groupReplies,
+  jumpToComment,
+  LiveCommentsContext,
+  type Comment,
+} from "./comment-item";
+
+type Sort = "newest" | "oldest" | "top" | "timeline";
+
+const SORT_LABELS: Record<Exclude<Sort, "timeline">, string> = {
+  newest: "Newest",
+  oldest: "Oldest",
+  top: "Top",
+};
 
 export function ThreadView({
   threadId,
@@ -25,25 +40,18 @@ export function ThreadView({
   const { status, user } = useSession();
   const qc = useQueryClient();
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
-  const [sort, setSort] = useState<"time" | "timeline">("time");
+  const [sort, setSort] = useState<Sort>("newest");
 
   // Live layer: comments arriving via SSE that landed while the reader was
-  // scrolled up (→ the "N new" pill) and the set that should slide in.
+  // elsewhere (→ the "N new" pill) and the set that should slide in.
   const [newCount, setNewCount] = useState(0);
   const [liveIds, setLiveIds] = useState<Set<number>>(() => new Set());
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const atBottomRef = useRef(true);
+  const lastLiveIdRef = useRef<number | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const atAnchorRef = useRef(true);
 
-  const scrollToBottom = useCallback(() => {
-    setNewCount(0);
-    requestAnimationFrame(() => {
-      const reduce =
-        typeof window !== "undefined" &&
-        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      bottomRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "end" });
-    });
-  }, []);
-
+  // Identity changes with sort are fine: useThreadEvents holds the callback in
+  // a ref, so the SSE stream never re-opens over this.
   const onCreated = useCallback(
     (c: Comment) => {
       setLiveIds((prev) => {
@@ -51,13 +59,17 @@ export function ThreadView({
         next.add(c.id);
         return next;
       });
+      lastLiveIdRef.current = c.id;
       const mine = user != null && c.author.username === user.username;
-      // Following live at the bottom (or it's our own post): let it stream in.
-      // Reading further up: don't yank scroll — surface a pill instead.
-      if (mine || atBottomRef.current) scrollToBottom();
+      // In the date sorts new arrivals land at a known edge, so a reader parked
+      // there just watches them stream in. Top/timeline scatter arrivals by
+      // score/stamp — never yank scroll there. Your own comment always wins:
+      // jump to it wherever it sorted.
+      const following = (sort === "newest" || sort === "oldest") && atAnchorRef.current;
+      if (mine || following) jumpToComment(c.id);
       else setNewCount((n) => n + 1);
     },
-    [user, scrollToBottom],
+    [user, sort],
   );
 
   const { presence, degraded } = useThreadEvents(threadId, { onCreated });
@@ -76,25 +88,56 @@ export function ThreadView({
     },
   });
 
-  // A visible bottom sentinel means the newest comment is on screen: the reader
-  // is caught up, so new arrivals stream in rather than banking into the pill.
+  // A visible sentinel at the arrival edge (top for newest, bottom for oldest)
+  // means the reader is caught up: new comments stream in rather than banking
+  // into the pill.
   useEffect(() => {
-    const el = bottomRef.current;
+    const el = anchorRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        atBottomRef.current = entry.isIntersecting;
+        atAnchorRef.current = entry.isIntersecting;
         if (entry.isIntersecting) setNewCount(0);
       },
-      { rootMargin: "0px 0px 96px 0px" },
+      { rootMargin: "96px 0px 96px 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [sort]);
 
   const comments = data ?? [];
-  const roots = comments.filter((c) => c.parent_id == null);
+  const byId = new Map(comments.map((c) => [c.id, c]));
+  const roots = comments.filter((c) => c.parent_id == null); // id ASC = oldest first
   const descendants = comments.filter((c) => c.parent_id != null);
+
+  // Subtree reply counts, for the Top tiebreak.
+  const replyCount = new Map<number, number>();
+  {
+    const rootOf = new Map<number, number>();
+    for (const c of comments) {
+      if (c.parent_id == null) {
+        rootOf.set(c.id, c.id);
+        continue;
+      }
+      const r = rootOf.get(c.parent_id);
+      if (r == null) continue;
+      rootOf.set(c.id, r);
+      replyCount.set(r, (replyCount.get(r) ?? 0) + 1);
+    }
+  }
+  const heat = (c: Comment) => c.reactions.reduce((n, r) => n + r.count, 0);
+  const sortedRoots =
+    sort === "oldest"
+      ? roots
+      : sort === "top"
+        ? // Most-reacted first; ties go to the busiest conversation, then newest.
+          [...roots].sort(
+            (a, b) =>
+              heat(b) - heat(a) ||
+              (replyCount.get(b.id) ?? 0) - (replyCount.get(a.id) ?? 0) ||
+              b.id - a.id,
+          )
+        : [...roots].reverse(); // newest (also the fallback while sort === "timeline")
 
   const anyTimestamps = comments.some((c) => c.timestamp_seconds != null);
   const timeline =
@@ -103,9 +146,15 @@ export function ThreadView({
           .filter((c) => c.timestamp_seconds != null && !c.deleted)
           .sort((a, b) => a.timestamp_seconds! - b.timestamp_seconds!)
       : null;
+  const anchorTop = sort === "newest";
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["comments", threadId] });
+  }
+
+  function showLatest() {
+    setNewCount(0);
+    if (lastLiveIdRef.current != null) jumpToComment(lastLiveIdRef.current);
   }
 
   return (
@@ -128,28 +177,29 @@ export function ThreadView({
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
-        {allowTimestamps && anyTimestamps ? (
-          <div className="flex gap-1.5" role="group" aria-label="Comment ordering">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sort comments">
+          {(Object.keys(SORT_LABELS) as (keyof typeof SORT_LABELS)[]).map((s) => (
             <Button
+              key={s}
               size="sm"
               className="h-11 md:h-7"
-              variant={sort === "time" ? "secondary" : "ghost"}
-              onClick={() => setSort("time")}
+              variant={sort === s ? "secondary" : "ghost"}
+              onClick={() => setSort(s)}
             >
-              Chronological
+              {SORT_LABELS[s]}
             </Button>
+          ))}
+          {allowTimestamps && anyTimestamps && (
             <Button
               size="sm"
               className="h-11 md:h-7"
               variant={sort === "timeline" ? "secondary" : "ghost"}
               onClick={() => setSort("timeline")}
             >
-              Episode timeline
+              Timeline
             </Button>
-          </div>
-        ) : (
-          <span />
-        )}
+          )}
+        </div>
         {presence >= 2 && (
           <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className="relative flex h-2 w-2" aria-hidden>
@@ -161,46 +211,51 @@ export function ThreadView({
         )}
       </div>
 
-      <LiveCommentsContext.Provider value={liveIds}>
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-20 rounded-lg" />
-            <Skeleton className="h-20 rounded-lg" />
-          </div>
-        ) : comments.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-            No comments yet — first!
-          </p>
-        ) : timeline ? (
-          <ul className="divide-y divide-border/60">
-            {timeline.map((c) => (
-              <CommentItem key={c.id} comment={c} replies={[]} onReply={setReplyTo} />
-            ))}
-          </ul>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {roots.map((root) => (
-              <CommentItem
-                key={root.id}
-                comment={root}
-                replies={groupReplies(descendants, root.id)}
-                onReply={setReplyTo}
-              />
-            ))}
-          </ul>
-        )}
-      </LiveCommentsContext.Provider>
+      {anchorTop && <div ref={anchorRef} aria-hidden className="h-px" />}
 
-      <div ref={bottomRef} aria-hidden className="h-px" />
+      <CommentsIndexContext.Provider value={byId}>
+        <LiveCommentsContext.Provider value={liveIds}>
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 rounded-lg" />
+              <Skeleton className="h-20 rounded-lg" />
+            </div>
+          ) : comments.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+              No comments yet — first!
+            </p>
+          ) : timeline ? (
+            <ul className="divide-y divide-border/60">
+              {timeline.map((c) => (
+                <CommentItem key={c.id} comment={c} replies={[]} onReply={setReplyTo} />
+              ))}
+            </ul>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {sortedRoots.map((root) => (
+                <CommentItem
+                  key={root.id}
+                  comment={root}
+                  replies={groupReplies(descendants, root.id)}
+                  onReply={setReplyTo}
+                />
+              ))}
+            </ul>
+          )}
+        </LiveCommentsContext.Provider>
+      </CommentsIndexContext.Provider>
+
+      {!anchorTop && <div ref={anchorRef} aria-hidden className="h-px" />}
 
       {newCount > 0 && (
         <button
           type="button"
-          onClick={scrollToBottom}
+          onClick={showLatest}
           aria-live="polite"
           className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 rounded-full border border-primary/40 bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 md:bottom-8"
         >
-          ↓ {newCount} new comment{newCount === 1 ? "" : "s"}
+          {anchorTop ? "↑ " : sort === "oldest" ? "↓ " : ""}
+          {newCount} new comment{newCount === 1 ? "" : "s"}
         </button>
       )}
     </div>
@@ -224,6 +279,17 @@ function Composer({
   const [stamp, setStamp] = useState("");
   const [spoilers, setSpoilers] = useState(false);
   const [posting, setPosting] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  // Picking "Reply" far down the thread must visibly do something: bring the
+  // composer to the reader and put the caret in it.
+  useEffect(() => {
+    if (!replyTo) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    boxRef.current?.scrollIntoView?.({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    textRef.current?.focus({ preventScroll: true });
+  }, [replyTo]);
 
   async function post() {
     const trimmed = body.trim();
@@ -264,11 +330,15 @@ function Composer({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border/60 bg-card p-3">
+    <div ref={boxRef} className="space-y-2 rounded-lg border border-border/60 bg-card p-3">
       {replyTo && (
-        <p className="flex items-center justify-between gap-2 rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+        <p
+          key={replyTo.id}
+          className="reply-chip flex items-center justify-between gap-2 rounded border-l-2 border-primary/60 bg-muted px-2 py-1 text-xs text-muted-foreground"
+        >
           <span className="truncate">
-            Replying to <strong>@{replyTo.author.username}</strong>: {replyTo.body.slice(0, 80)}
+            Replying to <strong className="text-foreground/80">@{replyTo.author.username}</strong>:{" "}
+            {replyTo.body.slice(0, 80)}
           </span>
           <button type="button" onClick={clearReply} className="shrink-0 px-1 py-1 underline">
             cancel
@@ -276,9 +346,13 @@ function Composer({
         </p>
       )}
       <Textarea
+        ref={textRef}
         rows={3}
         value={body}
         onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") post();
+        }}
         placeholder={replyTo ? "Write your reply…" : "Share your thoughts…"}
         aria-label="Comment"
         className="font-sans"

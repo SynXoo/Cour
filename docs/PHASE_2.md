@@ -81,7 +81,8 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
   375/desktop: the four events all fold in without a refresh.)
 - [ ] **M2.3** (O) Velocity + spoiler guard — `comments(created_at)` index,
   `GET /threads/trending` (decay + presence bonus, 60 s cache),
-  progress-aware banner/blur on episode threads, inline "mark ep N
+  progress-aware banner/blur on episode threads (**must cover the reply
+  quote chips** — see the spoiler-guard section), inline "mark ep N
   watched". Stretch: night-of badge, bell 60 s refetch.
 
 ### M3 — home & landing
@@ -106,6 +107,44 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-07 · fix+ux (out-of-band, from live user feedback on M2.2's surface) ·
+  **The bug:** a reply rendered under *every* top-level comment. ThreadView passes
+  the full descendants list to `groupReplies` once per root, and its "orphan
+  adoption" fallback glued any comment it couldn't trace to the current root onto
+  it. Orphans are impossible (comments arrive `ORDER BY id LIMIT 500` in one shot;
+  a parent's id < its replies') so `groupReplies` now **skips** non-subtree
+  comments — each root extracts exactly its own subtree from the shared list. DB
+  was always right; render-only. Regression: `comment-item.test.tsx` (unit table:
+  nesting, sibling isolation, interleaved subtrees) + a ThreadView
+  render-once-under-parent test. **UX (greenlit "whatever you think is best" +
+  newest-on-top + popularity sort):** default sort is now **Newest**; control is
+  Newest / Oldest / Top / Timeline (Top = root's reaction total, ties → subtree
+  reply count → newest; replies always chronological under their parent;
+  client-side over the single fetch). Live layer is **sort-aware**: the catch-up
+  sentinel sits at the arrival edge (top for Newest, bottom for Oldest), the pill
+  points there (↑/↓), and clicking it — or posting — runs `jumpToComment(id)`
+  (double-rAF, `scrollIntoView` + `comment-flash` pulse; no-ops when the id isn't
+  rendered, e.g. untimestamped arrivals in Timeline); Top/Timeline never
+  auto-follow others' posts. **Reply flow:** Reply scrolls the composer into view
+  + autofocuses (animated `reply-chip`, Ctrl/Cmd+Enter posts); every reply renders
+  a tappable **quote chip** of its parent via new `CommentsIndexContext`
+  (spoiler-marked/deleted parents quote as italic placeholders — **M2.3's
+  blur-all must cover these chips**, spec updated). **Identity:** own comments =
+  tinted `bg-primary/10` bubble + "you" badge; `.avatar-hue` derives a stable
+  per-username oklch tint (JS sets `--avatar-hue`; light+dark variants;
+  unlayered CSS deliberately beats utility-layer `bg-muted`). **Tapbacks:**
+  emoji burst + spring pop on react (burst key from a `useRef` counter —
+  `react-hooks/purity` rejects `Date.now()` in handlers), staggered picker
+  entrance via `--i` delay; all new motion has reduced-motion fallbacks.
+  Gotcha for future tests: the quote chip duplicates parent body text in the
+  DOM — anchor body queries on the `<p>`. `onCreated` now depends on
+  `[user, sort]` (fine: `useThreadEvents` holds the callback in a ref, stream
+  never re-opens). Typing indicator deliberately deferred → Parking lot. Tests
+  **77** vitest (11 files) + lint + tsc green; verified live on the Docker stack
+  at 375/desktop (sort orders, composer focus flow, flash-jump, burst, Top
+  ordering, no h-overflow, 44 px targets). Demo DB: thread 8 (anime 16 ep 1)
+  gained a small real reply tree — Miguel live-tested mid-session and his
+  replies nested correctly. Two commits: `fix:` then `threads:`.
 - 2026-07-07 · M2.2 · Live client — consumes the M2.1 SSE gateway; no backend
   changes. New `lib/hooks/use-thread-events.ts`: `useThreadEvents(threadId,
   {onCreated, enabled})` opens `EventSource('/api/v1/threads/{id}/events')` (rides
@@ -248,6 +287,15 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **Typing indicator** (deferred from the 2026-07-07 thread-UX session) —
+  "@user is typing" with a three-dot pulse in ThreadView, the last big
+  iMessage-feel piece. Needs a throttled client signal (a tiny
+  `POST /threads/{id}/typing`, throttle ≥ 2 s — keep it off the composer's
+  keystroke hot path) + an ephemeral `typing` event through the existing
+  `internal/realtime` hub (no persistence; client drops the indicator ~4 s
+  after the last signal). Natural fit alongside M2.3's thread work, or ride
+  M4.1's presence plumbing if that lands first.
 
 - **AniList rate budget vs. interactive imports** (from M1.3) — while the
   22k-title backfill re-crawl runs (hours after a cursor reset; also the
@@ -600,7 +648,12 @@ degrade to 15 s polling — the client wrapper (below) isolates the choice.
 On an episode-N thread, if the signed-in viewer's list entry has
 `progress < N`: a banner ("you're 2 episodes behind") and **blur-all by
 default** with per-comment or reveal-all override. Client-side against the
-already-loaded list entry — no schema change. Companion feature: when
+already-loaded list entry — no schema change. **Blur-all must include the
+reply quote chips** (thread-UX session, 2026-07-07): every reply renders a
+one-line quote of its parent's body via `CommentsIndexContext`, so an
+unblurred chip would leak a blurred comment's text; the chips already show
+an italic placeholder for `has_spoilers`/deleted parents
+(`comment-item.tsx`) — extend that same path. Companion feature: when
 episode N is the viewer's *next* episode, the thread shows an inline
 **"mark ep N watched"** button (existing upsert) — discussing and tracking
 close into one loop.

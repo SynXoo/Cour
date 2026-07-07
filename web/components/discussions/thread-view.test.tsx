@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Comment } from "@/lib/hooks/use-thread-events";
 import { ThreadView } from "./thread-view";
@@ -35,7 +35,7 @@ class FakeEventSource {
   }
 }
 
-// Reports the bottom sentinel as off-screen, so live arrivals feed the pill
+// Reports the catch-up sentinel as off-screen, so live arrivals feed the pill
 // instead of auto-scrolling (which is the more interesting path to assert).
 class FakeIO {
   constructor(private cb: (entries: { isIntersecting: boolean }[]) => void) {}
@@ -125,6 +125,44 @@ describe("ThreadView live layer", () => {
     expect(li).toHaveClass("comment-enter");
   });
 
+  it("sorts newest-first by default, with Oldest and Top on demand", async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        data: [
+          comment(1, "first post"),
+          { ...comment(2, "second post"), reactions: [{ emoji: "+1" as const, count: 3, mine: false }] },
+          comment(3, "third post"),
+        ],
+      },
+      error: undefined,
+    });
+    renderThread();
+    await screen.findByText("first post");
+    const bodies = () => screen.getAllByText(/post$/).map((e) => e.textContent);
+
+    expect(bodies()).toEqual(["third post", "second post", "first post"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Oldest" }));
+    expect(bodies()).toEqual(["first post", "second post", "third post"]);
+
+    // Top: most reactions first, zero-reaction ties fall back to newest.
+    fireEvent.click(screen.getByRole("button", { name: "Top" }));
+    expect(bodies()).toEqual(["second post", "third post", "first post"]);
+  });
+
+  it("shows a tappable quote of the parent on replies", async () => {
+    const reply = { ...comment(3, "the reply"), parent_id: 1 };
+    apiGet.mockResolvedValue({
+      data: { data: [comment(1, "root A"), reply] },
+      error: undefined,
+    });
+    renderThread();
+
+    await screen.findByText("the reply");
+    const chip = screen.getByRole("button", { name: "Jump to @user1's comment" });
+    expect(chip).toHaveTextContent("root A");
+  });
+
   it("renders a reply once, under its parent only", async () => {
     const reply = { ...comment(3, "the reply"), parent_id: 1 };
     apiGet.mockResolvedValue({
@@ -133,11 +171,16 @@ describe("ThreadView live layer", () => {
     });
     renderThread();
 
-    await screen.findByText("root A");
+    await screen.findByText("the reply");
     const replies = screen.getAllByText("the reply");
     expect(replies).toHaveLength(1);
 
-    const rootA = screen.getByText("root A").closest("li")!;
+    // "root A" appears twice (the comment body + the reply's quote chip);
+    // anchor on the body paragraph.
+    const rootA = screen
+      .getAllByText("root A")
+      .find((e) => e.tagName === "P")!
+      .closest("li")!;
     const rootB = screen.getByText("root B").closest("li")!;
     expect(rootA.contains(replies[0])).toBe(true);
     expect(rootB.contains(replies[0])).toBe(false);
