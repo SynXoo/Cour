@@ -163,3 +163,25 @@
     animation: skeleton-in 1ms linear 150ms both;
   }
 }
+
+/* A comment that streamed in live (SSE, §M2.2) eases up into place once, so a
+   busy thread reads as alive rather than snapping rows in. Only live arrivals
+   get the class — the initial batch never animates. */
+@keyframes comment-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.comment-enter {
+  animation: comment-slide-in 220ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment-enter {
+    animation: none;
+  }
+}

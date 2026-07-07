@@ -74,10 +74,11 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
   post-commit from the discussion **handlers** (reuse the REST DTO mappers so
   `comment.created` is byte-identical to the cached `Comment`); unit +
   integration tests.
-- [ ] **M2.2** (F) Live client — `useThreadEvents` merging into the React
+- [x] **M2.2** (F) Live client — `useThreadEvents` merging into the React
   Query cache, slide-in comments, "N new comments" pill when scrolled,
   presence badge (shows at ≥ 2), polling degrade on error,
-  `prefers-reduced-motion`.
+  `prefers-reduced-motion`. (E2E-verified live on the Docker stack at
+  375/desktop: the four events all fold in without a refresh.)
 - [ ] **M2.3** (O) Velocity + spoiler guard — `comments(created_at)` index,
   `GET /threads/trending` (decay + presence bonus, 60 s cache),
   progress-aware banner/blur on episode threads, inline "mark ep N
@@ -105,6 +106,71 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-07 · M2.2 · Live client — consumes the M2.1 SSE gateway; no backend
+  changes. New `lib/hooks/use-thread-events.ts`: `useThreadEvents(threadId,
+  {onCreated, enabled})` opens `EventSource('/api/v1/threads/{id}/events')` (rides
+  the spike-proven `/api/*` rewrite, **no token** — the endpoint is optionalAuth
+  public read, and EventSource can't set Authorization anyway; anon viewers get
+  presence + live comments too). The four events are **named**, so the default
+  `message` handler never fires — `addEventListener` per name. Each folds into the
+  `["comments", threadId]` cache via three **pure, exported** helpers (unit-tested
+  in isolation): `applyCreated` (append, or replace-by-id → idempotent so the
+  poster's own echo and a reconnect replay never double a row), `applyDeleted`
+  (tombstone in place to the REST shape — `deleted:true` + `"[removed]"`; returns
+  the **same reference** when the id is absent so React skips a re-render),
+  `applyReaction` (update count **preserving the local `mine`** — the event carries
+  no ownership; add a brand-new emoji as `mine:false`; drop it at count 0; re-sort
+  to the canonical +1/heart/laugh/surprise/cry/fire order so a live-added chip
+  lands where the next REST fetch would put it). `presence` → state; **degrade**:
+  `error` → `degraded:true` (EventSource self-reconnects), `open` → clear **and**
+  one `invalidateQueries` to reconcile events missed while down — but only after a
+  prior error (a `missedWhileDown` flag), so first connect doesn't double-fetch.
+  `onCreated` is held in a ref refreshed each render, so its identity never
+  re-opens the stream. **ThreadView wiring:** `refetchInterval: degraded ? 15_000
+  : false` — a dropped stream degrades to polling until it's back; presence badge
+  "N here now" (ping dot with `motion-reduce:animate-none`) shows at ≥ 2; **"N new
+  comments" pill** — a bottom sentinel + `IntersectionObserver` tracks
+  at-bottom (a ref), a live arrival while scrolled up bumps `newCount` → a `fixed`
+  pill clearing the mobile bottom-nav (`bottom-[calc(5rem+env(safe-area-inset-bottom))]
+  md:bottom-8`); at the bottom (or the viewer's **own** post, matched by username)
+  it auto-scrolls via rAF `scrollIntoView` (behavior honours reduced-motion)
+  instead of yanking. **Slide-in:** live-arrived ids ride a `LiveCommentsContext`
+  (avoids drilling through the recursive `CommentItem`); the item adds
+  `comment-enter` when its id is in the set; new `@keyframes comment-slide-in`
+  (opacity + `translateY(8px)`, 220 ms) is disabled under
+  `prefers-reduced-motion`. Kept the existing post/delete/react `invalidate`
+  calls — the acting user still gets instant feedback if SSE is degraded, and the
+  idempotent merges dedupe the SSE echo. **Verified E2E on the live Docker stack**
+  (rebuilt api+worker+web — the compose images predated M2.1/M1.3 per that
+  heads-up): thread 200 (Frieren series) as sakuga_sam — `GET /threads/200/events`
+  streamed `presence{1}` on connect; a second `EventSource` lifted the badge to
+  "2 here now"; posting as cour_counter/eyecatch_emi via the API surfaced
+  `comment.created` **live** (slide-in class + `animation-name` confirmed) with
+  auto-scroll at the bottom and no yank; `reaction.updated` ticked comment 29 to
+  ❤️1 🔥1 (new emoji inserted in canonical order, existing preserved);
+  `comment.deleted` tombstoned to `[removed]` live. 375 + desktop, dark. **Pill
+  caveat:** its scrolled-up branch can't be exercised in the preview harness — the
+  harness's `IntersectionObserver` reports the bottom sentinel as *always visible*
+  (whole document = viewport), so `atBottom` stays true and arrivals auto-scroll;
+  covered instead by a component test with a controllable observer. **Tests:** +16
+  vitest — `use-thread-events.test.ts` (10 pure-helper cases + 3 `renderHook`:
+  presence/degraded/reconnect-invalidate transitions, cache-merge + `onCreated`,
+  close-on-unmount) and `thread-view.test.tsx` (6: stream opens for the thread,
+  badge ≥ 2 only, live append + pill, slide-in class, live delete tombstone,
+  close-on-unmount) — fake `EventSource` + fake `IntersectionObserver`. Web **70**
+  vitest across 10 files; `task test` + `task lint` green (golangci 0, eslint,
+  tsc). Go untouched. **Infra fix (needed to keep the suite green):** a pnpm
+  hardlink mirror (`.pnpm-store/v11/projects/<hash>`, git-ignored, reached through
+  `node_modules` symlinks) got populated with the new test files mid-session, so
+  `include: **` discovered every test **twice** — the mirror copy runs outside
+  jsdom and died on `document`. Scoped `include` to `{app,components,lib}/**` and
+  hardened `exclude` to `**/{node_modules,.next,.pnpm-store}/**`; `vitest list`
+  stays 10 files, `run` stable at 70/70. Ops: the compose **web** image now carries
+  M1.3 + M2.2 (rebuilt); left ~10 throwaway test comments on the Frieren series
+  thread in the local demo DB (re-seedable via `task seed`). **Next (M2.3):**
+  velocity + spoiler guard — `comments(created_at)` index, `GET /threads/trending`
+  (decay + presence bonus, 60 s cache), progress-aware banner/blur on episode
+  threads, inline "mark ep N watched".
 - 2026-07-07 · M2.1 · SSE gateway — the live thread layer's transport, backend
   only (no UI; the live client is M2.2). **Spike first, as the plan demands:** a
   throwaway Go SSE server behind the real Next `/api/*` rewrite + a

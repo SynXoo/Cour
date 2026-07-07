@@ -15,7 +15,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["**/*.test.{ts,tsx}"],
-    exclude: ["node_modules", ".next"],
+    // Scope discovery to the source dirs. A bare `**` also reaches the pnpm
+    // hardlink mirror (`.pnpm-store/v11/projects/**`, linked in via
+    // node_modules), which runs every test a second time outside jsdom.
+    include: ["{app,components,lib}/**/*.test.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "**/.next/**", "**/.pnpm-store/**"],
   },
 });

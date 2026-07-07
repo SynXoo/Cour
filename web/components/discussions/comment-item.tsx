@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createContext, useContext } from "react";
 import { SpoilerGuard } from "@/components/spoiler-guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,19 @@ import { browserApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { useSession } from "@/lib/auth/session";
 import { formatTimestamp } from "@/lib/timestamp";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 export type Comment = components["schemas"]["Comment"];
 export type Emoji = components["schemas"]["Emoji"];
+
+/**
+ * Ids of comments that arrived live this session — those items play the
+ * slide-in animation once on mount. Provided by ThreadView; empty by default so
+ * the initial batch never animates.
+ */
+export const LiveCommentsContext = createContext<Set<number>>(new Set());
 
 const EMOJI_GLYPHS: Record<Emoji, string> = {
   "+1": "👍",
@@ -36,7 +45,9 @@ export function CommentItem({
 }) {
   const { status, user } = useSession();
   const qc = useQueryClient();
+  const liveIds = useContext(LiveCommentsContext);
   const isMine = user?.username === comment.author.username;
+  const isLive = liveIds.has(comment.id);
 
   async function remove() {
     const res = await browserApi.DELETE("/comments/{commentId}", {
@@ -71,7 +82,12 @@ export function CommentItem({
   const visibleReactions = comment.reactions.filter((r) => r.count > 0);
 
   return (
-    <li className={depth > 0 ? "ml-4 border-l border-border/60 pl-4 sm:ml-6" : ""}>
+    <li
+      className={cn(
+        depth > 0 && "ml-4 border-l border-border/60 pl-4 sm:ml-6",
+        isLive && "comment-enter",
+      )}
+    >
       <article className="space-y-2 py-3">
         <header className="flex flex-wrap items-center gap-2 text-sm">
           <Link
