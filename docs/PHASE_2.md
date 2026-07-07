@@ -85,16 +85,40 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
   quote chips** — see the spoiler-guard section), inline "mark ep N
   watched". Stretch: night-of badge, bell 60 s refetch.
 
+### M2.4–M2.6 — inserts from the 2026-07-07 review
+
+Miguel + Fable walked the live site; diagnosis and specs in
+[the M2.4–M2.6 section](#m24m26--ui-identity--scale-inserts) below.
+
+- [ ] **M2.4** (O) Typography split — JetBrains Mono stops being the body
+  font: prose and prose headings move to a real sans; mono stays for data
+  (timestamps, countdowns, ep/stat counts, scores). One `globals.css` +
+  font-loading change, then an app-wide re-verify at 375/desktop.
+- [ ] **M2.5** (O) Episode list pagination — newest-first default with
+  asc/desc toggle, range pages of 50 (newest range active), "Latest
+  episode" jump in the detail action bar next to Discussion. One Piece
+  scale (1000+ eps) is the acceptance test.
+- [ ] **M2.6** (O) Thread comment pagination — replace the silent
+  `LIMIT 500` truncation with cursor pages + "load older"; live merge and
+  the four sorts keep working over the loaded set (see spec for the Top/
+  Timeline caveat).
+
 ### M3 — home & landing
 
 - [ ] **M3.1** (F) Landing + routing — `cour_refresh` cookie branch in
   `app/page.tsx`, hero, live-proof ticker, tonight strip, seasonal
   preview, no-streams promise, SEO metadata.
 - [ ] **M3.2** (O) "Tonight on Cour" — your-evening row, live-now threads,
-  continue-watching, the season's conversation, compact existing strips.
+  continue-watching, the season's conversation, compact existing strips,
+  **"Back in the conversation" row** (trending titles not from the current
+  season — the viral-revival story told explicitly; see §M3).
 - [ ] **M3.3** (O) Onboarding + threads hub — post-register pick-your-shows
   + import CTA, `/threads` page (tonight / busiest this week), nav
   updates on desktop + bottom bar.
+- [ ] **M3.4** (F) Thread texture — timestamp-density strip (mini episode
+  timeline; clusters jump the list via `jumpToComment`), richer empty
+  state (countdown/presence instead of "No comments yet"), live-window
+  LIVE badge + velocity in the thread header. Spec in §M3.
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -107,7 +131,17 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
-- 2026-07-07 · fix+ux (out-of-band, from live user feedback on M2.2's surface) ·
+- 2026-07-07 · plan (UI review, no code) · Walked the live site with Miguel.
+  Verdicts: the "popular beyond the season" ask is **already served** by
+  Trending Now (all-catalog 14-day window + AniList blend — AoT/MHA rank
+  today; an all-time popular tab was explicitly rejected as anti-thesis);
+  the "generic feel" is diagnosed as **mono-as-body-font + uniform visual
+  weight**, not the palette. Added ledger tasks M2.4 (typography split),
+  M2.5 (episode list pagination + latest-first + jump-to-latest, Miguel's
+  ask), M2.6 (thread comment pagination past the LIMIT 500 truncation),
+  M3.4 (thread texture: density strip / empty state / live header), the
+  "Back in the conversation" row on M3.2, and a Parking-lot entry deferring
+  any palette rebrand until after M3. Order stands: **M2.3 is still next.** (out-of-band, from live user feedback on M2.2's surface) ·
   **The bug:** a reply rendered under *every* top-level comment. ThreadView passes
   the full descendants list to `groupReplies` once per root, and its "orphan
   adoption" fallback glued any comment it couldn't trace to the current root onto
@@ -287,6 +321,17 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **Palette / brand pass** (from the 2026-07-07 review) — the
+  violet-on-near-black theme is clean but trend-adjacent (the fashionable
+  dark-purple of the Linear era). Deliberately deferred: it's all CSS
+  variables in `globals.css` (an afternoon to swap), and M3.1's landing
+  page forces the real brand question anyway. Typography (M2.4) is the
+  actual de-generic-ing lever; revisit color after M3, and prefer letting
+  cover artwork carry color (ambient poster glow on hover, artwork-tinted
+  headers — the anime-detail banner already proves the effect) over a
+  louder static palette. The visual signature worth building toward is
+  **time/liveness** (countdown chips, LIVE states, decay), not a hue.
 
 - **Typing indicator** (deferred from the 2026-07-07 thread-UX session) —
   "@user is typing" with a three-dot pulse in ThreadView, the last big
@@ -672,6 +717,78 @@ complexity outweighs return while episode threads carry the live traffic.
 
 ---
 
+## M2.4–M2.6 — UI identity + scale inserts
+
+Added 2026-07-07 after a live walk-through. The verdict on the app's look:
+clean but anonymous. The diagnosis is **not** the palette — near-black with
+violet accents is fine, all CSS variables, swappable in an afternoon
+(rebrand deferred → Parking lot). It's two other things: (a) **JetBrains
+Mono is the body font for everything** — synopsis paragraphs, comments, nav
+— which reads "developer terminal" rather than "anime community" and hurts
+long-form readability; (b) **uniform visual weight** — same card, border,
+radius on every surface. The identity worth amplifying instead is *time*
+(countdown chips, airing-next, live threads, decay-based trending): no
+competitor is organized around liveness, and those elements are already
+the most distinctive things on screen.
+
+Also in this batch: two scale fixes from the same session (Miguel's ask) —
+long-running shows break both the episode list and, eventually, threads.
+
+### M2.4 — typography split
+
+Mono for **data**, sans for **prose**:
+
+- Load a proper sans (next/font, subset) as the body/prose face; prose
+  headings move with it. Keep JetBrains Mono exactly where it's the
+  identity, not the obstacle: timestamps, countdown/airing chips,
+  episode + stat counts, scores, usernames-as-handles if it reads well.
+- Mechanically: `globals.css` `@theme` font variables + the few explicit
+  `font-mono`/`font-heading` call sites. No layout changes.
+- Verify the long-form surfaces (synopsis, thread comments, reviews) and
+  the data surfaces (cards, schedule, countdowns) at 375/desktop — the
+  contrast between the two faces should *increase* the sense of intent.
+
+### M2.5 — episode pagination + latest-first
+
+[`EpisodeList`](../web/components/anime/episode-list.tsx) mounts every
+episode row in ascending order — a One Piece-scale title (1000+ eps) means
+minutes of scrolling to reach the episode people are actually discussing
+tonight.
+
+- **Newest-first default**, asc/desc toggle. Client-side — the detail
+  payload already carries the full episode array.
+- **Range pages, not page numbers**: chips of 50 ("1051–1100 · 1001–1050 ·
+  … · 1–50"), newest range active by default — ranges are how people think
+  about long anime ("the Wano eps"). Titles with ≤ 50 episodes render
+  exactly as today, zero added chrome.
+- **"Latest episode" button** in the detail action bar, next to
+  Discussion → `/anime/{id}/episode/{latest aired}` (highest `airing_at`
+  in the past; fall back to highest number when nothing has aired).
+- Optional: URL-sync range/order (M0.5's param pattern) so links share.
+
+### M2.6 — thread comment pagination
+
+Comments currently arrive as one `ORDER BY id LIMIT 500` fetch — thread
+501+ comments silently vanish. Fine yesterday, wrong for the product whose
+whole thesis is big live threads.
+
+- Cursor pagination on the comments endpoint (`before_id`/`after_id`,
+  keyset — the id ordering is already the arrival ordering), newest page
+  first to match the client's Newest default; a "load older" affordance
+  at the list tail.
+- **Interplay to respect:** the reply-tree builder assumes a parent is
+  always in the loaded set (parent id < reply id — loading newest-first
+  can orphan replies whose parents are on an unloaded older page; either
+  fetch-parents-on-demand or group orphans under a stub quote chip).
+  Top/Timeline sorts compute over the *loaded* set — label them
+  accordingly ("top of loaded") or fetch-all for those modes under a
+  size cap; decide in-session, note the choice here. Live SSE merge is
+  unaffected (events fold into the loaded cache; the M2.2 helpers are
+  idempotent).
+- Spec-first: the endpoint change enters `openapi.yaml`; `task gen`.
+
+---
+
 ## M3 — home & landing
 
 ### Routing
@@ -696,7 +813,14 @@ Server shell + client islands, top to bottom:
 3. **Continue watching** — next unwatched episode per show, inline `+1`,
    "discuss ep N" link.
 4. **The season's conversation** — existing trending, reframed with
-   discussion stats ("312 comments this week").
+   discussion stats ("312 comments this week"). Companion sub-row:
+   **"Back in the conversation"** — titles in the trending top-N whose
+   season ≠ current (the TikTok-revived 2013 show). Trending Now is
+   already all-catalog (AoT/MHA rank today), so this is a filter + label,
+   nearly free — it tells the viral-revival story explicitly instead of
+   silently mixing old shows into the grid. An all-time "popular" tab was
+   considered and **rejected**: MAL/AniList own the hall-of-fame list;
+   recency is the differentiation.
 5. Existing schedule strip + hidden-gems teaser, compact.
 
 The current all-purpose home (seasonal grid first) becomes the logged-out
@@ -722,6 +846,26 @@ One skippable step: pick the currently-airing shows you're watching (grid,
 3+ taps) → seeds the list so home isn't empty — plus the **import CTA**
 (M1). Nav gains a **Threads** hub (`/threads`: tonight's threads, busiest
 this week) so discussions are a destination, not a detour.
+
+### Thread texture (M3.4)
+
+The episode thread is the product's heart and its most spartan page.
+M2.2/M2.3 make it *behave* alive; this makes it *look* alive:
+
+- **Timestamp-density strip** — a mini episode timeline above the
+  comments showing where the `12:34`-anchored discussion concentrates
+  (SoundCloud-waveform style); clicking a cluster jumps the list (reuse
+  `jumpToComment` + `comment-flash`). Built entirely from data already
+  collected, and the one genuinely novel visual in this space — nobody
+  else has progress-timestamped episode discussion. Hidden when a thread
+  has no timestamped comments; honors `prefers-reduced-motion`.
+- **Empty state** — replace "No comments yet — first!" with something
+  alive: airing countdown for upcoming episodes, presence count when
+  anyone's in the room, a be-first nudge. Dead air is the enemy.
+- **Live-window header** — within ~24 h of `airing_at`, the thread header
+  gets a LIVE badge + M2.3's velocity ("N/min"). The M2.3 stretch
+  night-of badge marks *comments* in the permanent record; this marks
+  the *room* while the ritual is happening.
 
 ---
 
