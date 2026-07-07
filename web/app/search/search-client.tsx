@@ -1,20 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimeGrid } from "@/components/anime/anime-grid";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserApi } from "@/lib/api/client";
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return debounced;
-}
+import { useDebounced } from "@/lib/hooks/use-debounced";
 
 export function SearchClient() {
   const [input, setInput] = useState("");

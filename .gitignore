@@ -16,6 +16,10 @@ web/out/
 coverage/
 *.out
 
+# Local tool caches (pnpm store / go toolchain downloads redirected here)
+.pnpm-store/
+.tmp/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

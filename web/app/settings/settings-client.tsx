@@ -12,6 +12,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { browserApi } from "@/lib/api/client";
@@ -158,6 +159,19 @@ function SettingsForm() {
           {saving ? "Saving…" : "Save profile"}
         </Button>
       </FieldGroup>
+
+      <Separator />
+
+      <section className="flex flex-col gap-1.5">
+        <h2 className="text-sm font-medium">Import your list</h2>
+        <p className="text-xs text-muted-foreground">
+          Bring your history over from AniList or MyAnimeList. You review every
+          match first, and imports never post to feeds or trending.
+        </p>
+        <Button asChild variant="outline" size="sm" className="mt-1 self-start">
+          <Link href="/settings/import">Open the importer</Link>
+        </Button>
+      </section>
     </div>
   );
 }
