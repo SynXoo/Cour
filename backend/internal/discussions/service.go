@@ -317,36 +317,40 @@ func (s *Service) Post(ctx context.Context, threadID, userID int64, in PostInput
 	return comment, nil
 }
 
-func (s *Service) Delete(ctx context.Context, commentID, callerID int64, callerIsMod bool) error {
+// Delete soft-deletes a comment and returns its thread id so the caller can
+// broadcast the removal.
+func (s *Service) Delete(ctx context.Context, commentID, callerID int64, callerIsMod bool) (threadID int64, err error) {
 	comment, err := s.q.GetComment(ctx, commentID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
+			return 0, ErrNotFound
 		}
-		return fmt.Errorf("get comment: %w", err)
+		return 0, fmt.Errorf("get comment: %w", err)
 	}
 	if comment.UserID != callerID && !callerIsMod {
-		return ErrForbidden
+		return 0, ErrForbidden
 	}
 	if _, err := s.q.SoftDeleteComment(ctx, commentID); err != nil {
-		return fmt.Errorf("soft delete: %w", err)
+		return 0, fmt.Errorf("soft delete: %w", err)
 	}
-	return nil
+	return comment.ThreadID, nil
 }
 
-func (s *Service) React(ctx context.Context, commentID, userID int64, emoji string, on bool) error {
+// React toggles a caller's reaction and returns the comment's thread id and
+// the emoji's new absolute count, so the caller can broadcast the change.
+func (s *Service) React(ctx context.Context, commentID, userID int64, emoji string, on bool) (threadID, count int64, err error) {
 	if !validEmojis[emoji] {
-		return ErrBadEmoji
+		return 0, 0, ErrBadEmoji
 	}
 	comment, err := s.q.GetComment(ctx, commentID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
+			return 0, 0, ErrNotFound
 		}
-		return fmt.Errorf("get comment: %w", err)
+		return 0, 0, fmt.Errorf("get comment: %w", err)
 	}
 	if comment.DeletedAt != nil {
-		return ErrNotFound
+		return 0, 0, ErrNotFound
 	}
 
 	if on {
@@ -355,9 +359,13 @@ func (s *Service) React(ctx context.Context, commentID, userID int64, emoji stri
 		_, err = s.q.RemoveReaction(ctx, sqlcgen.RemoveReactionParams{CommentID: commentID, UserID: userID, Emoji: emoji})
 	}
 	if err != nil {
-		return fmt.Errorf("reaction: %w", err)
+		return 0, 0, fmt.Errorf("reaction: %w", err)
 	}
-	return nil
+	count, err = s.q.ReactionCountFor(ctx, sqlcgen.ReactionCountForParams{CommentID: commentID, Emoji: emoji})
+	if err != nil {
+		return 0, 0, fmt.Errorf("reaction count: %w", err)
+	}
+	return comment.ThreadID, count, nil
 }
 
 // Tombstone text for deleted comments; the row keeps its place in the tree.

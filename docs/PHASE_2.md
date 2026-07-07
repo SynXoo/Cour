@@ -68,10 +68,12 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 ### M2 — live thread layer
 
-- [ ] **M2.1** (F) SSE gateway — rewrite-streaming spike FIRST;
-  `internal/realtime` hub + Redis pub/sub; `GET /threads/{id}/events`
-  (comment/reaction/presence events); publish-on-commit from the
-  discussions service; integration test.
+- [x] **M2.1** (F) SSE gateway — rewrite-streaming spike confirmed (dev +
+  standalone both stream unbuffered); `internal/realtime` hub + Redis pub/sub;
+  `GET /threads/{id}/events` (comment/reaction/presence events); publish
+  post-commit from the discussion **handlers** (reuse the REST DTO mappers so
+  `comment.created` is byte-identical to the cached `Comment`); unit +
+  integration tests.
 - [ ] **M2.2** (F) Live client — `useThreadEvents` merging into the React
   Query cache, slide-in comments, "N new comments" pill when scrolled,
   presence badge (shows at ≥ 2), polling degrade on error,
@@ -103,6 +105,71 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-07 · M2.1 · SSE gateway — the live thread layer's transport, backend
+  only (no UI; the live client is M2.2). **Spike first, as the plan demands:** a
+  throwaway Go SSE server behind the real Next `/api/*` rewrite + a
+  chunk-timestamping fetch client proved `text/event-stream` streams
+  **unbuffered in both `next dev` (Turbopack) and the standalone prod build**
+  (events arrived 1 s apart, not batched at close; `content-encoding: null` so
+  no gzip buffering). The rewrite is safe — **no fallback needed** (the risk
+  table's direct-route / 15 s-polling degrade stays unused). **Spec:** new `GET
+  /threads/{threadId}/events` (`text/event-stream`, `schema: {type: string}`,
+  rich description of the four named events) + component schemas
+  `CommentDeleted` / `ReactionUpdate` / `PresenceUpdate`. It's **excluded from
+  oapi-codegen** via `exclude-operation-ids: [streamThreadEvents]` (v2.7.1
+  supports it) so I can hand-route it; the three schemas prune out of Go
+  (`skip-prune:false`) but **openapi-typescript still emits the path + types**
+  for the M2.2 client (verified: absent from `api.gen.go`, present in
+  `schema.d.ts`). `comment.created` reuses `apigen.Comment` — zero drift.
+  **Routing:** the 30 s `middleware.Timeout` moved from a root middleware to a
+  per-group wrapper around the apigen routes only, and the events route is
+  hand-registered on the `/api/v1` group (optionalAuth + global rate limit)
+  **outside** that group — a timed-out request context would otherwise tear the
+  stream down every 30 s (and churn presence). Health checks are now untimed
+  (trivial pings; accepted). **`internal/realtime.Hub`:** one `PSUBSCRIBE
+  thread:*` per instance routes every published event to local per-thread
+  subscriber sets. Chose the pattern-subscribe over dynamic per-thread SUBSCRIBE
+  deliberately — simpler, lock-friendly, and **no Redis I/O on the hot Subscribe
+  path**; this instance sees all threads' events, which is cheaper than churning
+  subscriptions as readers come/go at Cour's scale, and the Publish/channel
+  contract is unchanged so a multi-instance build swaps the impl without
+  touching callers. Presence = the **local in-memory connection count**
+  (per-instance; summing across instances via Redis is the documented swap-in).
+  Events: `comment.created` (full Comment), `comment.deleted {comment_id}`,
+  `reaction.updated {comment_id, emoji, count}`, `presence {count}` (on connect
+  + every change). Slow reader = non-blocking send, **drop past a 32 buffer**
+  (the client's refetch degrade path reconciles) so one stalled consumer can't
+  block fan-out; `dispatchLocked` holds the mutex so a send can't race a
+  subscriber's removal-and-close in `cleanup` (guarded by `sync.Once`). Publish
+  is **best-effort** (Redis error logged, never fails the user action —
+  post-commit anyway, and SSE tolerates a lost event). **Publish from the
+  handlers, not the service:** the handlers own `toComment`, so the event is the
+  exact REST shape; `Service.Delete` now returns `threadID` and `Service.React`
+  returns `(threadID, count)` via a new `ReactionCountFor` query — only the two
+  handlers called them, no other callers. **SSE handler:** `text/event-stream` +
+  `no-cache, no-transform` + `X-Accel-Buffering: no`, 404 when the thread is
+  missing, 25 s `: ping` keep-alive, `select` on ctx-done / event / ping, frames
+  `event: <name>\ndata: <json>\n\n` (json.Marshal is single-line so one data
+  line is always valid). **Tests:** 7 realtime unit cases (presence math,
+  fan-out, drop-on-full, idempotent cleanup, dispatch-to-unknown-thread noop,
+  channel round-trip) — white-box, no Redis needed; 1 integration
+  (`TestThreadSSELiveEvents`) over a **real SSE connection + real Redis
+  pub/sub**: presence 1 → REST post surfaces as `comment.created` (body matched)
+  → `reaction.updated` 1 then 0 → a second reader lifts presence to 2 then back
+  to 1 on leave → `comment.deleted`. **Race the test closes:** it waits for
+  `presence{1}` (proof the subscription is live) before posting, so the first
+  broadcast can't beat registration; `bodyclose` nolint on the stream open (the
+  read goroutine owns the body). All green: go unit + **full integration suite**
+  (existing thread/notification flow undisturbed by the added Publish calls),
+  golangci **0 issues** (incl. `--build-tags=integration`), web **51** vitest +
+  tsc + eslint, `task gen` clean. **Ops:** the running compose **api + worker
+  images predate M2.1** — `docker compose up -d --build api worker` before any
+  live SSE demo; no web changes this session. **Next (M2.2):** the live client —
+  `useThreadEvents(threadId)` wrapping `EventSource`, merging the four events
+  into the React Query cache (`comment.created` is the `Comment` shape → plain
+  append; `presence` badge shows at ≥ 2; degrade to interval refetch on error;
+  `prefers-reduced-motion`). Endpoint rides the `/api/*` rewrite (spike-proven),
+  no token in the URL.
 - 2026-07-07 · M1.3 · Import UI end to end, consuming exactly the four M1.2 endpoints. New route `/settings/import` (`PageShell width="reading"` — the preview rows need more than the form column; Settings keeps a link section) with a status-routed flow: start (AniList username + MAL file cards) → progress (poll 2 s via `refetchInterval` keyed off `pending/processing/committing`) → preview/review (`ready`) → done | failed | superseded. **State model:** the job id lives in localStorage behind `useSyncExternalStore` (`lib/hooks/use-import.ts`) — job ids only ever appear in the creation response, so this is what makes reload-resume work; writes `emit()` to re-render this tab, the native `storage` event syncs other tabs, and a 404 in the job queryFn clears the slot (stale id after a DB reset). Chose the store pattern because the new `react-hooks/set-state-in-effect` lint rule (correctly) rejects the naive restore-in-effect. **Multipart:** openapi-fetch takes `bodySerializer: () => FormData` and skips its JSON Content-Type when the serialized body is FormData (verified in its source) — the typed `body: { file: "" }` is a placeholder. **Preview screen:** counts strip; conflict callout + merge/overwrite `aria-pressed` toggle; `summarizeCommit` prediction line (matched the server exactly in E2E: 6 imported / 4 skipped); review bucket rows get Find match / Change / Clear via a cmdk `Command` dialog (`shouldFilter={false}`, seeded with the source title, debounced `/anime?q=` — `useDebounced` extracted to `lib/hooks/`, search-client now imports it); matched rows get exclude/restore everywhere and re-match on title-matched rows (backend `apply` honours resolutions on *any* row, `apply.go:19`); rows render in chunks of 100 with Show more (10k cap ⇒ never mount 10k `<li>`); thumbs are plain `<img loading="lazy">`, not next/image (32 px thumbnails gain nothing and it keeps vitest simple). **375 px lesson:** badges in the right-hand action cluster starve the `min-w-0` title ("Here U Are" truncated to one character) — badges now ride the meta line inside the text column; only icon actions stay right. E2E on the live stack (crafted 10-row XML against fixture mal_ids): 8 matched (7 id + 1 title)/2 review/2 conflicts; picker-resolved a review row → DAN DA DAN landed completed ★6; excluded row stayed out; merge kept Frieren untouched; **activities 663 → 663** (zero-activity rule through the real UI); `/list` refreshed via `invalidateQueries(["list"])` without reload; reload resumed to done; discard→new-import superseded the ready job (job 2 → superseded, by design). Failed path verified live with a twist: **the worker rebuild re-enqueued the M1.1 backfill re-crawl (migration cleared the cursor), and the crawl saturates the AniList rate budget — the import's UserList fetch 429-starved through all asynq retries and the final-retry backstop marked the job failed** with a friendly error (Parking lot: rate-budget priority for interactive fetches). Ops note: the compose **worker image predated M1.2** (no import task handler — imports would have sat in `processing` forever); rebuilt. The compose **web image still predates M1.3** — `docker compose up -d --build web` before demoing prod. Tests: +19 vitest (helpers table incl. summarize edge cases; preview flow with mocked picker — bucket split, mode/summary reactivity, exclude/restore, resolution payload, two-step discard; start-screen gating incl. oversized-file reject) = 51 total; tsc/eslint/`task test` green. Go untouched. **Next (M2.1):** SSE spike first (Next rewrite streaming, dev + standalone); the import UI needed no SSE — polling was plenty at 2 s. Import backend end to end. **Spec**: 4 endpoints (`POST /import/anilist`, `POST /import/mal` multipart field `file`, `GET /import/jobs/{id}`, `POST /import/jobs/{id}/commit`); heads-up: adding the Import\* enums reshuffled oapi-codegen's collision naming so the `apigen.ListStatus*` constants lost their prefix (bare `apigen.Watching` now; deterministic — hash-verified over repeated runs; lists.go updated). **Migration `000014_import_jobs`**: `import_source`/`import_status` enums, `import_jobs` (payload/rows/counts jsonb + error), and the race-free "one live import per user" rule as partial unique index `import_jobs_one_active_idx (user_id) WHERE status IN (pending,processing,committing)` — `ready` deliberately excluded so an abandoned preview never blocks; creating a new import *supersedes* ready ones in the same tx as the insert (unique violation → 409). Lifecycle: pending→processing→ready→committing→done|failed|superseded; a failed apply rolls back and **reopens to ready** (error recorded, commit retryable). **`internal/imports`**: convert.go (MAL text+legacy-numeric statuses; AniList `REPEATING`→completed; scores per spec table, nonzero never rounds away to unscored — clamps [1,10]), mal.go (gzip sniffed by magic bytes, 64 MiB decompression cap, CDATA + `0000-00-00`, junk rows dropped not fatal, parse happens at upload so bad files 422 immediately), match.go, apply.go. **Matching gate** (`pickMatch`, unit-tested as a table): candidates disagreeing with source-declared format-group/year(±1) are disqualified; the survivor needs sim ≥ 0.95 alone or ≥ 0.88 with one actively agreeing attribute; and must beat the runner-up by ≥ 0.05 (photo-finish → review). Format groups fold OVA/ONA/Special together (cross-DB labeling chaos); MAL exports carry no year so unknown attrs neither help nor hurt. **sqlc gotcha**: `@query % title_romaji` breaks sqlc's named-param rewriter ("syntax error at or near ji") — trigram `%` is commutative, write `title_romaji % @query`; and `MatchAnimeByTitle` uses whole-title `similarity()`, *not* `word_similarity` (which scores "Death Note" a perfect 1.0 against "Death Note: Rewrite"). **Zero-activity apply**: dedicated `ImportUpsertListEntry` (ON CONFLICT DO UPDATE; status/score/progress import-wins incl. clearing score, dates COALESCE so imports fill but never blank) looped in one tx with no `InsertActivity` anywhere; merge skips rows on the *live* list read in-tx (preview `on_list` is stale by definition); completed rows normalize progress to `episodes_count`; **no QoL transitions** — historical dates are never invented. Commit is synchronous (single tx ≪ 1 s at the 10k cap); `resolutions` {row_index → anime_id | null=exclude} validated before the job is claimed. **AniList fetch**: new `anilist.Client.UserList` (one MediaListCollection request, custom lists skipped, deduped, raw score + user scoreFormat — conversion stays ours, per spec) + typed `*anilist.GraphQLError` so semantic failures (unknown user/private list) fail the job without asynq retries while transport errors retry ×5, and the **final retry marks the job failed** (a task dying in 'processing' would otherwise block that user's imports forever via the partial index). API-side `imports.Enqueuer` is *not* best-effort: enqueue failure fails the job row and 500s. Demo mode: `/import/anilist` 503s at the API (worker has a backstop); **MAL import works offline in demo** — fixtures carry real mal_ids since M1.1, nice for M1.3 UI work. Caps: 10k rows, 20 MiB upload. Tests: ~44 unit cases (all score formats, MAL parse plain/gz/garbage, gate table, `entryParams` normalization, task payload) + 3 integration: **TestMALImportZeroActivity is the spec's regression test** — 500-entry multipart import → trending ranking identical across recomputes (safe from flake: uniform exponential decay preserves order), follower feed identical, zero new activities, merge preserved the pre-tracked entry (applied=499/skipped=1); TestAniListImportFlow (GraphQL stub via `WithURL`: 409 while active, supersede, REPEATING→completed with progress→count and source `finished_on` kept, overwrite clears score when source unscored, review resolution, double-commit 409, cross-user 404); TestAniListImportDemoMode. Harness change: `register()` resets the 5/min per-IP register limiter first (the suite now registers ~10 users from 127.0.0.1; rate limiting isn't under test there). All green: go unit+integration, golangci 0 issues, web 32 vitest + tsc + eslint (schema.d.ts regenerated & committed). **Next (M1.3)**: consume exactly these endpoints — poll GET ~2 s while pending/processing, preview rows arrive hydrated with `AnimeSummary`, resolutions ride the commit body, multipart field name is `file`; consider surfacing `counts.conflicts` prominently before the mode choice.
 - 2026-07-06 · M1.1 · `mal_id` prerequisite for the MAL import path. Migration `000013_anime_mal_id` adds `anime.mal_id INTEGER UNIQUE` (nullable — not every title has a MAL entry). `idMal` threaded through the whole sync pipeline: new `Media.IDMal *int` (types.go), `idMal` added to the shared `mediaFields` GraphQL fragment (so **every** sync path — season/trending/catalog/updated/airing/snapshot — carries it), `MapMedia` maps it to `UpsertAnimeParams.MalID` via `toInt32`, and `UpsertAnime` writes/updates `mal_id` (col `$25`, added to the `ON CONFLICT DO UPDATE SET` so re-crawls populate existing rows). `task gen`/sqlc regenerated — `MalID *int32` on the `Anime` model propagates `anime.mal_id` into every embedded SELECT (discovery/lists/reviews/social/etc.); no openapi change, so oapi/openapi-typescript untouched (M1.1 is backend-only, no UI, no `mal_id` in the API yet — that arrives with M1.3). **Backfill re-crawl kickoff = the migration itself**: existing rows predate the column so their `mal_id` is NULL, and the already-completed backfill's `Done` cursor would no-op a re-enqueue — so the up migration does `DELETE FROM sync_state WHERE key='anilist_backfill'`, and since `Bootstrap` already enqueues `TypeBackfillCatalog` unconditionally (non-demo), the next real worker boot re-crawls the full 22k catalog over hours under the rate budget; the 6-hourly delta keeps it fresh. No new CLI/task needed. Demo mode gates the crawl off (fixtures are the source there). **Fixtures gain idMal**: enriched `fixtures/anime.json` in place via a throwaway one-shot tool (queried AniList `id_in` for the 295 fixture ids, merged idMal only — 281 matched, 14 genuinely null; diff is +295 idMal lines, 0 removed) so the demo world seeds real MAL ids; the tool was deleted after. Tests: new mapper assertions (idMal→MalID, absent idMal→NULL); `go test ./...` + golangci-lint green. Verified against the live docker stack: migrated the DB to v13 through the real migrator (`mal_id` nullable, unique index `anime_mal_id_key`, backfill cursor row gone), re-seeded, confirmed correct MAL ids (Shingeki 16498→16498, Kimetsu 101922→38000, JJK 113415→40748, Death Note 1535→1535); 281/22416 rows populated from fixtures, the rest await the re-crawl. Web suite untouched (no web changes). **Next (M1.2):** the import backend can now match on `mal_id`; remember the zero-activity bulk-apply rule + the trending-unchanged regression test.
 - 2026-07-06 · plan · Roadmap + ledger written; watch-party design moved to WATCH_PARTIES.md; sqlc drift committed. Nothing implemented yet.
@@ -437,8 +504,11 @@ degrade to 15 s polling — the client wrapper (below) isolates the choice.
 
 - `backend/internal/realtime`: per-thread subscriber registries on each
   instance; fan-out via Redis pub/sub `thread:{id}` so any instance serves
-  any thread (same pattern M4's rooms will reuse). The discussions service
-  publishes after commit.
+  any thread (same pattern M4's rooms will reuse). The discussion HTTP
+  handlers publish after the service commits — kept in the handlers (not the
+  service) so the events reuse `toComment`/`toThread` and match the REST
+  shapes the client caches. Built with one `PSUBSCRIBE thread:*` per instance
+  (see M2.1 log for the trade-off vs. dynamic per-thread SUBSCRIBE).
 - **Presence = the connection count.** No heartbeats needed — an SSE
   connection *is* presence. In-memory per instance, summed across
   instances via Redis only when there is more than one instance (compose

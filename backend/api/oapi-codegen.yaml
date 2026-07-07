@@ -5,3 +5,8 @@ generate:
   models: true
 output-options:
   skip-prune: false
+  # streamThreadEvents is a text/event-stream endpoint; it's hand-routed in
+  # httpapi so the stream can opt out of the 30s request timeout. Kept in the
+  # spec for docs + the typed TS client, but no chi-server stub is generated.
+  exclude-operation-ids:
+    - streamThreadEvents

@@ -766,6 +766,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/threads/{threadId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live thread events (Server-Sent Events)
+         * @description An `text/event-stream` that pushes a thread's activity as it happens. The connection itself is the presence signal — no token is required (public threads are public to read). Named SSE events, each with a JSON `data` payload:
+         *
+         *     - `comment.created` — a `Comment` (same shape as the REST response).
+         *     - `comment.deleted` — a `CommentDeleted` (the tombstoned comment id).
+         *     - `reaction.updated` — a `ReactionUpdate` (comment id, emoji, new
+         *       absolute count).
+         *
+         *     - `presence` — a `PresenceUpdate` (current live reader count); sent on
+         *       connect and whenever the count changes.
+         *
+         *     - `ping` — an empty keep-alive comment line, ignored by clients.
+         *
+         *     This endpoint is hand-routed (excluded from the generated server) so the stream can opt out of the request timeout; the schema is here for documentation and the typed client. Posting stays plain REST.
+         */
+        get: operations["streamThreadEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/comments/{commentId}": {
         parameters: {
             query?: never;
@@ -1310,6 +1342,21 @@ export interface components {
         };
         CommentList: {
             data: components["schemas"]["Comment"][];
+        };
+        CommentDeleted: {
+            /** Format: int64 */
+            comment_id: number;
+        };
+        ReactionUpdate: {
+            /** Format: int64 */
+            comment_id: number;
+            emoji: components["schemas"]["Emoji"];
+            /** @description New absolute count for this emoji */
+            count: number;
+        };
+        PresenceUpdate: {
+            /** @description Live readers currently connected */
+            count: number;
         };
         PostCommentRequest: {
             body: string;
@@ -2640,6 +2687,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Comment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamThreadEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                threadId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An event stream (stays open until the client disconnects) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
                 };
             };
             default: components["responses"]["Error"];

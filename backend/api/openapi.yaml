@@ -915,6 +915,47 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /threads/{threadId}/events:
+    get:
+      operationId: streamThreadEvents
+      summary: Live thread events (Server-Sent Events)
+      description: >
+        An `text/event-stream` that pushes a thread's activity as it happens.
+        The connection itself is the presence signal — no token is required
+        (public threads are public to read). Named SSE events, each with a
+        JSON `data` payload:
+
+
+        - `comment.created` — a `Comment` (same shape as the REST response).
+
+        - `comment.deleted` — a `CommentDeleted` (the tombstoned comment id).
+
+        - `reaction.updated` — a `ReactionUpdate` (comment id, emoji, new
+          absolute count).
+
+        - `presence` — a `PresenceUpdate` (current live reader count); sent on
+          connect and whenever the count changes.
+
+        - `ping` — an empty keep-alive comment line, ignored by clients.
+
+
+        This endpoint is hand-routed (excluded from the generated server) so
+        the stream can opt out of the request timeout; the schema is here for
+        documentation and the typed client. Posting stays plain REST.
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: An event stream (stays open until the client disconnects)
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default:
+          $ref: "#/components/responses/Error"
+
   /comments/{commentId}:
     delete:
       operationId: deleteComment
@@ -1696,6 +1737,27 @@ components:
         data:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
+
+    # ── Live thread events (SSE payloads for streamThreadEvents) ──────────
+    CommentDeleted:
+      type: object
+      required: [comment_id]
+      properties:
+        comment_id: { type: integer, format: int64 }
+
+    ReactionUpdate:
+      type: object
+      required: [comment_id, emoji, count]
+      properties:
+        comment_id: { type: integer, format: int64 }
+        emoji: { $ref: "#/components/schemas/Emoji" }
+        count: { type: integer, description: New absolute count for this emoji }
+
+    PresenceUpdate:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer, description: Live readers currently connected }
 
     PostCommentRequest:
       type: object

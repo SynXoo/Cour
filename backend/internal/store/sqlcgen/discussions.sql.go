@@ -330,6 +330,23 @@ func (q *Queries) ListEpisodeThreadSummaries(ctx context.Context, animeID int64)
 	return items, nil
 }
 
+const reactionCountFor = `-- name: ReactionCountFor :one
+SELECT COUNT(*)::bigint FROM comment_reactions
+WHERE comment_id = $1 AND emoji = $2
+`
+
+type ReactionCountForParams struct {
+	CommentID int64
+	Emoji     string
+}
+
+func (q *Queries) ReactionCountFor(ctx context.Context, arg ReactionCountForParams) (int64, error) {
+	row := q.db.QueryRow(ctx, reactionCountFor, arg.CommentID, arg.Emoji)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const reactionCounts = `-- name: ReactionCounts :many
 SELECT comment_id, emoji, COUNT(*)::bigint AS count
 FROM comment_reactions

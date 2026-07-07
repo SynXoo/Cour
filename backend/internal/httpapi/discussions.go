@@ -2,20 +2,46 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"cour/internal/discussions"
 	"cour/internal/httpapi/apigen"
+	"cour/internal/realtime"
 	"cour/internal/store/sqlcgen"
 )
 
 type discussionHandlers struct {
 	svc *discussions.Service
+	hub *realtime.Hub
 	log *slog.Logger
 }
+
+// SSE payloads for streamThreadEvents. They mirror the CommentDeleted /
+// ReactionUpdate schemas in openapi.yaml; the operation is hand-routed and
+// excluded from codegen, so these aren't generated. comment.created reuses the
+// REST apigen.Comment; presence is realtime's own payload.
+type commentDeletedEvent struct {
+	CommentID int64 `json:"comment_id"`
+}
+
+type reactionUpdateEvent struct {
+	CommentID int64        `json:"comment_id"`
+	Emoji     apigen.Emoji `json:"emoji"`
+	Count     int          `json:"count"`
+}
+
+// pingInterval keeps intermediaries from closing an idle SSE connection. The
+// stream is hand-routed past the 30s request timeout, so this is the only
+// periodic write on a quiet thread.
+const pingInterval = 25 * time.Second
 
 func (h discussionHandlers) GetAnimeThreads(w http.ResponseWriter, r *http.Request, animeID int64) {
 	series, err := h.svc.SeriesThreadIfExists(r.Context(), animeID)
@@ -151,12 +177,16 @@ func (h discussionHandlers) PostComment(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toComment(discussions.CommentView{
+	dto := toComment(discussions.CommentView{
 		Comment:   comment,
 		Author:    sqlcgen.User{Username: id.Username},
 		Reactions: map[string]int64{},
 		Mine:      map[string]bool{},
-	}))
+	})
+	// Broadcast the same shape the client already caches from REST, so its
+	// live merge is a plain append. Post-commit and best-effort.
+	h.hub.Publish(r.Context(), comment.ThreadID, realtime.Encode(realtime.EventCommentCreated, dto))
+	writeJSON(w, http.StatusCreated, dto)
 }
 
 func (h discussionHandlers) DeleteComment(w http.ResponseWriter, r *http.Request, commentID int64) {
@@ -164,7 +194,8 @@ func (h discussionHandlers) DeleteComment(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	if err := h.svc.Delete(r.Context(), commentID, id.UserID, id.IsMod()); err != nil {
+	threadID, err := h.svc.Delete(r.Context(), commentID, id.UserID, id.IsMod())
+	if err != nil {
 		switch {
 		case errors.Is(err, discussions.ErrNotFound):
 			writeNotFound(w)
@@ -175,6 +206,7 @@ func (h discussionHandlers) DeleteComment(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
+	h.hub.Publish(r.Context(), threadID, realtime.Encode(realtime.EventCommentDeleted, commentDeletedEvent{CommentID: commentID}))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -191,7 +223,8 @@ func (h discussionHandlers) react(w http.ResponseWriter, r *http.Request, commen
 	if !ok {
 		return
 	}
-	if err := h.svc.React(r.Context(), commentID, id.UserID, emoji, on); err != nil {
+	threadID, count, err := h.svc.React(r.Context(), commentID, id.UserID, emoji, on)
+	if err != nil {
 		switch {
 		case errors.Is(err, discussions.ErrNotFound):
 			writeNotFound(w)
@@ -202,7 +235,84 @@ func (h discussionHandlers) react(w http.ResponseWriter, r *http.Request, commen
 		}
 		return
 	}
+	h.hub.Publish(r.Context(), threadID, realtime.Encode(realtime.EventReactionUpdated, reactionUpdateEvent{
+		CommentID: commentID,
+		Emoji:     apigen.Emoji(emoji),
+		Count:     int(count),
+	}))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// StreamThreadEvents is the SSE endpoint (GET /threads/{threadId}/events). It
+// is hand-routed in server.go — outside the 30s request timeout and excluded
+// from codegen — so the connection lives until the client disconnects.
+func (h discussionHandlers) StreamThreadEvents(w http.ResponseWriter, r *http.Request) {
+	threadID, err := strconv.ParseInt(chi.URLParam(r, "threadId"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, CodeBadRequest, "invalid thread id")
+		return
+	}
+	if _, err := h.svc.Thread(r.Context(), threadID); err != nil {
+		if errors.Is(err, discussions.ErrNotFound) {
+			writeNotFound(w)
+			return
+		}
+		writeInternal(w, h.log, err)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeInternal(w, h.log, errors.New("streaming unsupported by the response writer"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	// Defeat proxy buffering (nginx) so events aren't held back.
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	// Subscribe before the loop; the initial presence event is already queued
+	// on the channel by the time we start reading.
+	events, cleanup := h.hub.Subscribe(threadID)
+	defer cleanup()
+
+	ping := time.NewTicker(pingInterval)
+	defer ping.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev := <-events:
+			if err := writeSSEEvent(w, ev.Name, ev.Data); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-ping.C:
+			if _, err := io.WriteString(w, ": ping\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+// writeSSEEvent frames one named event. json.Marshal produces single-line
+// data, so a single `data:` line is always valid.
+func writeSSEEvent(w io.Writer, name string, data []byte) error {
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: ", name); err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, "\n\n")
+	return err
 }
 
 // ── DTOs ───────────────────────────────────────────────────────────────────

@@ -63,6 +63,10 @@ FROM comment_reactions
 WHERE comment_id = ANY($1::bigint[])
 GROUP BY comment_id, emoji;
 
+-- name: ReactionCountFor :one
+SELECT COUNT(*)::bigint FROM comment_reactions
+WHERE comment_id = $1 AND emoji = $2;
+
 -- name: UserReactions :many
 SELECT comment_id, emoji FROM comment_reactions
 WHERE user_id = $1 AND comment_id = ANY($2::bigint[]);

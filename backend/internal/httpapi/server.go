@@ -26,6 +26,7 @@ import (
 	"cour/internal/moderation"
 	"cour/internal/notify"
 	"cour/internal/profiles"
+	"cour/internal/realtime"
 	"cour/internal/reviews"
 	"cour/internal/social"
 	"cour/internal/store/sqlcgen"
@@ -72,6 +73,9 @@ func NewRouter(d Deps) (http.Handler, error) {
 	enqueuer := notify.NewEnqueuer(d.Cfg.RedisAddr, d.Log)
 	discussionSvc := discussions.New(d.Pool, d.Log)
 	discussionSvc.SetNotifier(enqueuer)
+
+	// Live thread layer: SSE fan-out bridged across instances by Redis pub/sub.
+	realtimeHub := realtime.NewHub(d.Redis, d.Log)
 	if filter := moderation.FilterFromEnv(); filter != nil {
 		discussionSvc.SetTextFilter(filter)
 		d.Log.Info("profanity filter enabled")
@@ -115,6 +119,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		},
 		discussionHandlers: discussionHandlers{
 			svc: discussionSvc,
+			hub: realtimeHub,
 			log: d.Log,
 		},
 		socialHandlers: socialHandlers{
@@ -153,7 +158,8 @@ func NewRouter(d Deps) (http.Handler, error) {
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger(d.Log))
 	r.Use(recoverer(d.Log))
-	r.Use(middleware.Timeout(30 * time.Second))
+	// The 30s request timeout is applied per-group below, not globally, so the
+	// SSE stream can opt out — a timed-out context would tear it down every 30s.
 
 	health := healthHandler{pool: d.Pool, rdb: d.Redis}
 	r.Get("/healthz", health.healthz)
@@ -171,12 +177,21 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Use(rateLimit(d.Redis, "global",
 			redis_rate.Limit{Rate: 25, Burst: 50, Period: time.Second}, byUser))
 
-		apigen.HandlerWithOptions(server, apigen.ChiServerOptions{
-			BaseRouter: r,
-			// Parameter binding failures (bad enum, non-numeric id, ...)
-			ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
-				writeError(w, http.StatusBadRequest, CodeBadRequest, err.Error())
-			},
+		// Long-lived streaming endpoint: hand-routed (excluded from codegen)
+		// and deliberately outside the request timeout so it owns its own
+		// lifecycle, closing only when the client disconnects.
+		r.Get("/threads/{threadId}/events", server.StreamThreadEvents)
+
+		// Everything else keeps the 30s safety timeout.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(30 * time.Second))
+			apigen.HandlerWithOptions(server, apigen.ChiServerOptions{
+				BaseRouter: r,
+				// Parameter binding failures (bad enum, non-numeric id, ...)
+				ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
+					writeError(w, http.StatusBadRequest, CodeBadRequest, err.Error())
+				},
+			})
 		})
 	})
 
