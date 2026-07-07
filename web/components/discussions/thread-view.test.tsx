@@ -125,6 +125,24 @@ describe("ThreadView live layer", () => {
     expect(li).toHaveClass("comment-enter");
   });
 
+  it("renders a reply once, under its parent only", async () => {
+    const reply = { ...comment(3, "the reply"), parent_id: 1 };
+    apiGet.mockResolvedValue({
+      data: { data: [comment(1, "root A"), comment(2, "root B"), reply] },
+      error: undefined,
+    });
+    renderThread();
+
+    await screen.findByText("root A");
+    const replies = screen.getAllByText("the reply");
+    expect(replies).toHaveLength(1);
+
+    const rootA = screen.getByText("root A").closest("li")!;
+    const rootB = screen.getByText("root B").closest("li")!;
+    expect(rootA.contains(replies[0])).toBe(true);
+    expect(rootB.contains(replies[0])).toBe(false);
+  });
+
   it("tombstones a comment on comment.deleted", async () => {
     apiGet.mockResolvedValue({ data: { data: [comment(1, "here then gone")] }, error: undefined });
     const es = renderThread();

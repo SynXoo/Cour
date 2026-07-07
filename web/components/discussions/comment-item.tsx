@@ -179,8 +179,11 @@ export function CommentItem({
 }
 
 /**
- * Splits a flat descendant list into direct replies of parentId, each
- * bundled with its own descendants (preserving chronological order).
+ * Splits a flat, chronologically-ordered descendant list into direct replies
+ * of parentId, each bundled with its own descendants. Comments whose ancestry
+ * doesn't reach parentId (other subtrees) are left out — the API orders by id
+ * and a parent's id is always smaller than its replies', so every ancestor is
+ * seen before its children.
  */
 export function groupReplies(flat: Comment[], parentId: number): Comment[][] {
   const groups: Comment[][] = [];
@@ -194,16 +197,6 @@ export function groupReplies(flat: Comment[], parentId: number): Comment[][] {
       const g = index.get(c.parent_id)!;
       index.set(c.id, g);
       groups[g].push(c);
-    } else {
-      // Orphaned (ancestor outside this slice) — attach to the last group
-      // rather than dropping it.
-      if (groups.length === 0) {
-        index.set(c.id, 0);
-        groups.push([c]);
-      } else {
-        index.set(c.id, groups.length - 1);
-        groups[groups.length - 1].push(c);
-      }
     }
   }
   return groups;
