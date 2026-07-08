@@ -138,6 +138,43 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M3.1 follow-up 2 (out-of-band, Miguel's design pass on the
+  wall) · Landing layout + motion continuity. **Hero:** on `lg` the copy
+  takes the left column and the live ticker rides the right as a glass panel
+  (`bg-background/60 backdrop-blur`, "Right now on Cour" header + Jump in) —
+  the conversation is part of the front door; on mobile it stacks inside the
+  hero, so the standalone live-proof section is gone. Copy vertically
+  centered (`lg:min-h-[36rem] items-center`). **Wall dissolves via masks now**
+  (`hero-wall-mask`: bottom/side melts + a copy-hole that shifts left on lg,
+  `mask-composite: intersect`) instead of painted washes — no color seams to
+  sync. **Blank-gap bug fixed:** the −50% loop is only seamless while one
+  track half outruns the viewport; each half now repeats its row ×3
+  (`REPS=3`, half ≈ 4.8k px — long dwellers never see the tail drift into
+  blank space). **Ambience:** `.landing-ambient` (globals.css) — a violet
+  wash (color-mix over theme vars) holds through the hero and hands off to
+  three faint off-axis radial glows down the page; the scroll never lands on
+  one flat color. **Busiest threads:** trailing items hide at widths where
+  they'd orphan a row (`sm:max-lg:hidden`/`lg:hidden` per index off
+  `n − n%cols`, guarded ≥ one full row — 5 threads → 4 at sm, 3 at lg).
+  **Seasonal grid → drifting rail:** new `SeasonalCarousel`
+  (`app/seasonal-carousel.tsx`) reuses full `AnimeCard`s (score badge, airing
+  chip) in one slow row (180 s) on the shared `.landing-marquee` primitive
+  (renamed from `hero-marquee`; hover **and focus-within** pause since cards
+  are links); only the first copy is interactive — loop filler is
+  `inert` + `aria-hidden` + `motion-reduce:hidden`, and reduced motion turns
+  the whole rail into a plain scrollable strip (`motion-reduce:overflow-x-auto`).
+  **Gotcha (now 3×): Turbopack stale CSS** — globals.css edits (keyframes,
+  masks, ambient) served stale even mid-session; `rm -rf web/.next` +
+  restart, verify via `document.styleSheets`. **New min-width:auto bite:** the
+  hero grid's single mobile track ballooned to 448 px (the ticker's nowrap
+  truncate line sets the item's min-content; `max-w-md` capped it) clipping
+  the copy at 375 — `min-w-0` on **both** grid items; that's the third
+  truncate-in-grid incident, treat `min-w-0` as mandatory on any grid/flex
+  item containing `truncate`. Tests: **124** vitest (+3: carousel
+  inert/filler contract, null-without-covers, shared-track; wall test counts
+  updated for REPS). Verified live 375/1440: copy no longer clipped, rail +
+  wall drift (transforms sampled), busiest 3-of-5 at lg, halves 4757/2912 px,
+  0 console errors, no h-overflow. **Next (M3.2)** unchanged.
 - 2026-07-08 · M3.1 follow-up (out-of-band, Miguel's ask post-review) · Hero
   poster wall + ambient backdrop. **The eye-catcher:** two rows of anime
   covers drift slowly behind the hero copy (tilted −4°, counter-directions,

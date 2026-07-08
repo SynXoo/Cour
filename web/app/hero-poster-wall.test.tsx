@@ -41,15 +41,15 @@ describe("HeroPosterWall", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("is decorative: hidden from the tree, rows doubled for the seamless loop", () => {
+  it("is decorative: hidden from the tree, rows repeated for the seamless loop", () => {
     const { container } = render(<HeroPosterWall anime={covers(10)} />);
     expect(container.firstElementChild).toHaveAttribute("aria-hidden");
     expect(container.querySelectorAll("a")).toHaveLength(0);
-    // 10 covers split across 2 rows, each row rendered twice.
-    expect(container.querySelectorAll("img")).toHaveLength(20);
-    const rows = container.querySelectorAll(".hero-marquee");
+    // 10 covers split across 2 rows; each row = 2 halves × 3 reps of 5.
+    expect(container.querySelectorAll("img")).toHaveLength(60);
+    const rows = container.querySelectorAll(".landing-marquee");
     expect(rows).toHaveLength(2);
-    expect(rows[1].className).toContain("hero-marquee-reverse");
+    expect(rows[1].className).toContain("landing-marquee-reverse");
     for (const img of container.querySelectorAll("img")) {
       expect(img).toHaveAttribute("alt", "");
     }

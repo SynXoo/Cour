@@ -186,26 +186,83 @@
   }
 }
 
-/* ── Landing hero poster wall ───────────────────────────────────────────────
-   Two rows of covers drift behind the hero copy. The track holds two copies
-   of the row, so translating -50% loops seamlessly; duration/direction come
-   from the component so the rows don't move in lockstep. Reduced motion gets
-   a static wall — the covers still carry the eye-catch, they just hold still. */
-@keyframes hero-marquee {
+/* ── Landing motion & ambience ──────────────────────────────────────────────
+   One marquee primitive drives both the hero poster wall and the seasonal
+   rail: the track holds two identical halves, so translating -50% loops
+   seamlessly — as long as each half outruns the widest viewport (the
+   components repeat their content to guarantee that). Hover or keyboard
+   focus pauses (the rail is browsable); reduced motion stops it — the art
+   still carries the eye-catch, it just holds still. */
+@keyframes landing-marquee {
   to {
     transform: translateX(-50%);
   }
 }
-.hero-marquee {
-  animation: hero-marquee var(--marquee-duration, 90s) linear infinite;
+.landing-marquee {
+  animation: landing-marquee var(--marquee-duration, 90s) linear infinite;
 }
-.hero-marquee-reverse {
+.landing-marquee:hover,
+.landing-marquee:focus-within {
+  animation-play-state: paused;
+}
+.landing-marquee-reverse {
   animation-direction: reverse;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-marquee {
+  .landing-marquee {
     animation: none;
   }
+}
+
+/* The hero wall dissolves via masks instead of painted washes, so whatever
+   sits behind it (the landing's ambient tint) shows through — no color
+   seams to keep in sync. Layers intersect: melt top/bottom edges, melt the
+   sides, and open a hole behind the copy (center on mobile, left column on
+   desktop, where the live panel takes the right). */
+.hero-wall-mask {
+  mask-image:
+    linear-gradient(to bottom, transparent, black 22%, black 70%, transparent),
+    linear-gradient(to right, transparent, black 10%, black 90%, transparent),
+    radial-gradient(ellipse 62% 60% at 50% 52%, transparent 30%, black 76%);
+  mask-composite: intersect;
+}
+@media (min-width: 1024px) {
+  .hero-wall-mask {
+    mask-image:
+      linear-gradient(to bottom, transparent, black 22%, black 70%, transparent),
+      linear-gradient(to right, transparent, black 10%, black 90%, transparent),
+      radial-gradient(ellipse 55% 68% at 30% 52%, transparent 32%, black 74%);
+    mask-composite: intersect;
+  }
+}
+
+/* Page-wide ambience for the logged-out landing: the violet wash the hero
+   melts into holds through the hero's height, then hands off to faint
+   off-axis glows down the page — the scroll never lands on one flat color.
+   Everything derives from theme vars, so both themes stay coherent. */
+.landing-ambient {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 9%, transparent),
+      color-mix(in oklab, var(--primary) 7%, transparent) 44rem,
+      transparent 110rem
+    ),
+    radial-gradient(
+      56rem 38rem at 88% 70rem,
+      color-mix(in oklab, var(--primary) 8%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      64rem 44rem at -12% 125rem,
+      color-mix(in oklab, var(--primary) 7%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      56rem 40rem at 105% 100%,
+      color-mix(in oklab, var(--primary) 6%, transparent),
+      transparent 75%
+    );
 }
 
 /* ── Thread conversation layer ──────────────────────────────────────────────
