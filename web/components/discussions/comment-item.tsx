@@ -243,6 +243,21 @@ export function CommentItem({
           </button>
         )}
 
+        {/* Reply whose parent is on an older, not-yet-loaded page: it renders
+            at top level (ThreadView promotes it) with this stub so its context
+            isn't silently lost. "Load older comments" pulls the parent in. */}
+        {comment.parent_id != null && !parent && (
+          <span
+            className="flex w-fit max-w-full items-baseline gap-1.5 rounded-md border border-dashed border-border/60 bg-muted/20 px-2 py-1 text-xs italic text-muted-foreground"
+            title="Replying to a comment further back — load older to reveal it"
+          >
+            <span aria-hidden className="shrink-0 not-italic">
+              ↩
+            </span>
+            earlier comment
+          </span>
+        )}
+
         {comment.deleted ? (
           <p className="text-sm italic text-muted-foreground">[removed]</p>
         ) : (

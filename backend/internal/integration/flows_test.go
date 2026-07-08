@@ -191,6 +191,87 @@ func TestTrendingPipeline(t *testing.T) {
 	assert.Less(t, hotRank, coldRank, "5 fresh favorites must outrank 8 ten-day-old ones")
 }
 
+// TestCommentPagination walks a thread's comments newest-first through the
+// keyset cursor and asserts the pages tile the thread exactly once — no gaps,
+// no duplicates, no silent truncation. This is M2.6's replacement for the old
+// LIMIT 500 single-shot fetch.
+func TestCommentPagination(t *testing.T) {
+	animeID := seedAnime(t, 900006, "Paginated Show", "Paginated Show", 12)
+
+	author := newClient(t)
+	author.register("pager_int")
+
+	var thread struct {
+		Thread struct {
+			Id int64 `json:"id"`
+		} `json:"thread"`
+	}
+	require.Equal(t, http.StatusOK,
+		author.do(http.MethodGet, "/api/v1/anime/"+itoa(animeID)+"/episodes/1/thread", nil, &thread))
+	threadID := thread.Thread.Id
+
+	// Post five comments; ids ascend with arrival, so newest-first is descending.
+	const n = 5
+	ids := make([]int64, 0, n)
+	for i := 0; i < n; i++ {
+		var c struct {
+			Id int64 `json:"id"`
+		}
+		require.Equal(t, http.StatusCreated, author.do(http.MethodPost,
+			"/api/v1/threads/"+itoa(threadID)+"/comments",
+			map[string]any{"body": "comment " + itoa(int64(i))}, &c))
+		ids = append(ids, c.Id)
+	}
+
+	type page struct {
+		Data []struct {
+			Id int64 `json:"id"`
+		} `json:"data"`
+		NextCursor *int64 `json:"next_cursor"`
+	}
+
+	// Page with limit=2 to force three pages (2 + 2 + 1).
+	var seen []int64
+	before := int64(0)
+	pages := 0
+	for {
+		path := "/api/v1/threads/" + itoa(threadID) + "/comments?limit=2"
+		if before > 0 {
+			path += "&before_id=" + itoa(before)
+		}
+		var p page
+		require.Equal(t, http.StatusOK, author.do(http.MethodGet, path, nil, &p))
+		pages++
+		require.LessOrEqual(t, len(p.Data), 2, "page respects the limit")
+
+		for i := 1; i < len(p.Data); i++ {
+			assert.Greater(t, p.Data[i-1].Id, p.Data[i].Id, "ids descend within a page")
+		}
+		for _, c := range p.Data {
+			seen = append(seen, c.Id)
+		}
+		if p.NextCursor == nil {
+			break
+		}
+		require.NotEmpty(t, p.Data)
+		assert.Equal(t, p.Data[len(p.Data)-1].Id, *p.NextCursor, "cursor is the page's oldest id")
+		before = *p.NextCursor
+		require.LessOrEqual(t, pages, n+1, "cursor must terminate")
+	}
+
+	assert.Equal(t, 3, pages, "5 comments at limit 2 = three pages")
+	want := []int64{ids[4], ids[3], ids[2], ids[1], ids[0]}
+	assert.Equal(t, want, seen, "every comment seen once, newest first, in order")
+
+	// A no-cursor default fetch returns the whole small thread with no next page.
+	var full page
+	require.Equal(t, http.StatusOK,
+		author.do(http.MethodGet, "/api/v1/threads/"+itoa(threadID)+"/comments", nil, &full))
+	assert.Len(t, full.Data, n)
+	assert.Nil(t, full.NextCursor, "a thread under one page has no older page")
+	assert.Equal(t, want[0], full.Data[0].Id, "newest comment leads the default page")
+}
+
 func TestEpisodeThreadReplyNotification(t *testing.T) {
 	animeID := seedAnime(t, 900005, "Thread Test Show", "Thread Test Show", 12)
 

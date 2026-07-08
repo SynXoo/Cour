@@ -32,12 +32,15 @@ WHERE threads.anime_id = $1 AND threads.kind = 'episode'
 ORDER BY episodes.number;
 
 -- name: ListComments :many
+-- Newest-first keyset page: pass the previous page's oldest id as @before_id to
+-- walk backward. Served by the comments (thread_id, id) index. @before_id is
+-- MaxInt64 for the newest page; fetch limit+1 to detect a further page.
 SELECT sqlc.embed(comments), sqlc.embed(users)
 FROM comments
 JOIN users ON users.id = comments.user_id
-WHERE comments.thread_id = $1
-ORDER BY comments.id
-LIMIT $2;
+WHERE comments.thread_id = @thread_id AND comments.id < @before_id
+ORDER BY comments.id DESC
+LIMIT @page_limit;
 
 -- name: RecentComments :many
 -- Live comments in the velocity window, for thread-trending scoring.

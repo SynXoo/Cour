@@ -126,12 +126,13 @@ describe("ThreadView live layer", () => {
   });
 
   it("sorts newest-first by default, with Oldest and Top on demand", async () => {
+    // The API returns pages newest-first (id-descending).
     apiGet.mockResolvedValue({
       data: {
         data: [
-          comment(1, "first post"),
-          { ...comment(2, "second post"), reactions: [{ emoji: "+1" as const, count: 3, mine: false }] },
           comment(3, "third post"),
+          { ...comment(2, "second post"), reactions: [{ emoji: "+1" as const, count: 3, mine: false }] },
+          comment(1, "first post"),
         ],
       },
       error: undefined,
@@ -153,7 +154,7 @@ describe("ThreadView live layer", () => {
   it("shows a tappable quote of the parent on replies", async () => {
     const reply = { ...comment(3, "the reply"), parent_id: 1 };
     apiGet.mockResolvedValue({
-      data: { data: [comment(1, "root A"), reply] },
+      data: { data: [reply, comment(1, "root A")] }, // newest-first
       error: undefined,
     });
     renderThread();
@@ -166,7 +167,7 @@ describe("ThreadView live layer", () => {
   it("renders a reply once, under its parent only", async () => {
     const reply = { ...comment(3, "the reply"), parent_id: 1 };
     apiGet.mockResolvedValue({
-      data: { data: [comment(1, "root A"), comment(2, "root B"), reply] },
+      data: { data: [reply, comment(2, "root B"), comment(1, "root A")] }, // newest-first
       error: undefined,
     });
     renderThread();
@@ -193,6 +194,54 @@ describe("ThreadView live layer", () => {
 
     act(() => es.emit("comment.deleted", { comment_id: 1 }));
     expect(await screen.findByText("[removed]")).toBeInTheDocument();
+  });
+
+  it("loads older comments behind a Load older button (keyset paging)", async () => {
+    apiGet.mockImplementation(
+      (_path: string, opts: { params?: { query?: { before_id?: number } } }) => {
+        // The older page is requested with before_id = the newest page's cursor.
+        if (opts?.params?.query?.before_id === 10) {
+          return Promise.resolve({
+            data: { data: [comment(9, "older one")], next_cursor: null },
+            error: undefined,
+          });
+        }
+        return Promise.resolve({
+          data: {
+            data: [comment(12, "newest"), comment(11, "middle"), comment(10, "boundary")],
+            next_cursor: 10,
+          },
+          error: undefined,
+        });
+      },
+    );
+    renderThread();
+
+    await screen.findByText("newest");
+    // Older page isn't loaded yet; the honest scope note is shown.
+    expect(screen.queryByText("older one")).not.toBeInTheDocument();
+    expect(screen.getByText(/Showing the 3 most recent/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load older comments" }));
+    expect(await screen.findByText("older one")).toBeInTheDocument();
+    // Reached the oldest comment: no more paging, note gone.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Load older comments" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("keeps a reply whose parent is on an unloaded older page visible, with a stub", async () => {
+    // Reply to comment 2, which isn't in the loaded (newest) page.
+    const orphan = { ...comment(10, "orphan reply"), parent_id: 2 };
+    apiGet.mockResolvedValue({
+      data: { data: [comment(12, "root here"), orphan], next_cursor: 5 }, // newest-first
+      error: undefined,
+    });
+    renderThread();
+
+    // The orphan is promoted to a display root instead of vanishing, and marked.
+    expect(await screen.findByText("orphan reply")).toBeInTheDocument();
+    expect(screen.getByText("earlier comment")).toBeInTheDocument();
   });
 
   it("closes the stream on unmount", async () => {

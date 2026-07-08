@@ -4,11 +4,14 @@ import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "@/lib/api/schema";
 import {
-  applyCreated,
   applyDeleted,
   applyReaction,
+  mergeCreated,
+  mergeDeleted,
+  mergeReaction,
   useThreadEvents,
   type Comment,
+  type CommentPages,
 } from "./use-thread-events";
 
 type ReactionCount = components["schemas"]["ReactionCount"];
@@ -35,19 +38,51 @@ const react = (emoji: ReactionCount["emoji"], count: number, mine = false): Reac
   mine,
 });
 
-describe("applyCreated", () => {
-  it("appends a comment not already in the list", () => {
-    const list = [comment(1)];
-    const next = applyCreated(list, comment(2));
-    expect(next.map((c) => c.id)).toEqual([1, 2]);
-    expect(next).not.toBe(list); // new reference
+// Build a paginated cache: each argument is one page's data, newest page first,
+// each page id-descending — the shape useInfiniteQuery holds for the thread.
+const paged = (...pageData: Comment[][]): CommentPages => ({
+  pages: pageData.map((data) => ({ data, next_cursor: null })),
+  pageParams: pageData.map(() => 0),
+});
+
+describe("mergeCreated", () => {
+  it("prepends a live comment to the newest page (page 0 is newest-first)", () => {
+    const data = paged([comment(3), comment(2)], [comment(1)]);
+    const next = mergeCreated(data, comment(4))!;
+    expect(next.pages[0].data.map((c) => c.id)).toEqual([4, 3, 2]);
+    expect(next.pages[1].data.map((c) => c.id)).toEqual([1]); // older page untouched
   });
 
-  it("replaces (dedupes) when the id is already present — idempotent re-delivery", () => {
-    const list = [comment(1), comment(2)];
-    const next = applyCreated(list, comment(2, { body: "edited" }));
-    expect(next).toHaveLength(2);
-    expect(next.find((c) => c.id === 2)?.body).toBe("edited");
+  it("replaces in place when the id is already held — idempotent re-delivery", () => {
+    const data = paged([comment(2)], [comment(1)]);
+    const next = mergeCreated(data, comment(1, { body: "edited" }))!;
+    expect(next.pages[1].data[0].body).toBe("edited");
+    expect(next.pages[0].data.map((c) => c.id)).toEqual([2]); // not duplicated onto page 0
+  });
+
+  it("no-ops before any page has loaded", () => {
+    expect(mergeCreated(undefined, comment(1))).toBeUndefined();
+  });
+});
+
+describe("mergeDeleted / mergeReaction (page-lifted)", () => {
+  it("tombstones a comment on its page and keeps untouched pages by reference", () => {
+    const data = paged([comment(2)], [comment(1)]);
+    const next = mergeDeleted(data, 1)!;
+    expect(next.pages[1].data[0].deleted).toBe(true);
+    expect(next.pages[1].data[0].body).toBe("[removed]");
+    expect(next.pages[0]).toBe(data.pages[0]); // page without the id is not re-created
+  });
+
+  it("returns the same cache reference when the deleted id is absent everywhere", () => {
+    const data = paged([comment(2)], [comment(1)]);
+    expect(mergeDeleted(data, 99)).toBe(data);
+  });
+
+  it("folds a reaction update into the matching comment across pages", () => {
+    const data = paged([comment(2)], [comment(1, { reactions: [react("heart", 1, true)] })]);
+    const next = mergeReaction(data, { comment_id: 1, emoji: "heart", count: 5 })!;
+    expect(next.pages[1].data[0].reactions).toEqual([react("heart", 5, true)]);
   });
 });
 
@@ -164,9 +199,9 @@ describe("useThreadEvents", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["comments", 7] });
   });
 
-  it("merges comment.created into the cache and calls onCreated", async () => {
+  it("merges comment.created into the paginated cache and calls onCreated", async () => {
     const client = new QueryClient();
-    client.setQueryData(["comments", 7], [comment(1, { body: "first" })]);
+    client.setQueryData<CommentPages>(["comments", 7], paged([comment(1, { body: "first" })]));
     const onCreated = vi.fn();
     renderHook(() => useThreadEvents(7, { onCreated }), { wrapper: wrapper(client) });
     const es = FakeEventSource.instances.at(-1)!;
@@ -174,8 +209,8 @@ describe("useThreadEvents", () => {
     act(() => es.emit("comment.created", comment(2, { body: "live" })));
 
     await waitFor(() => {
-      const list = client.getQueryData<Comment[]>(["comments", 7]);
-      expect(list?.map((c) => c.id)).toEqual([1, 2]);
+      const data = client.getQueryData<CommentPages>(["comments", 7]);
+      expect(data?.pages[0].data.map((c) => c.id)).toEqual([2, 1]); // newest prepended
     });
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }));
   });

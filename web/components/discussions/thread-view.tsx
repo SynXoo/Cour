@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -75,18 +75,25 @@ export function ThreadView({
 
   const { presence, degraded } = useThreadEvents(threadId, { onCreated });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["comments", threadId],
     // The SSE stream keeps the cache current; when it drops, poll so the thread
-    // still moves until it reconnects.
+    // still moves until it reconnects. Refetch re-pulls every loaded page, so
+    // "load older" history survives a post/react/reconnect invalidate.
     refetchInterval: degraded ? 15_000 : false,
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       const res = await browserApi.GET("/threads/{threadId}/comments", {
-        params: { path: { threadId } },
+        params: {
+          path: { threadId },
+          // pageParam 0 = newest page; otherwise it's the older page's cursor.
+          query: pageParam > 0 ? { before_id: pageParam } : {},
+        },
       });
       if (res.error) throw new Error(res.error.error.message);
-      return res.data.data;
+      return res.data;
     },
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
   });
 
   // A visible sentinel at the arrival edge (top for newest, bottom for oldest)
@@ -106,18 +113,26 @@ export function ThreadView({
     return () => io.disconnect();
   }, [sort]);
 
-  const comments = data ?? [];
+  // Pages arrive newest-first (each id-descending); flatten and reverse to
+  // arrival order (id ASC) so the reply-tree builder always meets a parent
+  // before its children.
+  const comments = (data?.pages.flatMap((p) => p.data) ?? []).reverse();
+  const loadedIds = new Set(comments.map((c) => c.id));
   const byId = new Map(comments.map((c) => [c.id, c]));
-  const roots = comments.filter((c) => c.parent_id == null); // id ASC = oldest first
   const descendants = comments.filter((c) => c.parent_id != null);
+  // A reply whose parent sits on an older, not-yet-loaded page can't be traced
+  // to a loaded root, so it would silently vanish. Promote such orphans to
+  // display roots (comment-item marks them with an "earlier comment" stub);
+  // real roots keep their id-ASC order since `comments` is sorted.
+  const displayRoots = comments.filter((c) => c.parent_id == null || !loadedIds.has(c.parent_id));
 
   // Subtree reply counts, for the Top tiebreak.
   const replyCount = new Map<number, number>();
   {
     const rootOf = new Map<number, number>();
     for (const c of comments) {
-      if (c.parent_id == null) {
-        rootOf.set(c.id, c.id);
+      if (c.parent_id == null || !loadedIds.has(c.parent_id)) {
+        rootOf.set(c.id, c.id); // a real root, or an orphan standing in for one
         continue;
       }
       const r = rootOf.get(c.parent_id);
@@ -129,16 +144,16 @@ export function ThreadView({
   const heat = (c: Comment) => c.reactions.reduce((n, r) => n + r.count, 0);
   const sortedRoots =
     sort === "oldest"
-      ? roots
+      ? displayRoots
       : sort === "top"
         ? // Most-reacted first; ties go to the busiest conversation, then newest.
-          [...roots].sort(
+          [...displayRoots].sort(
             (a, b) =>
               heat(b) - heat(a) ||
               (replyCount.get(b.id) ?? 0) - (replyCount.get(a.id) ?? 0) ||
               b.id - a.id,
           )
-        : [...roots].reverse(); // newest (also the fallback while sort === "timeline")
+        : [...displayRoots].reverse(); // newest (also the fallback while sort === "timeline")
 
   const anyTimestamps = comments.some((c) => c.timestamp_seconds != null);
   const timeline =
@@ -212,6 +227,15 @@ export function ThreadView({
         )}
       </div>
 
+      {/* Honest scope note: with older pages unloaded, every sort — Top and
+          Timeline included — ranks only the comments currently in view. */}
+      {hasNextPage && !isLoading && (
+        <p className="text-xs text-muted-foreground">
+          Showing the {comments.length} most recent {comments.length === 1 ? "comment" : "comments"} —
+          every sort covers just these. Load older below to include earlier ones.
+        </p>
+      )}
+
       {anchorTop && <div ref={anchorRef} aria-hidden className="h-px" />}
 
       <CommentsIndexContext.Provider value={byId}>
@@ -247,6 +271,20 @@ export function ThreadView({
       </CommentsIndexContext.Provider>
 
       {!anchorTop && <div ref={anchorRef} aria-hidden className="h-px" />}
+
+      {hasNextPage && !isLoading && (
+        <div className="flex justify-center pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-11 md:h-8"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? "Loading…" : "Load older comments"}
+          </Button>
+        </div>
+      )}
 
       {newCount > 0 && (
         <button

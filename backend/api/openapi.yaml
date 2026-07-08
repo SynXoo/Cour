@@ -888,7 +888,24 @@ paths:
         schema: { type: integer, format: int64 }
     get:
       operationId: listComments
-      summary: A thread's comments, oldest first (client builds the tree)
+      summary: A thread's comments, newest first, keyset-paginated (client builds the tree)
+      description: >
+        One page of a thread's comments, ordered id-descending (newest first) to
+        match the client's default. Keyset pagination: omit `before_id` for the
+        newest page, then pass the response's `next_cursor` back as `before_id`
+        to load the next-older page. `next_cursor` is null once the oldest
+        comment has been reached. The client reverses the merged pages back to
+        arrival order to build the reply tree (a parent's id always precedes its
+        replies'); replies whose parent lands on a not-yet-loaded older page are
+        shown at top level until that page is pulled in.
+      parameters:
+        - name: before_id
+          in: query
+          description: Return comments with id strictly less than this (older). Omit for the newest page.
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
       responses:
         "200":
           description: Comments with authors and reactions
@@ -1755,11 +1772,16 @@ components:
 
     CommentList:
       type: object
-      required: [data]
+      required: [data, next_cursor]
       properties:
         data:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Pass back as ?before_id= for the next (older) page; null at the oldest comment
 
     # ── Live thread events (SSE payloads for streamThreadEvents) ──────────
     CommentDeleted:

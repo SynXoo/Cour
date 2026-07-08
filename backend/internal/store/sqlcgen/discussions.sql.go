@@ -232,14 +232,15 @@ const listComments = `-- name: ListComments :many
 SELECT comments.id, comments.thread_id, comments.parent_id, comments.user_id, comments.body, comments.timestamp_seconds, comments.has_spoilers, comments.deleted_at, comments.created_at, comments.updated_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at
 FROM comments
 JOIN users ON users.id = comments.user_id
-WHERE comments.thread_id = $1
-ORDER BY comments.id
-LIMIT $2
+WHERE comments.thread_id = $1 AND comments.id < $2
+ORDER BY comments.id DESC
+LIMIT $3
 `
 
 type ListCommentsParams struct {
-	ThreadID int64
-	Limit    int32
+	ThreadID  int64
+	BeforeID  int64
+	PageLimit int32
 }
 
 type ListCommentsRow struct {
@@ -247,8 +248,11 @@ type ListCommentsRow struct {
 	User    User
 }
 
+// Newest-first keyset page: pass the previous page's oldest id as @before_id to
+// walk backward. Served by the comments (thread_id, id) index. @before_id is
+// MaxInt64 for the newest page; fetch limit+1 to detect a further page.
 func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error) {
-	rows, err := q.db.Query(ctx, listComments, arg.ThreadID, arg.Limit)
+	rows, err := q.db.Query(ctx, listComments, arg.ThreadID, arg.BeforeID, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

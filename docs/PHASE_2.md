@@ -100,10 +100,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   episode" jump in the detail action bar next to Discussion. One Piece
   scale (1000+ eps) is the acceptance test. (Verified live at 375/desktop
   against a 1169-ep One Piece.)
-- [ ] **M2.6** (O) Thread comment pagination — replace the silent
-  `LIMIT 500` truncation with cursor pages + "load older"; live merge and
-  the four sorts keep working over the loaded set (see spec for the Top/
-  Timeline caveat).
+- [x] **M2.6** (O) Thread comment pagination — replaced the silent
+  `LIMIT 500` truncation with newest-first keyset pages (`before_id`/
+  `next_cursor`) + "load older"; live merge and the four sorts keep working
+  over the loaded set, orphan replies promote to display roots with an
+  "earlier comment" stub, honest scope note when older pages are unloaded.
+  (Verified live at 375/desktop against a 60-comment thread.)
 
 ### M3 — home & landing
 
@@ -133,6 +135,56 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M2.6 · Thread comment pagination — the whole change was already
+  sitting uncommitted from an interrupted prior session; this session
+  **reviewed, ran, verified live, and committed it**. **Spec-first backend:**
+  `openapi.yaml` `listComments` gains `before_id`/`limit` params and `CommentList`
+  gains a nullable `next_cursor`; `task gen` was already in sync (no drift).
+  `ListComments` query flipped to a newest-first keyset page
+  (`WHERE thread_id=@thread_id AND id < @before_id ORDER BY id DESC LIMIT @page_limit`,
+  served by the existing `comments (thread_id, id)` index); the service fetches
+  `limit+1` to detect a further page without a count query and returns the page's
+  oldest id as `next_cursor` (nil at the end). Handler: `before_id` defaults to
+  `math.MaxInt64` (newest page), `limit` default 50 / max 100. **Client:**
+  `ThreadView` swapped `useQuery`→`useInfiniteQuery` (pageParam 0 = newest;
+  `getNextPageParam` = `next_cursor`); pages arrive newest-first and are
+  flattened+**reversed** to arrival order (id ASC) so the reply-tree builder
+  always meets a parent before its children. The SSE cache-merge helpers were
+  lifted over the paginated `InfiniteData` shape: `applyCreated`→`mergeCreated`
+  (prepend to page 0, idempotent replace-in-place across pages), plus
+  `mergeDeleted`/`mergeReaction` via a `mapPages` that preserves untouched page
+  references. **Two interplay decisions (spec asked to decide + note):**
+  (1) **orphan replies** — a reply whose parent sits on an unloaded older page
+  is promoted to a *display root* (instead of silently vanishing) and marked with
+  a dashed "↩ earlier comment" stub in `comment-item.tsx`; once "Load older"
+  pulls the parent's page in, it re-nests and the stub clears — verified live.
+  (2) **Top/Timeline over the loaded set** — chose "rank what's loaded" + an
+  honest scope note ("Showing the N most recent comments — every sort covers just
+  these") shown whenever `hasNextPage`, rather than fetch-all-under-a-cap. "Load
+  older" button is the app-standard 44 px touch target (`h-11 md:h-8`). **Tests:**
+  reworked `use-thread-events.test.ts` (paged-cache `mergeCreated`/`mergeDeleted`/
+  `mergeReaction` cases incl. reference-preservation + no-op-before-load) and
+  `thread-view.test.tsx` (existing fixtures flipped to newest-first; +2: Load-older
+  keyset paging, orphan-stays-visible-with-stub); new integration
+  `TestCommentPagination` walks a 5-comment thread at limit=2 through the cursor
+  and asserts the pages tile it exactly once (no gaps/dupes/truncation).
+  **All green:** go unit + integration, web **102** vitest / 13 files, `task lint`
+  (golangci 0 / eslint / tsc) + `task gen` clean. **Verified live** at 375/desktop
+  as anon on a seeded 60-comment thread (anime 16 ep 2, thread 210): default page
+  = 50 newest with the scope note + Load-older; the orphan reply (parent on the
+  older page) showed the stub; clicking Load older folded in the last 10, cleared
+  the note/button/stub, re-nested the reply; 0 console errors, no h-overflow at
+  375, 44 px button. **Ops:** rebuilt the compose **api** image (it predated the
+  pagination endpoint — old build ignored `limit` and had no `next_cursor`); the
+  60 test comments were seeded by direct SQL (comment POST is rate-limited ~50/burst
+  — note for future bulk seeding) and **deleted after**, along with 55 stray
+  `activities` rows left by an initial API-post attempt before I switched to SQL
+  (comment posts write a `comment` activity → would poison Trending; demo DB back
+  to seeded state, empty thread-210 shell left as harmless). Comments are read
+  live from PG (no Redis cache to bust, unlike `anime:v1:{id}`). **Next (M3.1):**
+  landing + routing — `cour_refresh` cookie branch in `app/page.tsx`, hero,
+  live-proof ticker, tonight strip, seasonal preview, SEO. M2 is now complete;
+  M3 wires the trending/velocity signals M2.3 built into the home + landing.
 - 2026-07-08 · M2.5 · Episode list pagination. All client-side over the
   detail payload's full episode array — no API/schema change, no `task gen`.
   New pure helper `web/lib/episodes.ts` (unit-tested, mirrors `lib/seasonal.ts`):

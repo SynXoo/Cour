@@ -755,7 +755,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** A thread's comments, oldest first (client builds the tree) */
+        /**
+         * A thread's comments, newest first, keyset-paginated (client builds the tree)
+         * @description One page of a thread's comments, ordered id-descending (newest first) to match the client's default. Keyset pagination: omit `before_id` for the newest page, then pass the response's `next_cursor` back as `before_id` to load the next-older page. `next_cursor` is null once the oldest comment has been reached. The client reverses the merged pages back to arrival order to build the reply tree (a parent's id always precedes its replies'); replies whose parent lands on a not-yet-loaded older page are shown at top level until that page is pulled in.
+         */
         get: operations["listComments"];
         put?: never;
         /** Add a comment (optionally anchored to a moment) */
@@ -1362,6 +1365,11 @@ export interface components {
         };
         CommentList: {
             data: components["schemas"]["Comment"][];
+            /**
+             * Format: int64
+             * @description Pass back as ?before_id= for the next (older) page; null at the oldest comment
+             */
+            next_cursor: number | null;
         };
         CommentDeleted: {
             /** Format: int64 */
@@ -2677,7 +2685,11 @@ export interface operations {
     };
     listComments: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return comments with id strictly less than this (older). Omit for the newest page. */
+                before_id?: number;
+                limit?: number;
+            };
             header?: never;
             path: {
                 threadId: number;

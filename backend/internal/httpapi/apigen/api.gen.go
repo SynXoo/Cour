@@ -503,6 +503,9 @@ type Comment struct {
 // CommentList defines model for CommentList.
 type CommentList struct {
 	Data []Comment `json:"data"`
+
+	// NextCursor Pass back as ?before_id= for the next (older) page; null at the oldest comment
+	NextCursor *int64 `json:"next_cursor"`
 }
 
 // CommitImportRequest defines model for CommitImportRequest.
@@ -1167,6 +1170,13 @@ type GetTrendingThreadsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListCommentsParams defines parameters for ListComments.
+type ListCommentsParams struct {
+	// BeforeId Return comments with id strictly less than this (older). Omit for the newest page.
+	BeforeId *int64 `form:"before_id,omitempty" json:"before_id,omitempty"`
+	Limit    *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetTrendingParams defines parameters for GetTrending.
 type GetTrendingParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1378,9 +1388,9 @@ type ServerInterface interface {
 	// Busiest threads right now — recent comments, time-decayed, plus live presence
 	// (GET /threads/trending)
 	GetTrendingThreads(w http.ResponseWriter, r *http.Request, params GetTrendingThreadsParams)
-	// A thread's comments, oldest first (client builds the tree)
+	// A thread's comments, newest first, keyset-paginated (client builds the tree)
 	// (GET /threads/{threadId}/comments)
-	ListComments(w http.ResponseWriter, r *http.Request, threadId int64)
+	ListComments(w http.ResponseWriter, r *http.Request, threadId int64, params ListCommentsParams)
 	// Add a comment (optionally anchored to a moment)
 	// (POST /threads/{threadId}/comments)
 	PostComment(w http.ResponseWriter, r *http.Request, threadId int64)
@@ -1720,9 +1730,9 @@ func (_ Unimplemented) GetTrendingThreads(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// A thread's comments, oldest first (client builds the tree)
+// A thread's comments, newest first, keyset-paginated (client builds the tree)
 // (GET /threads/{threadId}/comments)
-func (_ Unimplemented) ListComments(w http.ResponseWriter, r *http.Request, threadId int64) {
+func (_ Unimplemented) ListComments(w http.ResponseWriter, r *http.Request, threadId int64, params ListCommentsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3352,8 +3362,37 @@ func (siw *ServerInterfaceWrapper) ListComments(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCommentsParams
+
+	// ------------- Optional query parameter "before_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before_id", r.URL.Query(), &params.BeforeId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComments(w, r, threadId)
+		siw.Handler.ListComments(w, r, threadId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

@@ -42,10 +42,7 @@ var validEmojis = map[string]bool{
 	"+1": true, "heart": true, "laugh": true, "surprise": true, "cry": true, "fire": true,
 }
 
-const (
-	maxBodyLen       = 8000
-	maxCommentsFetch = 500
-)
+const maxBodyLen = 8000
 
 // Notifier is the seam the notifications slice plugs into: called after a
 // comment lands, outside the transaction.
@@ -181,19 +178,30 @@ type CommentView struct {
 	Mine      map[string]bool  // emoji -> caller reacted
 }
 
-// Comments returns the thread's comments chronologically (clients build the
-// tree), with reactions aggregated and the caller's own reactions marked.
-func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64) ([]CommentView, error) {
+// Comments returns one newest-first keyset page of a thread's comments (clients
+// reverse the merged pages and build the tree), with reactions aggregated and
+// the caller's own reactions marked. beforeID is the exclusive upper id bound
+// (math.MaxInt64 for the newest page); nextCursor is the oldest id on this page
+// when an older page exists, else nil.
+func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64, beforeID int64, limit int) (views []CommentView, nextCursor *int64, err error) {
 	if _, err := s.Thread(ctx, threadID); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	rows, err := s.q.ListComments(ctx, sqlcgen.ListCommentsParams{ThreadID: threadID, Limit: maxCommentsFetch})
+	// Fetch one extra to tell whether an older page exists without a count query.
+	rows, err := s.q.ListComments(ctx, sqlcgen.ListCommentsParams{
+		ThreadID: threadID, BeforeID: beforeID, PageLimit: int32(limit) + 1,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("list comments: %w", err)
+		return nil, nil, fmt.Errorf("list comments: %w", err)
+	}
+	if len(rows) > limit {
+		rows = rows[:limit]
+		oldest := rows[len(rows)-1].Comment.ID // DESC page → last row is the oldest
+		nextCursor = &oldest
 	}
 
 	ids := make([]int64, len(rows))
-	views := make([]CommentView, len(rows))
+	views = make([]CommentView, len(rows))
 	for i, row := range rows {
 		ids[i] = row.Comment.ID
 		views[i] = CommentView{
@@ -204,7 +212,7 @@ func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64)
 		}
 	}
 	if len(ids) == 0 {
-		return views, nil
+		return views, nextCursor, nil
 	}
 
 	byID := make(map[int64]*CommentView, len(views))
@@ -214,7 +222,7 @@ func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64)
 
 	counts, err := s.q.ReactionCounts(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("reaction counts: %w", err)
+		return nil, nil, fmt.Errorf("reaction counts: %w", err)
 	}
 	for _, c := range counts {
 		if v, ok := byID[c.CommentID]; ok {
@@ -225,7 +233,7 @@ func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64)
 	if callerID != nil {
 		mine, err := s.q.UserReactions(ctx, sqlcgen.UserReactionsParams{UserID: *callerID, Column2: ids})
 		if err != nil {
-			return nil, fmt.Errorf("user reactions: %w", err)
+			return nil, nil, fmt.Errorf("user reactions: %w", err)
 		}
 		for _, m := range mine {
 			if v, ok := byID[m.CommentID]; ok {
@@ -233,7 +241,7 @@ func (s *Service) Comments(ctx context.Context, threadID int64, callerID *int64)
 			}
 		}
 	}
-	return views, nil
+	return views, nextCursor, nil
 }
 
 type PostInput struct {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -111,12 +112,28 @@ func (h discussionHandlers) GetEpisodeThread(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-func (h discussionHandlers) ListComments(w http.ResponseWriter, r *http.Request, threadID int64) {
+// Comment page bounds. The default is one screen of live conversation; the max
+// caps how much a single request can pull from a very long thread.
+const (
+	defaultCommentPage = 50
+	maxCommentPage     = 100
+)
+
+func (h discussionHandlers) ListComments(w http.ResponseWriter, r *http.Request, threadID int64, params apigen.ListCommentsParams) {
 	var callerID *int64
 	if id, ok := identity(r); ok {
 		callerID = &id.UserID
 	}
-	views, err := h.svc.Comments(r.Context(), threadID, callerID)
+	beforeID := int64(math.MaxInt64)
+	if params.BeforeId != nil && *params.BeforeId > 0 {
+		beforeID = *params.BeforeId
+	}
+	limit := defaultCommentPage
+	if params.Limit != nil && *params.Limit > 0 && *params.Limit <= maxCommentPage {
+		limit = *params.Limit
+	}
+
+	views, next, err := h.svc.Comments(r.Context(), threadID, callerID, beforeID, limit)
 	if err != nil {
 		if errors.Is(err, discussions.ErrNotFound) {
 			writeNotFound(w)
@@ -130,7 +147,7 @@ func (h discussionHandlers) ListComments(w http.ResponseWriter, r *http.Request,
 	for i, v := range views {
 		data[i] = toComment(v)
 	}
-	writeJSON(w, http.StatusOK, apigen.CommentList{Data: data})
+	writeJSON(w, http.StatusOK, apigen.CommentList{Data: data, NextCursor: next})
 }
 
 func (h discussionHandlers) PostComment(w http.ResponseWriter, r *http.Request, threadID int64) {

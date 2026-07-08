@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { components } from "@/lib/api/schema";
 
@@ -11,28 +12,23 @@ type ReactionUpdate = components["schemas"]["ReactionUpdate"];
 type CommentDeleted = components["schemas"]["CommentDeleted"];
 type PresenceUpdate = components["schemas"]["PresenceUpdate"];
 
-// The comment list the ThreadView query caches — the SSE events fold straight
-// into this so the live view and a fresh REST fetch stay byte-identical.
+// The paginated comment cache the ThreadView query holds — the SSE events fold
+// straight into it so the live view and a fresh REST fetch stay byte-identical.
+// Newest-first keyset pages (page 0 is the newest); ThreadView reverses the
+// flattened pages back to arrival order to build the reply tree.
 const commentsKey = (threadId: number) => ["comments", threadId] as const;
+
+export type CommentPage = components["schemas"]["CommentList"];
+export type CommentPages = InfiniteData<CommentPage>;
 
 // Mirrors comment-item.tsx's render order and the server's sortReactions, so a
 // live-added emoji lands in the exact slot the next REST fetch would give it.
 const EMOJI_ORDER: Emoji[] = ["+1", "heart", "laugh", "surprise", "cry", "fire"];
 
 // ── Cache-merge helpers (pure; unit-tested) ─────────────────────────────────
-
-/**
- * Append a live comment, or replace it if we already hold that id (the poster's
- * own echo, a reconnect replay). Idempotent so double-delivery never doubles a
- * row.
- */
-export function applyCreated(list: Comment[], c: Comment): Comment[] {
-  const i = list.findIndex((x) => x.id === c.id);
-  if (i === -1) return [...list, c];
-  const next = list.slice();
-  next[i] = c;
-  return next;
-}
+//
+// applyDeleted/applyReaction operate on a single page's flat list; mergeCreated
+// and mapPages lift them over the paginated cache the query actually holds.
 
 /**
  * Tombstone a comment in place — the REST shape of a deleted row is the same
@@ -80,6 +76,54 @@ export function applyReaction(list: Comment[], u: ReactionUpdate): Comment[] {
   });
   return changed ? next : list;
 }
+
+/**
+ * Fold a live comment into the paginated cache: replace it in place if we
+ * already hold the id (the poster's own echo, a reconnect replay — idempotent),
+ * otherwise prepend it to the newest page (page 0 is newest-first, and a live
+ * arrival is always the newest). No-op before the first page has loaded.
+ */
+export function mergeCreated(data: CommentPages | undefined, c: Comment): CommentPages | undefined {
+  if (!data || data.pages.length === 0) return data;
+  if (data.pages.some((p) => p.data.some((x) => x.id === c.id))) {
+    return {
+      ...data,
+      pages: data.pages.map((p) =>
+        p.data.some((x) => x.id === c.id)
+          ? { ...p, data: p.data.map((x) => (x.id === c.id ? c : x)) }
+          : p,
+      ),
+    };
+  }
+  const [first, ...rest] = data.pages;
+  return { ...data, pages: [{ ...first, data: [c, ...first.data] }, ...rest] };
+}
+
+/**
+ * Apply a per-page list transform across the cache, preserving page references
+ * where the transform was a no-op (so React skips untouched pages). Returns the
+ * same cache reference when nothing changed.
+ */
+function mapPages(
+  data: CommentPages | undefined,
+  fn: (list: Comment[]) => Comment[],
+): CommentPages | undefined {
+  if (!data) return data;
+  let changed = false;
+  const pages = data.pages.map((p) => {
+    const next = fn(p.data);
+    if (next === p.data) return p;
+    changed = true;
+    return { ...p, data: next };
+  });
+  return changed ? { ...data, pages } : data;
+}
+
+export const mergeDeleted = (data: CommentPages | undefined, commentId: number) =>
+  mapPages(data, (list) => applyDeleted(list, commentId));
+
+export const mergeReaction = (data: CommentPages | undefined, u: ReactionUpdate) =>
+  mapPages(data, (list) => applyReaction(list, u));
 
 function safeParse<T>(data: string): T | null {
   try {
@@ -139,22 +183,20 @@ export function useThreadEvents(
     es.addEventListener("comment.created", (e) => {
       const c = safeParse<Comment>((e as MessageEvent).data);
       if (!c) return;
-      qc.setQueryData<Comment[]>(commentsKey(threadId), (prev) => applyCreated(prev ?? [], c));
+      qc.setQueryData<CommentPages>(commentsKey(threadId), (prev) => mergeCreated(prev, c));
       onCreatedRef.current?.(c);
     });
 
     es.addEventListener("comment.deleted", (e) => {
       const d = safeParse<CommentDeleted>((e as MessageEvent).data);
       if (!d) return;
-      qc.setQueryData<Comment[]>(commentsKey(threadId), (prev) =>
-        applyDeleted(prev ?? [], d.comment_id),
-      );
+      qc.setQueryData<CommentPages>(commentsKey(threadId), (prev) => mergeDeleted(prev, d.comment_id));
     });
 
     es.addEventListener("reaction.updated", (e) => {
       const u = safeParse<ReactionUpdate>((e as MessageEvent).data);
       if (!u) return;
-      qc.setQueryData<Comment[]>(commentsKey(threadId), (prev) => applyReaction(prev ?? [], u));
+      qc.setQueryData<CommentPages>(commentsKey(threadId), (prev) => mergeReaction(prev, u));
     });
 
     es.addEventListener("presence", (e) => {
