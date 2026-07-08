@@ -186,6 +186,28 @@
   }
 }
 
+/* ── Landing hero poster wall ───────────────────────────────────────────────
+   Two rows of covers drift behind the hero copy. The track holds two copies
+   of the row, so translating -50% loops seamlessly; duration/direction come
+   from the component so the rows don't move in lockstep. Reduced motion gets
+   a static wall — the covers still carry the eye-catch, they just hold still. */
+@keyframes hero-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.hero-marquee {
+  animation: hero-marquee var(--marquee-duration, 90s) linear infinite;
+}
+.hero-marquee-reverse {
+  animation-direction: reverse;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-marquee {
+    animation: none;
+  }
+}
+
 /* ── Thread conversation layer ──────────────────────────────────────────────
    The pieces that make a thread feel like a chat rather than a table: per-user
    avatar tints, the jump-to-parent flash, tapback-style reaction pops, and the

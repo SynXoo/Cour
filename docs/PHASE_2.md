@@ -138,6 +138,38 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M3.1 follow-up (out-of-band, Miguel's ask post-review) · Hero
+  poster wall + ambient backdrop. **The eye-catcher:** two rows of anime
+  covers drift slowly behind the hero copy (tilted −4°, counter-directions,
+  110 s/150 s so they never lockstep), CSS-only via new `hero-marquee`
+  keyframes in `globals.css` (track holds the row twice, translates −50% for
+  a seamless loop; static under `prefers-reduced-motion` — the covers still
+  catch the eye, they just hold still). **Sourcing honors the thesis:** no
+  hall-of-fame endpoint — new `heroCovers` in `lib/landing.ts` mines a
+  40-deep `GET /trending` pool for *both* trending rank and the biggest
+  all-time-popularity titles inside it (that's where AoT/Death Note/One
+  Piece surface for newcomers to latch onto; confirmed live against the demo
+  DB), seasonal fills the remainder; cap 18, coverless dropped, and a
+  **word-boundary franchise dedupe** ("Attack on Titan Season 2" skipped
+  after "Attack on Titan", but "Title 10" is *not* a sequel of "Title 1" —
+  the naive startsWith was a real bug the test caught). **Backdrop:** hero
+  went full-bleed (own section outside PageShell), two blurred `bg-primary`
+  glow blobs + the wall's three-layer text protection (light flat dim,
+  vertical edge melt, radial scrim focused behind the copy) — first overlay
+  attempt drowned the art, the radial rework keeps covers recognizable at
+  the edges, which is the whole point. `HeroPosterWall`
+  (`app/hero-poster-wall.tsx`) is decorative: `aria-hidden`,
+  `pointer-events-none`, no links, `alt=""`, renders `null` under 8 covers.
+  Tests: **+6 vitest** (3 `heroCovers` incl. the boundary case, 3 wall:
+  min-covers null, doubled rows/decorative contract, coverless filter;
+  next/image mocked) = **121** across 17 files; lint/tsc clean. **Verified
+  live** at 375/desktop: marquee transform sampled moving, both rows
+  animated (110 s normal / 150 s reverse), 36 imgs, no h-overflow, 0 console
+  errors. **Gotcha (M2.4 repeat):** Turbopack served `globals.css` *without*
+  the new keyframes — `.hero-marquee` computed `animation: none` — fixed
+  again with `rm -rf web/.next` + restart; check served CSS via
+  `document.styleSheets` before distrusting an edit. **Next (M3.2)**
+  unchanged.
 - 2026-07-08 · M3.1 · Landing + routing. **Plan amendment (spec §M3 Routing
   edited in place):** the spec'd `cookies().has("cour_refresh")` branch can't
   work — the refresh cookie is scoped to `Path=/api/v1/auth` and never rides

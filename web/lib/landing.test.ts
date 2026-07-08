@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnimeSummary, ScheduleEntry, ThreadComment, TrendingThread } from "@/lib/api/client";
-import { agoLabel, buildTicker, threadHref, tonightEntries } from "./landing";
+import { agoLabel, buildTicker, heroCovers, threadHref, tonightEntries } from "./landing";
 
 const NOW = new Date("2026-07-08T20:00:00Z");
 
@@ -111,6 +111,40 @@ describe("agoLabel", () => {
 
   it("clamps future timestamps to just now", () => {
     expect(agoLabel(hoursAhead(1), NOW)).toBe("just now");
+  });
+});
+
+describe("heroCovers", () => {
+  const withCover = (over: Partial<AnimeSummary> & Pick<AnimeSummary, "id">) =>
+    mkAnime({ cover_image: `cover-${over.id}.jpg`, ...over });
+
+  it("unions trending rank with the pool's all-time-popularity picks", () => {
+    // 20 modestly popular trending titles, then a legacy megahit at the tail:
+    // rank alone would never surface it, popularity must.
+    const trending = Array.from({ length: 20 }, (_, i) =>
+      withCover({ id: i + 1, popularity: 1000 - i }),
+    );
+    const megahit = withCover({ id: 99, title: "Death Note", popularity: 900_000 });
+    const picks = heroCovers([...trending, megahit], [], 12);
+    expect(picks.map((a) => a.id)).toContain(99);
+    expect(picks[0].id).toBe(1); // rank picks still lead
+    // "Title 10" must not read as a sequel of "Title 1" (word boundary).
+    expect(picks).toHaveLength(12);
+  });
+
+  it("skips missing covers, duplicate ids, and same-franchise sequels", () => {
+    const aot = withCover({ id: 1, title: "Attack on Titan", popularity: 10 });
+    const aotS2 = withCover({ id: 2, title: "Attack on Titan Season 2", popularity: 9 });
+    const coverless = mkAnime({ id: 3, popularity: 8 }); // cover_image: null
+    const seasonalDupe = withCover({ id: 1, title: "Attack on Titan", popularity: 10 });
+    const fresh = withCover({ id: 4, title: "Mebius Dust", popularity: 1 });
+    const picks = heroCovers([aot, aotS2, coverless], [seasonalDupe, fresh]);
+    expect(picks.map((a) => a.id)).toEqual([1, 4]);
+  });
+
+  it("fills from seasonal when trending runs dry", () => {
+    const seasonal = Array.from({ length: 4 }, (_, i) => withCover({ id: 50 + i }));
+    expect(heroCovers([], seasonal).map((a) => a.id)).toEqual([50, 51, 52, 53]);
   });
 });
 
