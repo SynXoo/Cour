@@ -29,6 +29,22 @@ export const LiveCommentsContext = createContext<Set<number>>(new Set());
  */
 export const CommentsIndexContext = createContext<Map<number, Comment>>(new Map());
 
+/**
+ * True while the progress-aware spoiler shield is up (the viewer hasn't
+ * watched this episode yet): every comment body blurs and every reply quote
+ * chip hides its excerpt, spoiler-marked or not. Provided by
+ * EpisodeSpoilerShield on episode threads; false everywhere else.
+ */
+export const SpoilerShieldContext = createContext(false);
+
+/**
+ * The episode's airing time (ISO), for the night-of badge on comments posted
+ * within 24 h of it. Null outside episode threads.
+ */
+export const EpisodeAiringContext = createContext<string | null>(null);
+
+const NIGHT_OF_MS = 24 * 60 * 60 * 1000;
+
 const EMOJI_GLYPHS: Record<Emoji, string> = {
   "+1": "👍",
   heart: "❤️",
@@ -81,9 +97,19 @@ export function CommentItem({
   const qc = useQueryClient();
   const liveIds = useContext(LiveCommentsContext);
   const byId = useContext(CommentsIndexContext);
+  const shield = useContext(SpoilerShieldContext);
+  const airingAt = useContext(EpisodeAiringContext);
   const isMine = user?.username === comment.author.username;
   const isLive = liveIds.has(comment.id);
   const parent = comment.parent_id != null ? byId.get(comment.parent_id) : undefined;
+
+  // Posted the night it aired — the ritual stays visible in the record.
+  const nightOf = (() => {
+    if (airingAt == null || comment.deleted) return false;
+    const aired = Date.parse(airingAt);
+    const posted = Date.parse(comment.created_at);
+    return posted >= aired && posted - aired <= NIGHT_OF_MS;
+  })();
 
   // The reaction that just landed, keyed so re-reacting replays the animation.
   const [burst, setBurst] = useState<{ emoji: Emoji; at: "chip" | "picker"; key: number } | null>(
@@ -180,6 +206,14 @@ export function CommentItem({
               minute: "2-digit",
             })}
           </time>
+          {nightOf && (
+            <span
+              title="Posted within 24 hours of the episode airing"
+              className="rounded-full border border-border/60 px-1.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground"
+            >
+              night of
+            </span>
+          )}
         </header>
 
         {parent && (
@@ -198,6 +232,10 @@ export function CommentItem({
                 <em>[removed]</em>
               ) : parent.has_spoilers ? (
                 <em>spoiler-marked comment</em>
+              ) : shield ? (
+                // The shield must cover quote chips too — an excerpt of a
+                // blurred comment is still a spoiler.
+                <em>hidden comment</em>
               ) : (
                 parent.body
               )}
@@ -208,7 +246,7 @@ export function CommentItem({
         {comment.deleted ? (
           <p className="text-sm italic text-muted-foreground">[removed]</p>
         ) : (
-          <SpoilerGuard active={comment.has_spoilers}>
+          <SpoilerGuard active={comment.has_spoilers || shield}>
             <p className="whitespace-pre-line font-sans text-sm leading-relaxed text-foreground/90">
               {comment.body}
             </p>

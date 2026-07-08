@@ -192,3 +192,90 @@ func TestThreadSSELiveEvents(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stream.waitFor("comment.deleted", 3*time.Second).data, &cd))
 	assert.Equal(t, posted.Id, cd.CommentId)
 }
+
+// TestTrendingThreads exercises GET /threads/trending end to end: fresh
+// comments outrank older ones (decay), a lurker-only room ranks on presence
+// alone, and each row carries its anime/episode context.
+func TestTrendingThreads(t *testing.T) {
+	animeID := seedAnime(t, 900020, "Velocity Show", "Velocity Show", 12)
+
+	poster := newClient(t)
+	poster.register("velocity_poster")
+
+	// Three threads: ep1 gets fresh comments, ep2 gets older ones, ep3 only
+	// a live reader.
+	threadID := func(n int) int64 {
+		var thread struct {
+			Thread struct {
+				Id int64 `json:"id"`
+			} `json:"thread"`
+		}
+		require.Equal(t, http.StatusOK,
+			poster.do(http.MethodGet, "/api/v1/anime/"+itoa(animeID)+"/episodes/"+itoa(int64(n))+"/thread", nil, &thread))
+		return thread.Thread.Id
+	}
+	hotID, coldID, lurkID := threadID(1), threadID(2), threadID(3)
+
+	post := func(thread int64, body string) {
+		require.Equal(t, http.StatusCreated,
+			poster.do(http.MethodPost, "/api/v1/threads/"+itoa(thread)+"/comments", map[string]any{"body": body}, nil))
+	}
+	post(hotID, "fresh take one")
+	post(hotID, "fresh take two")
+	post(hotID, "fresh take three")
+	post(coldID, "yesterday's news")
+	post(coldID, "also yesterday")
+
+	// Age the cold thread's comments by a day: 2·2^-4 = 0.125, well under the
+	// hot thread's 3.0 and the lurker's presence bonus.
+	_, err := testPool.Exec(context.Background(),
+		"UPDATE comments SET created_at = now() - interval '24 hours' WHERE thread_id = $1", coldID)
+	require.NoError(t, err)
+
+	// One live reader parks on the ep3 thread. Waiting for its presence event
+	// proves the hub registered it before the ranking computes.
+	stream := openSSE(t, "/api/v1/threads/"+itoa(lurkID)+"/events")
+	defer stream.close()
+	require.Equal(t, 1, presenceOf(t, stream.waitFor("presence", 3*time.Second)))
+
+	var trending struct {
+		Data []struct {
+			Thread struct {
+				Id int64 `json:"id"`
+			} `json:"thread"`
+			Anime struct {
+				Id    int64  `json:"id"`
+				Title string `json:"title"`
+			} `json:"anime"`
+			Episode *struct {
+				Number int `json:"number"`
+			} `json:"episode"`
+			RecentComments int `json:"recent_comments"`
+			Presence       int `json:"presence"`
+		} `json:"data"`
+	}
+	c := newClient(t)
+	require.Equal(t, http.StatusOK, c.do(http.MethodGet, "/api/v1/threads/trending", nil, &trending))
+
+	rank := map[int64]int{}
+	for i, row := range trending.Data {
+		rank[row.Thread.Id] = i
+		switch row.Thread.Id {
+		case hotID:
+			assert.Equal(t, 3, row.RecentComments)
+			assert.Equal(t, "Velocity Show", row.Anime.Title)
+			require.NotNil(t, row.Episode)
+			assert.Equal(t, 1, row.Episode.Number)
+		case coldID:
+			assert.Equal(t, 2, row.RecentComments, "older comments still count, they just decay")
+		case lurkID:
+			assert.Equal(t, 0, row.RecentComments)
+			assert.Equal(t, 1, row.Presence, "live reader shows in the presence column")
+		}
+	}
+	for name, id := range map[string]int64{"hot": hotID, "cold": coldID, "lurker": lurkID} {
+		require.Contains(t, rank, id, "%s thread must rank", name)
+	}
+	assert.Less(t, rank[hotID], rank[coldID], "3 fresh comments outrank 2 day-old ones")
+	assert.Less(t, rank[lurkID], rank[coldID], "a live reader outranks day-old comments")
+}

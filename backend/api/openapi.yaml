@@ -956,6 +956,29 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /threads/trending:
+    get:
+      operationId: getTrendingThreads
+      summary: Busiest threads right now — recent comments, time-decayed, plus live presence
+      description: >
+        Threads ranked by comment velocity: each comment in the recent window
+        contributes with exponential time decay (the Trending Now shape, much
+        shorter half-life), and every reader connected to the thread's live
+        stream adds a presence bonus. Recomputed at most once a minute.
+        Powers the home page's "live now" rail and the threads hub.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 10 }
+      responses:
+        "200":
+          description: Ranked threads with their anime/episode context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrendingThreadList" }
+        default:
+          $ref: "#/components/responses/Error"
+
   /comments/{commentId}:
     delete:
       operationId: deleteComment
@@ -1758,6 +1781,31 @@ components:
       required: [count]
       properties:
         count: { type: integer, description: Live readers currently connected }
+
+    TrendingThread:
+      type: object
+      required: [thread, anime, episode, recent_comments, presence]
+      properties:
+        thread: { $ref: "#/components/schemas/Thread" }
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        episode:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/Episode" }]
+          description: Null for series boards
+        recent_comments:
+          type: integer
+          description: Comments posted within the ranking window
+        presence:
+          type: integer
+          description: Live readers connected right now
+
+    TrendingThreadList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/TrendingThread" }
 
     PostCommentRequest:
       type: object

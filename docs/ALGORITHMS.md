@@ -75,6 +75,36 @@ of O(events).
 
 ---
 
+## 1b. Thread velocity ("busiest threads right now")
+
+The same decay shape as Trending Now, applied to a thread's comments and
+tuned to a *nightly* cadence instead of a weekly one. Lives in
+[`backend/internal/discussions/trending.go`](../backend/internal/discussions/trending.go)
+and serves `GET /threads/trending` (the home page's "live now" rail and the
+threads hub).
+
+```
+score(thread) = Σ over live comments c  2^(−age(c) / 6 h)
+              + 2.0 · live_readers(thread)
+```
+
+- **Window 48 h, half-life 6 h** — a comment is worth half its heat six
+  hours later and ~1 % after two days. Tonight's episode thread beats
+  yesterday's even if yesterday's has more total comments.
+- **Presence bonus** — every reader connected to the thread's SSE stream
+  adds 2.0 (one lurker ≈ two fresh comments), so a room gathering before an
+  episode ranks *before* anyone posts. Presence-only threads are included in
+  the candidate set, not just commented ones.
+- Deleted comments don't count (a nuked spam flood deflates immediately).
+- **Mechanics:** no cron — computed on demand and cached in Redis for 60 s
+  (`threads:trending:v1`, stats only). Thread/anime hydration and the
+  presence counts *shown* are read live per request; only the ranking is
+  60 s stale. The comment scan rides `comments_created_at_idx`.
+- Constants are deliberately not env-tunable yet — revisit when M3's home
+  page gives the ranking a real audience.
+
+---
+
 ## 2. Hidden gems
 
 The deliberate inversion of the popularity bias:

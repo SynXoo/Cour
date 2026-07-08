@@ -1004,6 +1004,26 @@ type TrendingList struct {
 	Data       []AnimeSummary `json:"data"`
 }
 
+// TrendingThread defines model for TrendingThread.
+type TrendingThread struct {
+	Anime AnimeSummary `json:"anime"`
+
+	// Episode Null for series boards
+	Episode *Episode `json:"episode"`
+
+	// Presence Live readers connected right now
+	Presence int `json:"presence"`
+
+	// RecentComments Comments posted within the ranking window
+	RecentComments int    `json:"recent_comments"`
+	Thread         Thread `json:"thread"`
+}
+
+// TrendingThreadList defines model for TrendingThreadList.
+type TrendingThreadList struct {
+	Data []TrendingThread `json:"data"`
+}
+
 // UnreadCount defines model for UnreadCount.
 type UnreadCount struct {
 	Count int `json:"count"`
@@ -1140,6 +1160,11 @@ type ListOpenReportsParams struct {
 type GetScheduleParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
 	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetTrendingThreadsParams defines parameters for GetTrendingThreads.
+type GetTrendingThreadsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetTrendingParams defines parameters for GetTrending.
@@ -1350,6 +1375,9 @@ type ServerInterface interface {
 	// Seasonal chart
 	// (GET /seasons/{year}/{season})
 	GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season)
+	// Busiest threads right now — recent comments, time-decayed, plus live presence
+	// (GET /threads/trending)
+	GetTrendingThreads(w http.ResponseWriter, r *http.Request, params GetTrendingThreadsParams)
 	// A thread's comments, oldest first (client builds the tree)
 	// (GET /threads/{threadId}/comments)
 	ListComments(w http.ResponseWriter, r *http.Request, threadId int64)
@@ -1683,6 +1711,12 @@ func (_ Unimplemented) GetSchedule(w http.ResponseWriter, r *http.Request, param
 // Seasonal chart
 // (GET /seasons/{year}/{season})
 func (_ Unimplemented) GetSeason(w http.ResponseWriter, r *http.Request, year int, season Season) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Busiest threads right now — recent comments, time-decayed, plus live presence
+// (GET /threads/trending)
+func (_ Unimplemented) GetTrendingThreads(w http.ResponseWriter, r *http.Request, params GetTrendingThreadsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3270,6 +3304,39 @@ func (siw *ServerInterfaceWrapper) GetSeason(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetTrendingThreads operation middleware
+func (siw *ServerInterfaceWrapper) GetTrendingThreads(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTrendingThreadsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTrendingThreads(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListComments operation middleware
 func (siw *ServerInterfaceWrapper) ListComments(w http.ResponseWriter, r *http.Request) {
 
@@ -3846,6 +3913,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/seasons/{year}/{season}", wrapper.GetSeason)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/threads/trending", wrapper.GetTrendingThreads)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/threads/{threadId}/comments", wrapper.ListComments)

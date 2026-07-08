@@ -798,6 +798,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/threads/trending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Busiest threads right now — recent comments, time-decayed, plus live presence
+         * @description Threads ranked by comment velocity: each comment in the recent window contributes with exponential time decay (the Trending Now shape, much shorter half-life), and every reader connected to the thread's live stream adds a presence bonus. Recomputed at most once a minute. Powers the home page's "live now" rail and the threads hub.
+         */
+        get: operations["getTrendingThreads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/comments/{commentId}": {
         parameters: {
             query?: never;
@@ -1357,6 +1377,19 @@ export interface components {
         PresenceUpdate: {
             /** @description Live readers currently connected */
             count: number;
+        };
+        TrendingThread: {
+            thread: components["schemas"]["Thread"];
+            anime: components["schemas"]["AnimeSummary"];
+            /** @description Null for series boards */
+            episode: components["schemas"]["Episode"] | null;
+            /** @description Comments posted within the ranking window */
+            recent_comments: number;
+            /** @description Live readers connected right now */
+            presence: number;
+        };
+        TrendingThreadList: {
+            data: components["schemas"]["TrendingThread"][];
         };
         PostCommentRequest: {
             body: string;
@@ -2710,6 +2743,29 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTrendingThreads: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked threads with their anime/episode context */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendingThreadList"];
                 };
             };
             default: components["responses"]["Error"];

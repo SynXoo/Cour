@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,6 +19,7 @@ import {
   groupReplies,
   jumpToComment,
   LiveCommentsContext,
+  SpoilerShieldContext,
   type Comment,
 } from "./comment-item";
 
@@ -279,6 +280,7 @@ function Composer({
   const [stamp, setStamp] = useState("");
   const [spoilers, setSpoilers] = useState(false);
   const [posting, setPosting] = useState(false);
+  const shield = useContext(SpoilerShieldContext);
   const boxRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -338,7 +340,8 @@ function Composer({
         >
           <span className="truncate">
             Replying to <strong className="text-foreground/80">@{replyTo.author.username}</strong>:{" "}
-            {replyTo.body.slice(0, 80)}
+            {/* Quoting a hidden comment in the composer would leak it. */}
+            {replyTo.has_spoilers || shield ? <em>spoiler-marked comment</em> : replyTo.body.slice(0, 80)}
           </span>
           <button type="button" onClick={clearReply} className="shrink-0 px-1 py-1 underline">
             cancel

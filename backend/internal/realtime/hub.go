@@ -174,6 +174,19 @@ func (h *Hub) Presence(threadID int64) int {
 	return 0
 }
 
+// Presences snapshots every thread with at least one live reader (this
+// instance). Thread trending unions this with recent-comment candidates so a
+// room full of lurkers waiting for an episode can rank before anyone posts.
+func (h *Hub) Presences() map[int64]int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make(map[int64]int, len(h.rooms))
+	for id, rm := range h.rooms {
+		out[id] = len(rm.subs)
+	}
+	return out
+}
+
 func (h *Hub) dispatch(threadID int64, ev Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

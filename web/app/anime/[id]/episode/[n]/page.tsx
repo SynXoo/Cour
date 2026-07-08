@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EpisodeSpoilerShield } from "@/components/discussions/episode-spoiler-shield";
 import { ThreadView } from "@/components/discussions/thread-view";
 import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
@@ -107,7 +108,17 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
         </p>
       )}
 
-      <ThreadView threadId={thread.id} allowTimestamps />
+      <EpisodeSpoilerShield
+        animeId={anime.id}
+        episodeNumber={episode.number}
+        airingAt={episode.airing_at ?? null}
+        // Null airing_at still guards: a finished show without per-episode
+        // dates is aired; only a *known upcoming* episode skips (the
+        // speculation banner owns those).
+        aired={!upcoming}
+      >
+        <ThreadView threadId={thread.id} allowTimestamps />
+      </EpisodeSpoilerShield>
 
       <p className="text-xs text-muted-foreground">
         {thread.comment_count} comment{thread.comment_count === 1 ? "" : "s"} ·

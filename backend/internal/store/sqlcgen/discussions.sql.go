@@ -380,6 +380,37 @@ func (q *Queries) ReactionCounts(ctx context.Context, dollar_1 []int64) ([]React
 	return items, nil
 }
 
+const recentComments = `-- name: RecentComments :many
+SELECT thread_id, created_at FROM comments
+WHERE created_at >= $1 AND deleted_at IS NULL
+`
+
+type RecentCommentsRow struct {
+	ThreadID  int64
+	CreatedAt time.Time
+}
+
+// Live comments in the velocity window, for thread-trending scoring.
+func (q *Queries) RecentComments(ctx context.Context, createdAt time.Time) ([]RecentCommentsRow, error) {
+	rows, err := q.db.Query(ctx, recentComments, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecentCommentsRow
+	for rows.Next() {
+		var i RecentCommentsRow
+		if err := rows.Scan(&i.ThreadID, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeReaction = `-- name: RemoveReaction :execrows
 DELETE FROM comment_reactions WHERE comment_id = $1 AND user_id = $2 AND emoji = $3
 `
@@ -408,6 +439,88 @@ func (q *Queries) SoftDeleteComment(ctx context.Context, id int64) (int64, error
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const threadsWithContext = `-- name: ThreadsWithContext :many
+SELECT threads.id, threads.anime_id, threads.episode_id, threads.kind, threads.comment_count, threads.last_activity_at, threads.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id,
+       episodes.number AS episode_number,
+       episodes.title AS episode_title,
+       episodes.airing_at AS episode_airing_at
+FROM threads
+JOIN anime ON anime.id = threads.anime_id
+LEFT JOIN episodes ON episodes.id = threads.episode_id
+WHERE threads.id = ANY($1::bigint[])
+`
+
+type ThreadsWithContextRow struct {
+	Thread          Thread
+	Anime           Anime
+	EpisodeNumber   *int32
+	EpisodeTitle    *string
+	EpisodeAiringAt *time.Time
+}
+
+// Hydrates ranked thread ids with their anime and (for episode threads) the
+// episode row. Order is restored in Go from the ranked id list.
+func (q *Queries) ThreadsWithContext(ctx context.Context, threadIds []int64) ([]ThreadsWithContextRow, error) {
+	rows, err := q.db.Query(ctx, threadsWithContext, threadIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ThreadsWithContextRow
+	for rows.Next() {
+		var i ThreadsWithContextRow
+		if err := rows.Scan(
+			&i.Thread.ID,
+			&i.Thread.AnimeID,
+			&i.Thread.EpisodeID,
+			&i.Thread.Kind,
+			&i.Thread.CommentCount,
+			&i.Thread.LastActivityAt,
+			&i.Thread.CreatedAt,
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+			&i.EpisodeNumber,
+			&i.EpisodeTitle,
+			&i.EpisodeAiringAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const userReactions = `-- name: UserReactions :many

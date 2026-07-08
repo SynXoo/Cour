@@ -79,11 +79,12 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
   presence badge (shows at ≥ 2), polling degrade on error,
   `prefers-reduced-motion`. (E2E-verified live on the Docker stack at
   375/desktop: the four events all fold in without a refresh.)
-- [ ] **M2.3** (O) Velocity + spoiler guard — `comments(created_at)` index,
-  `GET /threads/trending` (decay + presence bonus, 60 s cache),
-  progress-aware banner/blur on episode threads (**must cover the reply
-  quote chips** — see the spoiler-guard section), inline "mark ep N
-  watched". Stretch: night-of badge, bell 60 s refetch.
+- [x] **M2.3** (O) Velocity + spoiler guard — `comments(created_at)` index,
+  `GET /threads/trending` (decay + presence bonus, 60 s cache; no UI
+  consumer yet — M3 wires it), progress-aware banner/blur on episode
+  threads (**must cover the reply quote chips** — see the spoiler-guard
+  section), inline "mark ep N watched". Stretch: night-of badge, bell 60 s
+  refetch. (E2E-verified 375/desktop on the live stack.)
 
 ### M2.4–M2.6 — inserts from the 2026-07-07 review
 
@@ -131,6 +132,53 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M2.3 · Velocity + spoiler guard. **Backend:** migration
+  `000015` adds `comments(created_at)`; new `GET /threads/trending` (spec'd,
+  codegen'd, `?limit` 1–20 default 10) served by
+  `internal/discussions/trending.go` — score = Σ 2^(−age/6 h) over live
+  (non-deleted) comments in a 48 h window + 2.0·presence; top-20 ranking
+  cached 60 s in Redis (`threads:trending:v1`, **stats only** — thread/anime
+  hydration and the presence numbers *shown* are read live per request, so
+  only the ranking is ever stale). Presence-only rooms rank too, via new
+  `Hub.Presences()` — lurkers gathering pre-episode make a thread hot before
+  anyone posts. Formula + constants documented in ALGORITHMS.md §1b
+  (deliberately not env-tunable yet). **No UI consumer this session — M3.1/
+  M3.2/M3.3 wire it.** 7 scorer unit cases + integration
+  `TestTrendingThreads` (fresh-beats-older, lurker-only thread ranks via a
+  real SSE connection, episode context hydrated). **Web:** new
+  `EpisodeSpoilerShield` wraps ThreadView on episode pages: when the viewer
+  is behind on an aired episode-N thread → amber banner ("You're K episodes
+  behind (on episode P)" / "You haven't watched this episode yet" when
+  next) + blur-all through new `SpoilerShieldContext` — comment bodies ride
+  the existing per-comment `SpoilerGuard` (its reveal button = the
+  per-comment override), reply quote chips show *hidden comment*, and the
+  **composer's reply-to chip** is covered too (same leak). "Show anyway" is
+  a toggle (aria-pressed). Decisions (spec updated in place): known-upcoming
+  episodes skip the guard (speculation banner owns those) but **null
+  `airing_at` still guards** — demo Frieren has no per-episode dates and a
+  finished show's thread is exactly where the spoilers are; completed
+  entries never guard; while the entry query is in flight authed viewers get
+  a brief blur (blur→reveal beats a spoiler flash). **Mark ep N watched**
+  rides the banner when N == progress+1, sends `{status:"watching",
+  progress:N}` (server QoL: final ep flips completed, stamps started_on),
+  banner+blur clear from the upsert's cache write — E2E-verified live
+  (progress 8→9, then restored). **Night-of badge** (stretch): new
+  `EpisodeAiringContext` + a mono "night of" pill on comments posted within
+  24 h after airing; bell 60 s refetch was already in from an earlier
+  session. Gotchas: `react-hooks/purity` bars `Date.now()` in render — the
+  page computes `aired` server-side and passes it as a prop; the banner text
+  needed `basis-full md:basis-0` at 375 or the button cluster starves it to
+  one word per line. Tests: **83** vitest (12 files; +6 shield cases incl.
+  quote-chip cover, reveal toggle, mark-watched payload, night-of) + go
+  unit + **full integration suite**, `task lint` + `task gen` clean.
+  Verified in preview at 375/desktop as sakuga_sam (Frieren ep 9/10; badge
+  on a same-day premiere). Ops: compose **api** image rebuilt (migration 15
+  + endpoint live, smoke-tested against the demo DB — Frieren series thread
+  ranks #1 off the M2.2 test comments); left 3 comments on Frieren ep-10 and
+  1 on Sora wa Akai Kawa ep-1 in the demo DB (re-seedable via `task seed`).
+  **Next (M2.4):** typography split — body/prose to a real sans, mono stays
+  for data (timestamps, countdowns, counts, scores); one `globals.css` +
+  font-loading change, app-wide re-verify 375/desktop.
 - 2026-07-07 · plan (UI review, no code) · Walked the live site with Miguel.
   Verdicts: the "popular beyond the season" ask is **already served** by
   Trending Now (all-catalog 14-day window + AniList blend — AoT/MHA rank
@@ -698,7 +746,12 @@ reply quote chips** (thread-UX session, 2026-07-07): every reply renders a
 one-line quote of its parent's body via `CommentsIndexContext`, so an
 unblurred chip would leak a blurred comment's text; the chips already show
 an italic placeholder for `has_spoilers`/deleted parents
-(`comment-item.tsx`) — extend that same path. Companion feature: when
+(`comment-item.tsx`) — extend that same path. (M2.3 decisions: the shield
+also covers the **composer's reply-to chip** — quoting a hidden comment in
+the composer leaks it the same way; *known-upcoming* episodes skip the
+guard, the speculation banner owns those, but a null `airing_at` still
+guards — a finished show without per-episode dates is aired; completed
+entries never guard.) Companion feature: when
 episode N is the viewer's *next* episode, the thread shows an inline
 **"mark ep N watched"** button (existing upsert) — discussing and tracking
 close into one loop.

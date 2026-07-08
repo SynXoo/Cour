@@ -19,9 +19,10 @@ import (
 )
 
 type discussionHandlers struct {
-	svc *discussions.Service
-	hub *realtime.Hub
-	log *slog.Logger
+	svc      *discussions.Service
+	trending *discussions.Trending
+	hub      *realtime.Hub
+	log      *slog.Logger
 }
 
 // SSE payloads for streamThreadEvents. They mirror the CommentDeleted /
@@ -241,6 +242,36 @@ func (h discussionHandlers) react(w http.ResponseWriter, r *http.Request, commen
 		Count:     int(count),
 	}))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h discussionHandlers) GetTrendingThreads(w http.ResponseWriter, r *http.Request, params apigen.GetTrendingThreadsParams) {
+	limit := 10
+	if params.Limit != nil && *params.Limit > 0 && *params.Limit <= 20 {
+		limit = *params.Limit
+	}
+	views, err := h.trending.Trending(r.Context(), limit)
+	if err != nil {
+		writeInternal(w, h.log, err)
+		return
+	}
+
+	data := make([]apigen.TrendingThread, len(views))
+	for i, v := range views {
+		data[i] = apigen.TrendingThread{
+			Thread:         toThread(v.Thread),
+			Anime:          toSummary(v.Anime),
+			RecentComments: v.RecentComments,
+			Presence:       v.Presence,
+		}
+		if v.EpisodeNumber != nil {
+			data[i].Episode = &apigen.Episode{
+				Number:   int(*v.EpisodeNumber),
+				Title:    v.EpisodeTitle,
+				AiringAt: v.EpisodeAiringAt,
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, apigen.TrendingThreadList{Data: data})
 }
 
 // StreamThreadEvents is the SSE endpoint (GET /threads/{threadId}/events). It

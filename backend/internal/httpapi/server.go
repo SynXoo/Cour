@@ -118,9 +118,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 			log: d.Log,
 		},
 		discussionHandlers: discussionHandlers{
-			svc: discussionSvc,
-			hub: realtimeHub,
-			log: d.Log,
+			svc:      discussionSvc,
+			trending: discussions.NewTrending(d.Pool, appCache, realtimeHub, d.Log),
+			hub:      realtimeHub,
+			log:      d.Log,
 		},
 		socialHandlers: socialHandlers{
 			svc: social.New(d.Pool, enqueuer, d.Log),

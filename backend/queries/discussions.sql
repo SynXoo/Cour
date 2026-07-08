@@ -39,6 +39,23 @@ WHERE comments.thread_id = $1
 ORDER BY comments.id
 LIMIT $2;
 
+-- name: RecentComments :many
+-- Live comments in the velocity window, for thread-trending scoring.
+SELECT thread_id, created_at FROM comments
+WHERE created_at >= $1 AND deleted_at IS NULL;
+
+-- name: ThreadsWithContext :many
+-- Hydrates ranked thread ids with their anime and (for episode threads) the
+-- episode row. Order is restored in Go from the ranked id list.
+SELECT sqlc.embed(threads), sqlc.embed(anime),
+       episodes.number AS episode_number,
+       episodes.title AS episode_title,
+       episodes.airing_at AS episode_airing_at
+FROM threads
+JOIN anime ON anime.id = threads.anime_id
+LEFT JOIN episodes ON episodes.id = threads.episode_id
+WHERE threads.id = ANY(@thread_ids::bigint[]);
+
 -- name: CreateComment :one
 INSERT INTO comments (thread_id, parent_id, user_id, body, timestamp_seconds, has_spoilers)
 VALUES ($1, $2, $3, $4, $5, $6)
