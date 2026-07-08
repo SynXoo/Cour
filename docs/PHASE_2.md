@@ -445,6 +445,23 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- Mid-session ideas land here instead of in the diff. -->
 
+- **Episode titles in the list** (from a 2026-07-08 M2.5 follow-up ask) —
+  the UI already renders them (`episode-list.tsx` `{e.title && …}`, and the
+  API `Episode` schema carries `title`), but **no episode row has one**: the
+  sync only writes numbers (`EnsureEpisodes`) + air times (`upsertEpisodeAiring`
+  from AniList `airingSchedule`, which has no title). AniList's only source is
+  `Media.streamingEpisodes { title }` ("Episode 1 - Romance Dawn"). So this is a
+  backend sync feature, not a UI tweak: add the field (a *targeted* enrichment,
+  **not** the shared `mediaFields` fragment — it'd bloat the whole 22k crawl),
+  parse the "Episode N – …" prefix to map titles to numbers (fiddly: varied
+  formats, non-1..N ordering), `UpsertEpisode` the titles, backfill re-crawl
+  (hours, like M1.1). Two caveats decided the park: (1) **no-streams policy** —
+  title *text only* (drop url/thumbnail/site) doesn't host/proxy/link video, so
+  defensible, but it's a line to bless; (2) **titles are classic spoilers** — the
+  list shows future/unwatched eps, so titles for those should ride M2.3's
+  progress-aware spoiler shield or they undercut it. Coverage would be partial
+  (streamingEpisodes is spotty for older/niche shows). Miguel parked it 2026-07-08.
+
 - **Palette / brand pass** (from the 2026-07-07 review) — the
   violet-on-near-black theme is clean but trend-adjacent (the fashionable
   dark-purple of the Linear era). Deliberately deferred: it's all CSS
