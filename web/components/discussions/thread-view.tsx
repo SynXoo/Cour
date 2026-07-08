@@ -202,7 +202,7 @@ export function ThreadView({
           )}
         </div>
         {presence >= 2 && (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
             <span className="relative flex h-2 w-2" aria-hidden>
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
@@ -358,7 +358,6 @@ function Composer({
         }}
         placeholder={replyTo ? "Write your reply…" : "Share your thoughts…"}
         aria-label="Comment"
-        className="font-sans"
       />
       <div className="flex flex-wrap items-center gap-3">
         {allowTimestamps && !replyTo && (

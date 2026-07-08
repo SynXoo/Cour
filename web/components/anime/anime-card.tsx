@@ -31,12 +31,12 @@ export function AnimeCard({ anime, priority = false }: { anime: AnimeSummary; pr
           </div>
         )}
         {anime.average_score != null && (
-          <span className="absolute right-1.5 top-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-xs font-semibold backdrop-blur-sm">
+          <span className="absolute right-1.5 top-1.5 rounded-md bg-background/85 px-1.5 py-0.5 font-mono text-xs font-semibold backdrop-blur-sm">
             {anime.average_score}%
           </span>
         )}
         {anime.next_airing_at && anime.next_airing_episode != null && (
-          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-black/0 px-2 pb-1.5 pt-5 text-xs text-white">
+          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-black/0 px-2 pb-1.5 pt-5 font-mono text-xs text-white">
             Ep {anime.next_airing_episode} {untilLabel(anime.next_airing_at)}
           </span>
         )}
@@ -45,7 +45,7 @@ export function AnimeCard({ anime, priority = false }: { anime: AnimeSummary; pr
         <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-primary">
           {title}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-xs text-muted-foreground">
           {[format, anime.episodes_count ? `${anime.episodes_count} ep` : null]
             .filter(Boolean)
             .join(" · ")}

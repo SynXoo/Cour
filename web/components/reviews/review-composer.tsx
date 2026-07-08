@@ -122,7 +122,6 @@ function ComposerForm({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="What worked, what didn't, and who should watch it…"
-            className="font-sans"
           />
           <FieldDescription>
             {body.trim().length}/20000{tooShort ? " — needs at least 100 characters" : ""}

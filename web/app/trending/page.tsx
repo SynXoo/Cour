@@ -30,7 +30,7 @@ export default async function TrendingPage() {
           <em>current</em> to count. Explicitly not an all-time list.
         </p>
         {computedAt && (
-          <p className="text-xs text-muted-foreground">
+          <p className="font-mono text-xs text-muted-foreground">
             Recomputed {new Date(computedAt).toLocaleTimeString()} · refreshes every 15 minutes
           </p>
         )}

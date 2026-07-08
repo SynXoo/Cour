@@ -91,7 +91,7 @@ Model hints: **F** = Fable (design-heavy, pattern-setting) ·
 Miguel + Fable walked the live site; diagnosis and specs in
 [the M2.4–M2.6 section](#m24m26--ui-identity--scale-inserts) below.
 
-- [ ] **M2.4** (O) Typography split — JetBrains Mono stops being the body
+- [x] **M2.4** (O) Typography split — JetBrains Mono stops being the body
   font: prose and prose headings move to a real sans; mono stays for data
   (timestamps, countdowns, ep/stat counts, scores). One `globals.css` +
   font-loading change, then an app-wide re-verify at 375/desktop.
@@ -132,6 +132,41 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M2.4 · Typography split. **Geist** (was already loaded via
+  next/font but unused) is now the body/prose/heading face; JetBrains Mono
+  stays on `--font-mono` and is re-anchored *explicitly* where data lives.
+  Core flip is exactly the spec's two files: `globals.css` (`html { @apply
+  font-sans }`, `--font-heading: var(--font-sans)`) + `layout.tsx` (html
+  loses the `font-mono` class; unused `Geist_Mono` import dropped). Then
+  `font-mono` added at the data call sites: anime-card score badge / airing
+  chip / meta line; schedule strip + days (sticky day header, time column,
+  ep·countdown lines); episode-list "Ep N" + air dates; comment `<time>` +
+  "you" badge (timestamp + night-of chips were already mono); thread
+  presence count; episode-page airing line; detail-page score badge /
+  next-airing countdown / meta stat line ("TV · 28 episodes · …"); my-list
+  row meta + progress and the list-editor trigger ("Watching · 8/28");
+  profile stat values / genre counts / Ep overlay; recs meta; seasonal "N
+  titles"; trending recompute line; feed + notification timestamps; bell
+  unread badge; and the header wordmark — **"Cour" stays mono, it's the
+  brand**. Removed the now-dead `font-sans` opt-outs (comment/review/
+  synopsis/bio bodies, both composer Textareas). Decisions: @handles stay
+  sans (mono handles inline with sans prose read noisy — spec's "if it
+  reads well" said no); import/settings screens stay sans (prose sentences
+  with embedded numbers, not data chips). Verified in preview at
+  375/desktop as sakuga_sam (home, seasonal, schedule, detail, Frieren
+  ep-10 thread incl. spoiler-shield banner, list, profile): faces split
+  correctly per computed styles, no h-overflow at 375, 0 console errors.
+  Tests: 83 vitest + go unit, `task lint` (golangci 0/eslint/tsc) clean —
+  no test changes needed (nothing asserts fonts). **Env gotchas:** Next 16
+  refuses two dev servers in one workdir (`.next/dev` lockfile) — a
+  leftover `next dev` from an earlier session held it and had to be killed
+  before `preview_start`; and Turbopack's **persistent dev cache served the
+  pre-edit `globals.css`** even across that restart (layout.tsx recompiled,
+  the CSS chunk didn't) — one-time `rm -rf web/.next` fixed it; check
+  served CSS before distrusting an edit. **Next (M2.5):** episode list
+  pagination — newest-first default + asc/desc toggle, range chips of 50,
+  "Latest episode" jump in the detail action bar; One Piece scale is the
+  acceptance test.
 - 2026-07-08 · M2.3 · Velocity + spoiler guard. **Backend:** migration
   `000015` adds `comments(created_at)`; new `GET /threads/trending` (spec'd,
   codegen'd, `?limit` 1–20 default 10) served by

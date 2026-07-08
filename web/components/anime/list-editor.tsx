@@ -84,7 +84,10 @@ function EditorDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={entry ? "secondary" : "default"}>{triggerLabel}</Button>
+        {/* The trigger label is pure data (status · progress · score). */}
+        <Button variant={entry ? "secondary" : "default"} className={entry ? "font-mono" : undefined}>
+          {triggerLabel}
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         {/* Radix unmounts content on close, so this form's initializers

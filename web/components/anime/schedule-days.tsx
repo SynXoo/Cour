@@ -31,7 +31,7 @@ export function ScheduleDays({ entries }: { entries: ScheduleEntry[] }) {
     <>
       {[...byDay.entries()].map(([day, dayEntries]) => (
         <section key={day} aria-label={day} className="space-y-3">
-          <h2 className="sticky top-14 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
+          <h2 className="sticky top-14 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 font-mono text-sm font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
             {day}
           </h2>
           <ul className="grid gap-2 sm:grid-cols-2">
@@ -43,7 +43,7 @@ export function ScheduleDays({ entries }: { entries: ScheduleEntry[] }) {
                   href={`/anime/${e.anime.id}/episode/${e.episode}`}
                   className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-2.5 transition-colors hover:border-primary/50"
                 >
-                  <span className="w-16 shrink-0 text-sm font-semibold tabular-nums text-primary">
+                  <span className="w-16 shrink-0 font-mono text-sm font-semibold tabular-nums text-primary">
                     {timeLabel(e.airing_at)}
                   </span>
                   <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
@@ -53,7 +53,7 @@ export function ScheduleDays({ entries }: { entries: ScheduleEntry[] }) {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{displayTitle(e.anime)}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-mono text-xs text-muted-foreground">
                       Episode {e.episode} · {untilLabel(e.airing_at)}
                     </p>
                   </div>

@@ -77,7 +77,7 @@ export function RecommendationsClient() {
                 </div>
                 <div className="min-w-0 space-y-1">
                   <p className="line-clamp-2 font-medium">{displayTitle(anime)}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-mono text-xs text-muted-foreground">
                     {[
                       formatLabel(anime.format),
                       anime.season && anime.season_year

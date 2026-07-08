@@ -108,7 +108,7 @@ export function FeedClient() {
                     <Link href={itemHref(item)} className="font-medium hover:text-primary">
                       {displayTitle(item.anime)}
                     </Link>
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="block font-mono text-xs text-muted-foreground">
                       {new Date(item.created_at).toLocaleString(undefined, {
                         month: "short",
                         day: "numeric",

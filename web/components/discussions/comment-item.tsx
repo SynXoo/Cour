@@ -189,7 +189,7 @@ export function CommentItem({
             @{comment.author.username}
           </Link>
           {isMine && (
-            <span className="rounded-full border border-primary/30 px-1.5 text-[10px] uppercase tracking-wide text-primary">
+            <span className="rounded-full border border-primary/30 px-1.5 font-mono text-[10px] uppercase tracking-wide text-primary">
               you
             </span>
           )}
@@ -198,7 +198,7 @@ export function CommentItem({
               @ {formatTimestamp(comment.timestamp_seconds)}
             </span>
           )}
-          <time dateTime={comment.created_at} className="text-xs text-muted-foreground">
+          <time dateTime={comment.created_at} className="font-mono text-xs text-muted-foreground">
             {new Date(comment.created_at).toLocaleString(undefined, {
               month: "short",
               day: "numeric",
@@ -247,7 +247,7 @@ export function CommentItem({
           <p className="text-sm italic text-muted-foreground">[removed]</p>
         ) : (
           <SpoilerGuard active={comment.has_spoilers || shield}>
-            <p className="whitespace-pre-line font-sans text-sm leading-relaxed text-foreground/90">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
               {comment.body}
             </p>
           </SpoilerGuard>

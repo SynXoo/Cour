@@ -18,12 +18,12 @@ export function EpisodeList({ animeId, episodes }: { animeId: number; episodes: 
               className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border/60 bg-card px-3 py-2 text-sm transition-colors hover:border-primary/50 md:min-h-0 md:items-baseline"
             >
               <span className="flex min-w-0 items-baseline gap-2">
-                <span className="font-semibold">Ep {e.number}</span>
+                <span className="font-mono font-semibold">Ep {e.number}</span>
                 {e.title && <span className="truncate text-muted-foreground">{e.title}</span>}
               </span>
               {e.airing_at && (
                 <span
-                  className={`shrink-0 text-xs ${upcoming ? "text-primary" : "text-muted-foreground"}`}
+                  className={`shrink-0 font-mono text-xs ${upcoming ? "text-primary" : "text-muted-foreground"}`}
                   title={airDateLabel(e.airing_at)}
                 >
                   {upcoming ? untilLabel(e.airing_at) : airDateLabel(e.airing_at)}

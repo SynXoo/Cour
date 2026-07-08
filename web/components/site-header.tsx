@@ -15,7 +15,8 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-14 w-full max-w-[88rem] items-center gap-6 px-4">
         <Link href="/" className="flex items-baseline gap-1 text-lg font-bold tracking-tight">
-          <span className="text-primary">Cour</span>
+          {/* The wordmark keeps the mono face — it's the brand, not body text. */}
+          <span className="font-mono text-primary">Cour</span>
           {/* lg+: below that the tagline squeezes the nav links into a scroll. */}
           <span className="hidden text-xs font-normal text-muted-foreground lg:inline">
             this season, together

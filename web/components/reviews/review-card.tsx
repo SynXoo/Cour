@@ -34,11 +34,11 @@ export function ReviewCard({
           </Avatar>
           <span className="text-sm font-medium">@{review.author.username}</span>
         </Link>
-        <Badge variant="secondary">★ {review.score}/10</Badge>
+        <Badge variant="secondary" className="font-mono">★ {review.score}/10</Badge>
         {review.has_spoilers && <Badge variant="outline">spoilers</Badge>}
         <time
           dateTime={review.created_at}
-          className="ml-auto text-xs text-muted-foreground"
+          className="ml-auto font-mono text-xs text-muted-foreground"
         >
           {new Date(review.created_at).toLocaleDateString()}
         </time>
@@ -46,7 +46,7 @@ export function ReviewCard({
 
       <SpoilerGuard active={review.has_spoilers}>
         <p
-          className={`whitespace-pre-line font-sans text-sm leading-relaxed text-foreground/90 ${
+          className={`whitespace-pre-line text-sm leading-relaxed text-foreground/90 ${
             clampBody ? "line-clamp-6" : ""
           }`}
         >

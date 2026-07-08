@@ -99,7 +99,7 @@ function ListRow({ entry }: { entry: ListEntryWithAnime }) {
         <Link href={animeHref(a)} className="line-clamp-1 text-sm font-medium hover:text-primary">
           {displayTitle(a)}
         </Link>
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-xs text-muted-foreground">
           {[formatLabel(a.format), entry.score ? `★${entry.score}` : null]
             .filter(Boolean)
             .join(" · ")}
@@ -107,7 +107,7 @@ function ListRow({ entry }: { entry: ListEntryWithAnime }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="font-mono text-sm tabular-nums text-muted-foreground">
           {entry.progress}
           {total ? `/${total}` : ""}
         </span>

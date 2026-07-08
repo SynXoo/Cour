@@ -71,7 +71,7 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
               {episode.title ? ` — ${episode.title}` : ""}
             </h1>
             {episode.airing_at && (
-              <p className="text-xs text-muted-foreground">
+              <p className="font-mono text-xs text-muted-foreground">
                 {upcoming
                   ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
                   : `Aired ${airDateLabel(episode.airing_at)}`}

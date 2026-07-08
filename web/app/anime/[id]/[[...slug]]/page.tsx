@@ -83,7 +83,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
             {anime.title_native && <p className="text-sm text-muted-foreground">{anime.title_native}</p>}
           </div>
 
-          <p className="text-sm text-muted-foreground">
+          <p className="font-mono text-sm text-muted-foreground">
             {meta.join(" · ")}
             {anime.season && anime.season_year && (
               <>
@@ -100,7 +100,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
           <div className="flex flex-wrap items-center gap-2">
             {anime.average_score != null && (
-              <Badge variant="secondary" className="text-sm">
+              <Badge variant="secondary" className="font-mono text-sm">
                 ★ {anime.average_score}%
               </Badge>
             )}
@@ -112,7 +112,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           </div>
 
           {anime.next_airing_at && anime.next_airing_episode != null && (
-            <p className="text-sm">
+            <p className="font-mono text-sm">
               <span className="text-primary">
                 Episode {anime.next_airing_episode} {untilLabel(anime.next_airing_at)}
               </span>
@@ -138,7 +138,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
       {anime.description && (
         <section aria-label="Synopsis" className="max-w-3xl">
-          <p className="whitespace-pre-line font-sans text-sm leading-relaxed text-foreground/90">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
             {anime.description}
           </p>
         </section>

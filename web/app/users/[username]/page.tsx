@@ -66,7 +66,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
             {profile.role !== "user" && <Badge variant="secondary">{profile.role}</Badge>}
           </h1>
           {profile.bio && (
-            <p className="max-w-xl whitespace-pre-line font-sans text-sm text-foreground/90">
+            <p className="max-w-xl whitespace-pre-line text-sm text-foreground/90">
               {profile.bio}
             </p>
           )}
@@ -93,7 +93,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
       <section aria-label="Stats" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {statCards.map((s) => (
           <div key={s.label} className="rounded-lg border border-border/60 bg-card p-3 text-center">
-            <p className="text-xl font-bold tabular-nums">{s.value}</p>
+            <p className="font-mono text-xl font-bold tabular-nums">{s.value}</p>
             <p className="text-xs text-muted-foreground">
               {s.label}
               {s.hint ? ` · ${s.hint}` : ""}
@@ -116,7 +116,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                   style={{ width: `${Math.max(4, (g.count / maxGenre) * 100)}%` }}
                   aria-hidden
                 />
-                <span className="text-xs tabular-nums text-muted-foreground">{g.count}</span>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">{g.count}</span>
               </li>
             ))}
           </ul>
@@ -142,7 +142,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                         className="object-cover transition-transform group-hover:scale-105"
                       />
                     )}
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1 pt-4 text-xs text-white">
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1 pt-4 font-mono text-xs text-white">
                       Ep {progress}
                       {anime.episodes_count ? `/${anime.episodes_count}` : ""}
                     </span>

@@ -98,7 +98,7 @@ export function SeasonalView({ anime }: { anime: AnimeSummary[] }) {
             </Select>
           </label>
 
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="font-mono text-sm text-muted-foreground tabular-nums">
             {arranged.length} {arranged.length === 1 ? "title" : "titles"}
           </span>
 
