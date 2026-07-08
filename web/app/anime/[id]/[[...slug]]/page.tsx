@@ -10,6 +10,7 @@ import { AnimeReviews } from "@/components/reviews/anime-reviews";
 import { PageShell } from "@/components/page-shell";
 import { serverApi, type AnimeDetail } from "@/lib/api/client";
 import { formatLabel, seasonLabel, untilLabel } from "@/lib/anime";
+import { latestAiredEpisode } from "@/lib/episodes";
 
 type Params = { id: string; slug?: string[] };
 
@@ -46,6 +47,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
   const mainStudios = anime.studios.filter((s) => s.is_main).map((s) => s.name);
   const topTags = [...anime.tags].sort((a, b) => b.rank - a.rank).slice(0, 12);
+  const latestEpisode = latestAiredEpisode(anime.episodes);
 
   return (
     <PageShell width="browse">
@@ -132,6 +134,14 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
             >
               Discussion
             </Link>
+            {latestEpisode && (
+              <Link
+                href={`/anime/${anime.id}/episode/${latestEpisode.number}`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+              >
+                Latest episode
+              </Link>
+            )}
           </div>
         </div>
       </header>

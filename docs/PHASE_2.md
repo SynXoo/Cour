@@ -95,10 +95,11 @@ Miguel + Fable walked the live site; diagnosis and specs in
   font: prose and prose headings move to a real sans; mono stays for data
   (timestamps, countdowns, ep/stat counts, scores). One `globals.css` +
   font-loading change, then an app-wide re-verify at 375/desktop.
-- [ ] **M2.5** (O) Episode list pagination — newest-first default with
+- [x] **M2.5** (O) Episode list pagination — newest-first default with
   asc/desc toggle, range pages of 50 (newest range active), "Latest
   episode" jump in the detail action bar next to Discussion. One Piece
-  scale (1000+ eps) is the acceptance test.
+  scale (1000+ eps) is the acceptance test. (Verified live at 375/desktop
+  against a 1169-ep One Piece.)
 - [ ] **M2.6** (O) Thread comment pagination — replace the silent
   `LIMIT 500` truncation with cursor pages + "load older"; live merge and
   the four sorts keep working over the loaded set (see spec for the Top/
@@ -132,6 +133,45 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M2.5 · Episode list pagination. All client-side over the
+  detail payload's full episode array — no API/schema change, no `task gen`.
+  New pure helper `web/lib/episodes.ts` (unit-tested, mirrors `lib/seasonal.ts`):
+  `needsPagination` (> 50 eps), `buildRanges` (fixed episode-number buckets of
+  50, **only non-empty buckets**, newest-range-first, **full-span labels even on
+  a partial top bucket** — "1051–1100"), `orderEpisodes` (asc/desc, non-mutating),
+  and `latestAiredEpisode` (most-recent **past** `airing_at`; falls back to the
+  highest number when nothing has aired or dates are unknown; null only for an
+  empty list). `episode-list.tsx` is now a **client** component: ≤ 50 eps render
+  **exactly as before** (plain ascending `<ol>`, zero chrome — the shared
+  `EpisodeGrid`); > 50 gets a Newest/Oldest order toggle (default **Newest**) +
+  range chips (newest active), reusing the seasonal `Chip` (`Button size="sm"`,
+  `aria-pressed`). Ranges bucket by **episode number** (how people think about long
+  shows), not array position. **"Latest episode"** link added to the detail action
+  bar next to Discussion (`page.tsx`, server-side via `latestAiredEpisode` — safe:
+  `Date.now()` at request time, not in a client render) → `/anime/{id}/episode/{n}`.
+  Decisions: **URL-sync deferred** (spec's "optional") — kept local `useState` so
+  the change stays contained to the component (no Suspense boundary on the whole
+  detail page, unlike M0.5's seasonal view); range/order live in component state.
+  Chips are the app-standard 28 px `sm` scale (matches seasonal filters; the 44 px
+  touch lift is still the deferred primitive-level Parking-lot task, inherited free
+  when it lands). Tests: **+13 vitest** (`lib/episodes.test.ts`: threshold, bucket
+  math incl. sparse numbering / ep-0 fold / partial-top labels, order non-mutation,
+  latest-aired past-wins / no-aired-fallback / unknown-dates / mixed) = **109**
+  across 13 files; `task lint` (golangci 0 / eslint / tsc) clean. **Verified live**
+  at 375/desktop as sakuga_sam: seeded One Piece (anime 170) with 1169 weekly-spaced
+  eps in the demo DB → 24 range chips newest-first (1151–1200 … 1–50), default
+  Newest range showing 1169→1151, order toggle flips to 1151→1169, "1–50" chip
+  isolates eps 1–50, "Latest episode" → **ep 1168** (1169 airs in 4d, correctly
+  excluded); Shingeki (25 eps) renders with **no** chrome, "Latest episode" → ep 25;
+  no h-overflow at 375, 0 console errors. **Ops:** the seeded One Piece eps were a
+  test scaffold — deleted after (only the original ep 1169 remains) and the Redis
+  `anime:v1:170` cache busted, so the demo DB is back to its seeded state
+  (`Detail` is Redis-cached under `anime:v1:{id}` — bust it after any direct
+  `episodes` write). No compose image rebuild needed (web-only change; runs on the
+  native `next dev` preview). **Next (M2.6):** thread comment pagination past the
+  silent `LIMIT 500` — cursor `before_id`/`after_id`, "load older" tail, and the
+  reply-tree orphan caveat (parent on an unloaded older page); this one **is**
+  spec-first (openapi.yaml + `task gen`).
 - 2026-07-08 · M2.4 · Typography split. **Geist** (was already loaded via
   next/font but unused) is now the body/prose/heading face; JetBrains Mono
   stays on `--font-mono` and is re-anchored *explicitly* where data lives.
