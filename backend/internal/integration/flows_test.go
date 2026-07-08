@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -89,6 +90,34 @@ func TestAuthLifecycle(t *testing.T) {
 	}, &again)
 	require.Equal(t, http.StatusOK, status)
 	assert.NotEmpty(t, again.AccessToken)
+}
+
+// The cour_session marker is a token-free flag at Path=/ so page requests
+// can tell members from visitors; the refresh token itself must stay scoped
+// to the auth endpoints.
+func TestSessionMarkerCookie(t *testing.T) {
+	c := newClient(t)
+	c.register("markeruser")
+
+	rootURL, err := url.Parse(testServer.URL)
+	require.NoError(t, err)
+	rootURL.Path = "/"
+
+	pageCookies := func() []string {
+		names := []string{}
+		for _, ck := range c.http.Jar.Cookies(rootURL) {
+			names = append(names, ck.Name)
+		}
+		return names
+	}
+	assert.Contains(t, pageCookies(), "cour_session")
+	assert.NotContains(t, pageCookies(), "cour_refresh",
+		"refresh token must never ride page-scoped requests")
+
+	status := c.do(http.MethodPost, "/api/v1/auth/logout", nil, nil)
+	require.Equal(t, http.StatusNoContent, status)
+	assert.NotContains(t, pageCookies(), "cour_session",
+		"logout must clear the marker")
 }
 
 func TestListFlowRecordsActivities(t *testing.T) {

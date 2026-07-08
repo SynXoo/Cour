@@ -22,6 +22,12 @@ const refreshCookieName = "cour_refresh"
 // Refresh tokens only ever travel to auth endpoints.
 const refreshCookiePath = "/api/v1/auth"
 
+// The refresh cookie's path scoping means page requests never carry it, so
+// the web server can't tell members from visitors. This companion cookie is
+// a token-free "probably signed in" flag at Path=/ for that routing branch;
+// it grants nothing and mirrors the refresh cookie's lifetime.
+const sessionMarkerName = "cour_session"
+
 type authHandlers struct {
 	svc     *auth.Service
 	discord *auth.Discord // nil = OAuth disabled
@@ -43,6 +49,15 @@ func (h authHandlers) setRefreshCookie(w http.ResponseWriter, token string, expi
 		Secure:   h.cfg.Env == "prod",
 		SameSite: http.SameSiteLaxMode,
 	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionMarkerName,
+		Value:    "1",
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   h.cfg.Env == "prod",
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func (h authHandlers) clearRefreshCookie(w http.ResponseWriter) {
@@ -50,6 +65,15 @@ func (h authHandlers) clearRefreshCookie(w http.ResponseWriter) {
 		Name:     refreshCookieName,
 		Value:    "",
 		Path:     refreshCookiePath,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.Env == "prod",
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionMarkerName,
+		Value:    "",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   h.cfg.Env == "prod",

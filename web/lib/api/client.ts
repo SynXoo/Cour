@@ -8,6 +8,8 @@ export type SeasonChart = components["schemas"]["SeasonChart"];
 export type Season = components["schemas"]["Season"];
 export type SessionUser = components["schemas"]["UserPrivate"];
 export type SessionResponse = components["schemas"]["SessionResponse"];
+export type TrendingThread = components["schemas"]["TrendingThread"];
+export type ThreadComment = components["schemas"]["Comment"];
 
 // ── Access-token store (browser only) ──────────────────────────────────────
 // The access token lives in memory — never in localStorage or a readable

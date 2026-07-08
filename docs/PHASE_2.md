@@ -109,9 +109,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 ### M3 — home & landing
 
-- [ ] **M3.1** (F) Landing + routing — `cour_refresh` cookie branch in
-  `app/page.tsx`, hero, live-proof ticker, tonight strip, seasonal
-  preview, no-streams promise, SEO metadata.
+- [x] **M3.1** (F) Landing + routing — session-cookie branch in
+  `app/page.tsx` (via a new `cour_session` marker — the refresh cookie is
+  path-scoped and never reaches page requests; spec §M3 amended), hero,
+  live-proof ticker, tonight strip, busiest threads, seasonal preview,
+  no-streams promise, SEO metadata. (Verified live 375/desktop, anon +
+  authed round-trip.)
 - [ ] **M3.2** (O) "Tonight on Cour" — your-evening row, live-now threads,
   continue-watching, the season's conversation, compact existing strips,
   **"Back in the conversation" row** (trending titles not from the current
@@ -135,6 +138,59 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M3.1 · Landing + routing. **Plan amendment (spec §M3 Routing
+  edited in place):** the spec'd `cookies().has("cour_refresh")` branch can't
+  work — the refresh cookie is scoped to `Path=/api/v1/auth` and never rides
+  page requests. The API now sets a **token-free `cour_session=1` marker at
+  `Path=/`** in `setRefreshCookie` and clears it in `clearRefreshCookie`
+  (auth.go; same expiry/Secure/SameSite, HttpOnly — it grants nothing, it's
+  routing signal only), so login/refresh set it and logout *and* the
+  refresh-rejection path clear it (the heuristic self-heals). New integration
+  `TestSessionMarkerCookie` asserts via the cookie jar that page-scoped
+  requests carry the marker but never the refresh token, and logout clears it.
+  No openapi change (cookies aren't spec'd) → no `task gen`. **Routing:**
+  `app/page.tsx` awaits `cookies()` (async in Next 16; makes `/` dynamic —
+  accepted, all fetches underneath are revalidate-cached) and branches:
+  marker → `HomeView` (the old page body extracted verbatim to
+  `app/home-view.tsx`; M3.2 rebuilds it), else → `LandingView`. Page-level
+  SEO metadata: `title: {absolute}` (dodges the layout's `%s · Cour`
+  template), description, openGraph type website + siteName, twitter summary.
+  **Landing (`app/landing-view.tsx`):** hero (season chip "Summer 2026 · N
+  shows airing", "Watch the season together." verbatim, sub per spec, Join
+  Cour → /register + "Peek at tonight's threads" → top trending thread, falls
+  back to /schedule; both CTAs 44 px on mobile) · **live-proof ticker**
+  (`app/live-ticker.tsx` client component over `GET /threads/trending?limit=6`
+  + the newest 10 comments of the top-3 chattering threads, all
+  `revalidate: 60`; pure `buildTicker` in new `lib/landing.ts` flattens/sorts/
+  caps 8 and **drops spoiler-marked + deleted comments** — visitors never see
+  either; rotates a 3-row window every 4 s reusing the thread pages'
+  `comment-enter` slide-in, keyed so surviving rows never re-animate; pauses
+  on hover, stops under `prefers-reduced-motion` or when ≤ 3 items; avatar
+  identity via exported `hueFor`) · tonight strip (`tonightEntries`: next 24 h
+  + 1 h just-aired grace; falls back to "Airing next" when empty) · busiest
+  threads (cover/title/"Ep N thread · X comments · Y in there now", grid) ·
+  seasonal preview (12, `priorityCount=0`, below fold) · no-streams promise
+  **verbatim** + AniList attribution card. `threadHref`: episode → episode
+  page, series → `/anime/{id}/discussion`. **375 gotcha:** grid items'
+  `min-width:auto` + the nowrap `truncate` title made busiest cards overflow
+  the track (2 px doc h-scroll) — `min-w-0` on the `li` fixed it; remember for
+  any grid of truncating cards. Tests: **+13 vitest** (`lib/landing.test.ts`
+  8: href/ticker filter+sort+cap/tonight window/ago labels;
+  `app/live-ticker.test.tsx` 5: links, fake-timer rotation, fits-no-rotate,
+  reduced-motion still, hover pause) = **115** across 15 files; go unit +
+  **full integration suite** green; `task lint` clean. **Verified live**
+  (Docker api rebuilt — compose image predates the marker cookie — + native
+  `next dev` preview): anon `/` renders all landing sections with real demo
+  data, ticker rotates 4 s cadence (sampled), 0 console errors, no h-overflow
+  at 375, desktop 1440 = centered 768 px ticker + 3-col busiest; login as
+  sakuga_sam → `/` flips to HomeView (curl confirmed both Set-Cookies), logout
+  → landing. **Preview gotcha:** react-hook-form ignores `preview_fill` on the
+  login form (no POST fired) — drive auth via `fetch` from `preview_eval`
+  instead. **Next (M3.2):** "Tonight on Cour" — rebuild `home-view.tsx`
+  per §M3 (your evening / live now / continue watching / season's
+  conversation + **"Back in the conversation"** sub-row from trending where
+  season ≠ current); the landing's threadHref/ticker/tonight helpers in
+  `lib/landing.ts` are reusable there.
 - 2026-07-08 · M2.6 · Thread comment pagination — the whole change was already
   sitting uncommitted from an interrupted prior session; this session
   **reviewed, ran, verified live, and committed it**. **Spec-first backend:**
@@ -990,12 +1046,20 @@ whole thesis is big live threads.
 
 ### Routing
 
-`app/page.tsx` branches server-side on `cookies().has("cour_refresh")`
-(cookie name: [`backend/internal/httpapi/auth.go:20`](../backend/internal/httpapi/auth.go)) —
-presence of the refresh cookie ≈ signed in. It's a heuristic (an expired
-cookie renders the authed shell whose islands resolve to anon and bounce to
-the landing view client-side); acceptable, and it keeps the landing page
-fully static-cacheable.
+*(Amended in M3.1.)* The original plan — branch on
+`cookies().has("cour_refresh")` — can't work: the refresh cookie is
+deliberately scoped to `Path=/api/v1/auth`
+([`backend/internal/httpapi/auth.go`](../backend/internal/httpapi/auth.go)),
+so page requests never carry it. Instead the API sets a **token-free marker
+cookie `cour_session=1` at `Path=/`** alongside the refresh cookie (same
+lifetime, cleared together — including by the refresh endpoint when it
+rejects a dead session), and `app/page.tsx` branches server-side on that.
+Presence of the marker ≈ signed in. It's still a heuristic (a stale marker
+renders the authed shell whose islands resolve to anon); acceptable.
+Caching reality (Next 16): reading `cookies()` makes `/` dynamic-rendered,
+not static — but every fetch underneath is revalidate-cached (60 s for the
+live-proof data, 300 s catalog default), so the per-request render is
+cheap and the landing still "visibly moves" on a ~60 s cadence.
 
 ### Logged-in home — "Tonight on Cour"
 
