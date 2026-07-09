@@ -122,10 +122,10 @@ Miguel + Fable walked the live site; diagnosis and specs in
   season — the viral-revival story told explicitly; see §M3). Verified live
   375/1440 as sakuga_sam incl. the quiet-night and +1 flows.
 - [x] **M3.3** (O) Onboarding + threads hub — post-register `/welcome`
-  pick-your-shows grid (seeds the watching list, skippable) + import CTA,
-  `/threads` hub (opening tonight + busiest this week), Threads in the
-  desktop header nav and the mobile Menu sheet. (Verified live 375/1440,
-  anon + authed; no demo-DB writes.)
+  pick-your-shows grid (Airing-now / All-time-popular tabs + catalog search,
+  seeds the watching list, skippable) + import CTA, `/threads` hub (opening
+  tonight + busiest this week), Threads in the desktop header nav and the
+  mobile Menu sheet. (Verified live 375/1440, anon + authed; no demo-DB writes.)
 - [ ] **M3.4** (F) Thread texture — timestamp-density strip (mini episode
   timeline; clusters jump the list via `jumpToComment`), richer empty
   state (countdown/presence instead of "No comments yet"), live-window
@@ -147,6 +147,36 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-09 · M3.3 follow-up (Miguel's ask) · Onboarding for non-seasonal /
+  returning fans. **The gap:** the picker only offered the current-season chart
+  + a bare "Skip" — nothing for a long-term fan signing up between seasons who
+  wants to seed a list or find older shows' threads. **The build
+  (`app/welcome/onboarding.tsx`):** the picker gains a segmented **Airing now /
+  All-time popular** toggle plus a **catalog search box** (debounced 250 ms,
+  `useDebounced`), all over **one existing endpoint** — `GET /anime` browses by
+  popularity when `q` is absent (the all-time-popular head, `per_page=50`,
+  fetched server-side in `welcome/page.tsx` alongside the season chart) and does
+  ranked fuzzy search with `q` (client `useQuery`, reused from search-client).
+  **Selection is one shared `Set<number>` across all three views** — pick Death
+  Note on the popular tab, search "cowboy" and add Bebop, clear search, and both
+  survive back on the popular tab (verified live). Copy broadened ("shows you're
+  watching — or classics you want to jump back into"); the skip button reads
+  "Not watching anything yet" until something's picked. Everything still adds as
+  `watching` via the same per-entry PUT path (status nuance for completed
+  classics stays import's job — noted, not built). **Thesis decision (Miguel
+  greenlit overriding the earlier rejection):** an all-time-popular list is now
+  allowed **as a scoped onboarding/list-seeding aid only** — never assembled
+  home/landing content, where §M3 item 4's rejection still stands; amended that
+  section in place. **No `task gen`** — `listAnime` already existed, no
+  openapi/schema touch. Tests: **165** vitest / 25 files (onboarding +2 → 6:
+  tab-pool-switch, search-then-clear-keeps-the-pick; existing skip test now
+  targets the "Not watching anything yet" label; `useDebounced` mocked to
+  identity so search resolves sync). lint/tsc clean. **Verified live** 375/1440
+  as sakuga_sam: All-time-popular renders AoT/Demon Slayer/JJK/Death Note/MHA/HxH,
+  search fuzzy-matches Cowboy Bebop, selection persists across tab↔search,
+  controls stack on mobile, sticky bar clears the tab bar, 0 console errors, no
+  h-overflow — **no demo-DB writes** (toggled but never submitted). **Next
+  (M3.4)** unchanged: thread texture.
 - 2026-07-09 · M3.3 · Onboarding + threads hub. **Onboarding
   (`app/welcome/`):** register now routes to `/welcome` instead of `/`
   (`register-form.tsx`); the server shell fetches the current-season chart,
@@ -1356,8 +1386,15 @@ Server shell + client islands, top to bottom:
    already all-catalog (AoT/MHA rank today), so this is a filter + label,
    nearly free — it tells the viral-revival story explicitly instead of
    silently mixing old shows into the grid. An all-time "popular" tab was
-   considered and **rejected**: MAL/AniList own the hall-of-fame list;
-   recency is the differentiation.
+   considered and **rejected as front-door content**: MAL/AniList own the
+   hall-of-fame list; recency is the differentiation. *(Amended in the M3.3
+   follow-up:)* the rejection stands for the home/landing surfaces, but an
+   all-time-popular list **is** allowed as a scoped onboarding aid — the
+   `/welcome` picker's "All-time popular" tab (`GET /anime` sans `q`, which
+   browses by popularity) plus free search let a returning fan who isn't
+   watching the current season still seed a list and find older shows'
+   threads. It's a list-seeding tool, never assembled front-door content, so
+   the thesis holds where it matters.
 5. Existing schedule strip + hidden-gems teaser, compact.
 
 The current all-purpose home (seasonal grid first) becomes the logged-out

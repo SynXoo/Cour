@@ -19,9 +19,16 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 
 vi.mock("@/lib/auth/session", () => ({ useSession: vi.fn() }));
 
+// Identity debounce so a typed query resolves synchronously in tests.
+vi.mock("@/lib/hooks/use-debounced", () => ({ useDebounced: (v: string) => v }));
+
 const putMock = vi.fn();
+const getMock = vi.fn();
 vi.mock("@/lib/api/client", () => ({
-  browserApi: { PUT: (...args: unknown[]) => putMock(...args) },
+  browserApi: {
+    PUT: (...args: unknown[]) => putMock(...args),
+    GET: (...args: unknown[]) => getMock(...args),
+  },
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -51,7 +58,11 @@ function anime(id: number, title: string): AnimeSummary {
   };
 }
 
-function mount(seasonal: AnimeSummary[], status = "authed") {
+function mount(
+  seasonal: AnimeSummary[],
+  popular: AnimeSummary[] = [],
+  status = "authed",
+) {
   mockSession.mockReturnValue({
     status,
     user: { username: "newbie" },
@@ -59,7 +70,7 @@ function mount(seasonal: AnimeSummary[], status = "authed") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <Onboarding seasonal={seasonal} />
+      <Onboarding seasonal={seasonal} popular={popular} />
     </QueryClientProvider>,
   );
 }
@@ -71,7 +82,6 @@ describe("Onboarding", () => {
     const user = userEvent.setup();
     mount([anime(1, "Alpha"), anime(2, "Beta")]);
 
-    // Nothing picked: the finish button is disabled, skip is the way out.
     expect(screen.getByRole("button", { name: "Add shows" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: /Alpha/ }));
@@ -81,8 +91,38 @@ describe("Onboarding", () => {
     await user.click(screen.getByRole("button", { name: /Beta/ }));
     expect(screen.getByRole("button", { name: "Add 2 & finish" })).toBeInTheDocument();
 
-    // Toggling off drops the count back.
     await user.click(screen.getByRole("button", { name: /Beta/ }));
+    expect(screen.getByRole("button", { name: "Add 1 & finish" })).toBeInTheDocument();
+  });
+
+  it("switches between the airing-now and all-time-popular pools", async () => {
+    const user = userEvent.setup();
+    mount([anime(1, "Seasonal Show")], [anime(9, "Classic Show")]);
+
+    expect(screen.getByRole("button", { name: /Seasonal Show/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Classic Show/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "All-time popular" }));
+    expect(screen.getByRole("button", { name: /Classic Show/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Seasonal Show/ })).not.toBeInTheDocument();
+  });
+
+  it("searches the catalog and keeps a search pick when the query is cleared", async () => {
+    getMock.mockResolvedValue({ data: { data: [anime(42, "Old Favorite")] }, error: undefined });
+    const user = userEvent.setup();
+    mount([anime(1, "Seasonal Show")]);
+
+    const box = screen.getByRole("searchbox", { name: /Search the catalog/ });
+    await user.type(box, "old");
+    expect(await screen.findByRole("button", { name: /Old Favorite/ })).toBeInTheDocument();
+    expect(getMock).toHaveBeenCalledWith("/anime", { params: { query: { q: "old" } } });
+
+    await user.click(screen.getByRole("button", { name: /Old Favorite/ }));
+    expect(screen.getByRole("button", { name: "Add 1 & finish" })).toBeInTheDocument();
+
+    // Clearing search returns to the seasonal grid, but the pick is still counted.
+    await user.clear(box);
+    expect(screen.getByRole("button", { name: /Seasonal Show/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add 1 & finish" })).toBeInTheDocument();
   });
 
@@ -110,13 +150,14 @@ describe("Onboarding", () => {
   it("skips straight home without writing anything", async () => {
     const user = userEvent.setup();
     mount([anime(1, "Alpha")]);
-    await user.click(screen.getByRole("button", { name: "Skip for now" }));
+    // With nothing picked the skip reads as the not-watching path.
+    await user.click(screen.getByRole("button", { name: "Not watching anything yet" }));
     expect(push).toHaveBeenCalledWith("/");
     expect(putMock).not.toHaveBeenCalled();
   });
 
   it("prompts to sign in when the session resolved to anon", () => {
-    mount([anime(1, "Alpha")], "anon");
+    mount([anime(1, "Alpha")], [], "anon");
     expect(screen.getByText(/signed out/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
     expect(screen.queryByRole("button", { name: /Alpha/ })).not.toBeInTheDocument();
