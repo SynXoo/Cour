@@ -128,6 +128,11 @@ Miguel + Fable walked the live site; diagnosis and specs in
   timeline; clusters jump the list via `jumpToComment`), richer empty
   state (countdown/presence instead of "No comments yet"), live-window
   LIVE badge + velocity in the thread header. Spec in §M3.
+- [ ] **M3.5** (F) Profile revamp — banner + accent color from the owner's
+  favorites, elevated bio, interactive stats (score histogram, watch time,
+  clickable genre bars), public library tabs (watching/completed/dropped/…
+  as a browsable poster wall), dressed empty states. Spec in §M3.5;
+  needs small API/schema deltas (spec-first).
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -139,6 +144,47 @@ Miguel + Fable walked the live site; diagnosis and specs in
 ### Session log
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
+
+- 2026-07-08 · M3.2 follow-up (out-of-band, Miguel's asks) · Evening
+  timeline + quiet-night recs + M3.5 spec'd. **(1) Physical timeline**
+  (`app/home/evening-timeline.tsx`, `lg`+ only — under `lg` the rail cards
+  stay; hover previews don't translate to touch): 25 h axis as pure
+  geometry in `lib/home.ts` — `timelineMarks` (pct positioning + greedy
+  collision lanes, max 3, LRU reuse past that), `timelineTicks` (half-hour
+  grid, hour/midnight flags — midnight tick labels the *weekday*),
+  `timelineNowPct`; component adds the pulsing now-line, stems tying each
+  cover to its exact minute, hover/focus preview card (`role=tooltip`,
+  `aria-describedby`, Escape closes) with airing facts, ticking countdown,
+  genres, room presence, and a **lazy synopsis** —
+  `["anime-preview", id]` query (staleTime ∞) hits `/anime/{id}` once per
+  show per session; marks are links into the thread; axis re-anchors every
+  60 s. Verified live with a 3-way simulcast collision (lanes 0/1/2
+  confirmed) + preview fetch sampled. **Positioning gotcha:** translate the
+  positioned `li` (anchor is its *left* edge), not the inner link — a
+  `-translate-x-1/2` on the child leaves stems 20 px off-minute.
+  **React-event gotcha (preview tooling):** `onMouseEnter` is delegated —
+  dispatch `mouseover` with `bubbles:true` from `preview_eval`, raw
+  `mouseenter` never reaches React. **(2) Quiet night un-emptied**
+  (`quiet-night-recs.tsx`): below the week-ahead rail, a picks rail from
+  `/me/recommendations` (queryKey `["recommendations"]` shared with the
+  For-you page cache; seasonal fallback while cold; skeleton while
+  pending) — copy switches "picked for your taste" / "big this season";
+  the week-clear case keeps recs too. Live: sam's quiet night now shows
+  DIGIMON (Sat) + HxH/etc. picks. **(3) M3.5 Profile revamp** written into
+  the ledger + a full §M3.5 spec (banner-from-favorites hero w/ masked
+  poster-wall fallback, `--tint` accent from banner/favorite cover_color,
+  elevated bio, interactive stats: score histogram → filters library,
+  watch-time total, clickable genre bars, stretch seasonal spread; library
+  status **tabs** as the quick-browse ask; API deltas spec'd:
+  `banner_anime_id` migration + `ProfileStats.score_histogram`/
+  `watch_minutes` + public `GET /users/{username}/list`). Tests: **153**
+  vitest / 22 files (+9: 3 timeline-math incl. TZ-safe midnight bound, 3
+  timeline component incl. lazy-fetch-once + Escape, 2 recs incl. seasonal
+  fallback, +1 your-evening week-clear case; float-pct asserts use
+  `toBeCloseTo`), lint/tsc clean. Verified 375/1440; scaffold (5 rows incl.
+  the 22/158/197 simulcast trio) SQL-inserted and deleted; activities
+  count 689 before and after — demo DB clean. **Next (M3.3)** unchanged;
+  M3.5 queued behind M3.4.
 
 - 2026-07-08 · M3.2 · "Tonight on Cour" — `home-view.tsx` rebuilt as server
   shell + client islands (the access token never leaves the browser, so the
@@ -1234,6 +1280,17 @@ Server shell + client islands, top to bottom:
    empty states split — no list at all → seasonal picks + pick/import CTAs,
    list-but-quiet-night → the viewer's *own* next-up episodes from the
    7-day schedule (truer to "your evening" than generic picks).
+   *(Amended in the M3.2 follow-up, Miguel's asks:)* on `lg`+ tonight also
+   renders as a **physical timeline** — a 25 h axis (1 h just-aired grace +
+   24 h ahead) with a half-hour tick grid, a pulsing now-line, and cover
+   thumbnails pinned at exact air times (collisions stack into lanes);
+   hover/focus opens a preview card (airing facts, genres, room presence,
+   synopsis lazy-fetched from `/anime/{id}` once per show) and click enters
+   the thread. Under `lg` the rail cards carry tonight instead — hover
+   previews don't translate to touch. And the quiet night is never empty:
+   below the week-ahead rail, a **recommendations rail**
+   (`/me/recommendations`, cache shared with the For-you page, seasonal
+   fallback until the recommender has signal).
 2. **Live now** — busiest threads (M2 velocity + presence). *(Amended in
    M3.2:)* rooms, never comment snippets — the M3.1 editorial-safety rule
    (show the fact of conversation, not its content) applies to every
@@ -1295,6 +1352,76 @@ M2.2/M2.3 make it *behave* alive; this makes it *look* alive:
   gets a LIVE badge + M2.3's velocity ("N/min"). The M2.3 stretch
   night-of badge marks *comments* in the permanent record; this marks
   the *room* while the ritual is happening.
+
+### Profile revamp (M3.5)
+
+*(Spec'd 2026-07-08 from Miguel's ask: "pretty to look at, with colors,
+profile descriptions, banners, interactive statistics, and some way to
+quickly look through completed/dropped/etc.")*
+
+**Diagnosis.** The profile is a stat sheet, not a page about a person:
+flat header, five gray boxes, static genre bars. It's also the page people
+will paste into a Discord bio — it should be a *poster of your taste*,
+the way the landing is a poster of the product. Apply the landing/home
+playbook: art-backed hero, data-driven color, motion that means something.
+
+**Design, top to bottom:**
+
+1. **Banner hero.** Full-bleed banner behind the identity header, chosen
+   from the owner's favorites' AniList banner art — no uploads (no storage
+   or moderation surface; parity with URL-based avatars). Own-profile gets
+   a "choose banner" popover listing favorites that have `banner_image`.
+   Text protection via the hero-wall mask pattern, not painted washes.
+   **Fallback keeps fresh profiles dressed:** no banner picked (or none
+   available) → a static masked poster-wall strip from favorites/watching
+   covers; zero-list accounts get the ambient violet.
+2. **Accent color.** `--tint` derives from the banner anime's
+   `cover_color` (else top favorite) and washes the page the way home's
+   spotlight does: avatar ring, stat numbers, section headings, tab
+   underline — all `color-mix` over theme vars, readable in both themes.
+   Every profile is colored by its owner's taste, not by our palette.
+3. **Identity block.** Avatar over the banner edge, @handle + role badge,
+   **bio elevated** to a real position (readable measure, whitespace
+   preserved — the field already exists), member-since, follow button,
+   follower/following counts (RelationState exists), favorite-genre chips.
+4. **Interactive statistics** (client islands; hover = detail, click =
+   action):
+   - **Score histogram** — 1–10 bars; hover a bar for count + share;
+     click filters the library tab to that score. Bars animate in once
+     (reduced-motion: static).
+   - **Watch time** — "≈ 9d 4h in front of the screen", one big mono
+     number (Σ progress × duration).
+   - **Genre bars** — keep, tint them, make each a filter link into the
+     library tab.
+   - *Stretch:* seasonal spread — completed shows bucketed by
+     `season_year`, a mini strip that shows "your 2019 era" at a glance.
+5. **Library tabs** — the quick-browse ask. The five status counts become
+   real tabs on the profile (Watching · Completed · Planning · Paused ·
+   Dropped, counts in the label) opening a dense poster wall with
+   score/recency/title sort and pagination. Own profile adds a "manage on
+   My list →" shortcut; editing stays on /list.
+6. **Currently-watching rail** stays (it's good), gains progress bars and
+   the tint treatment.
+
+**API/schema deltas (spec-first, all small):**
+
+- `users.banner_anime_id bigint NULL REFERENCES anime` migration;
+  `PUT /me/profile` accepts it; `UserProfile` returns a resolved
+  `banner: { anime_id, banner_image, cover_color } | null`.
+- `ProfileStats` grows `score_histogram: [{score, count}]` and
+  `watch_minutes` (one GROUP BY + one SUM in the stats query);
+  stretch: `season_counts: [{year, count}]`.
+- New `GET /users/{username}/list?status=&sort=&page=` — public,
+  paginated (50), reuses the list-entry mapper. Lists are public by
+  default (MAL/AniList convention); a privacy toggle is parked.
+
+**Acceptance.** sakuga_sam's profile at 375/1440: banner + tint applied,
+histogram hover/click filters the library tab, all five tabs page through
+real entries, anon view = same page minus edit affordances, a fresh
+zero-list profile still looks dressed. Stats queries unit-tested,
+histogram/tabs vitest-covered, `task gen` clean (spec changes), no
+h-overflow at 375, 44 px targets, reduced-motion drops the count-up/bar
+animations.
 
 ---
 

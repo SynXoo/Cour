@@ -10,6 +10,9 @@ import {
   roomStatsByEpisode,
   splitConversation,
   talkStatsByAnime,
+  timelineMarks,
+  timelineNowPct,
+  timelineTicks,
 } from "./home";
 
 const NOW = new Date("2026-07-08T20:00:00Z");
@@ -206,6 +209,49 @@ describe("roomStatsByEpisode", () => {
     ]);
     expect(rooms["1:9"]).toEqual({ presence: 2, comments: 30 });
     expect(Object.keys(rooms)).toHaveLength(1);
+  });
+});
+
+describe("timelineMarks", () => {
+  it("positions marks proportionally on the 25h axis, sorted by time", () => {
+    // Axis start = now − 1h; an entry airing exactly now sits at 1/25.
+    const marks = timelineMarks([sched(1, 9, at(11.5)), sched(2, 4, at(0))], NOW);
+    expect(marks.map((m) => m.entry.anime.id)).toEqual([2, 1]);
+    expect(marks[0].pct).toBeCloseTo(4, 5); // (1h)/(25h)
+    expect(marks[1].pct).toBeCloseTo(50, 5); // (12.5h)/(25h)
+    expect(marks.every((m) => m.lane === 0)).toBe(true);
+    expect(timelineNowPct()).toBeCloseTo(4, 5);
+  });
+
+  it("stacks colliding air times into lanes and reuses lanes when full", () => {
+    // Four shows in the same half hour: lanes 0,1,2 then back to the oldest.
+    const marks = timelineMarks(
+      [sched(1, 1, at(5)), sched(2, 1, at(5.1)), sched(3, 1, at(5.2)), sched(4, 1, at(5.3))],
+      NOW,
+    );
+    expect(marks.map((m) => m.lane)).toEqual([0, 1, 2, 0]);
+    // A later, clear entry drops back to lane 0.
+    const spread = timelineMarks([sched(1, 1, at(2)), sched(2, 1, at(8))], NOW);
+    expect(spread.map((m) => m.lane)).toEqual([0, 0]);
+  });
+});
+
+describe("timelineTicks", () => {
+  it("lays a half-hour grid with hour and midnight flags", () => {
+    const ticks = timelineTicks(NOW);
+    // 25h of half-hours, first tick aligned at or after axis start.
+    expect(ticks.length).toBeGreaterThanOrEqual(50);
+    expect(ticks.length).toBeLessThanOrEqual(51);
+    for (const t of ticks) {
+      expect([0, 30]).toContain(t.time.getMinutes());
+      expect(t.isHour).toBe(t.time.getMinutes() === 0);
+      expect(t.pct).toBeGreaterThanOrEqual(0);
+      expect(t.pct).toBeLessThanOrEqual(100);
+    }
+    // A 25h window holds one midnight — or two when it starts dead on one.
+    const midnights = ticks.filter((t) => t.isMidnight);
+    expect([1, 2]).toContain(midnights.length);
+    expect(midnights[0].time.getHours()).toBe(0);
   });
 });
 

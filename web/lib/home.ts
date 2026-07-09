@@ -174,6 +174,84 @@ export function roomStatsByEpisode(
   return out;
 }
 
+// ── Evening timeline ────────────────────────────────────────────────────────
+// The desktop home draws tonight as a physical 25-hour axis (1 h of just-aired
+// grace + the next 24). Both helpers are pure so the geometry — positions,
+// collision lanes, tick rhythm — is testable without rendering.
+
+/** The tonight axis in ms: [now − 1 h, now + 24 h]. */
+export const TIMELINE_SPAN_MS = 25 * 60 * 60 * 1000;
+const TIMELINE_GRACE_MS = 60 * 60 * 1000;
+
+export type TimelineMark = {
+  entry: ScheduleEntry;
+  /** 0–100 along the axis. */
+  pct: number;
+  /** 0 = on the axis; higher lanes stack upward when air times collide. */
+  lane: number;
+};
+
+/**
+ * Place tonight's entries on the axis. Marks closer than `minGapPct` share a
+ * time slot, so each new mark takes the lowest lane whose previous occupant
+ * is clear of it; past `maxLanes` it falls back to the least-recently-used
+ * lane and accepts the slight overlap (three simulcasts in one half hour is
+ * already a wall of covers — precision stops mattering).
+ */
+export function timelineMarks(
+  entries: ScheduleEntry[],
+  now = new Date(),
+  minGapPct = 4,
+  maxLanes = 3,
+): TimelineMark[] {
+  const start = now.getTime() - TIMELINE_GRACE_MS;
+  const lastInLane: number[] = [];
+  const sorted = [...entries].sort(
+    (a, b) => new Date(a.airing_at).getTime() - new Date(b.airing_at).getTime(),
+  );
+  return sorted.map((entry) => {
+    const pct = ((new Date(entry.airing_at).getTime() - start) / TIMELINE_SPAN_MS) * 100;
+    let lane = lastInLane.findIndex((last) => pct - last >= minGapPct);
+    if (lane === -1) {
+      if (lastInLane.length < maxLanes) lane = lastInLane.length;
+      else lane = lastInLane.indexOf(Math.min(...lastInLane));
+    }
+    lastInLane[lane] = pct;
+    return { entry, pct: Math.min(100, Math.max(0, pct)), lane };
+  });
+}
+
+export type TimelineTick = {
+  time: Date;
+  /** 0–100 along the axis. */
+  pct: number;
+  isHour: boolean;
+  isMidnight: boolean;
+};
+
+/** Half-hour ticks across the axis — the "accurate to the half hour" grid. */
+export function timelineTicks(now = new Date()): TimelineTick[] {
+  const start = now.getTime() - TIMELINE_GRACE_MS;
+  const end = start + TIMELINE_SPAN_MS;
+  const HALF_HOUR = 30 * 60 * 1000;
+  const ticks: TimelineTick[] = [];
+  for (let t = Math.ceil(start / HALF_HOUR) * HALF_HOUR; t <= end; t += HALF_HOUR) {
+    const time = new Date(t);
+    ticks.push({
+      time,
+      pct: ((t - start) / TIMELINE_SPAN_MS) * 100,
+      isHour: time.getMinutes() === 0,
+      isMidnight: time.getHours() === 0 && time.getMinutes() === 0,
+    });
+  }
+  return ticks;
+}
+
+/** Where "now" sits on the axis (the grace hour is behind it). */
+export function timelineNowPct(): number {
+  return (TIMELINE_GRACE_MS / TIMELINE_SPAN_MS) * 100;
+}
+
 /** The header's one-line site pulse: activity summed over the hot threads. */
 export function pulseStats(threads: TrendingThread[]): { recent: number; presence: number } {
   return threads.reduce(

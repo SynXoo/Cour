@@ -12,6 +12,8 @@ import { useSession } from "@/lib/auth/session";
 import { useMyList } from "@/lib/hooks/use-list";
 import { myTonight, nextUpLater } from "@/lib/home";
 import { Countdown } from "./countdown";
+import { EveningTimeline } from "./evening-timeline";
+import { QuietNightRecs } from "./quiet-night-recs";
 
 type RoomStats = Record<string, { presence: number; comments: number }>;
 
@@ -102,20 +104,18 @@ export function YourEvening({
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Nothing on your list airs in the next 24 hours
-          {later.length > 0 ? " — here's what's coming up." : "."}
+          {later.length > 0
+            ? " — here's the week ahead."
+            : " — and the week's schedule is clear."}
         </p>
-        {later.length > 0 ? (
+        {later.length > 0 && (
           <ul className="flex gap-3 overflow-x-auto pb-2">
             {later.map((e) => (
               <EveningTile key={`${e.anime.id}-${e.episode}`} entry={e} rooms={rooms} withDay />
             ))}
           </ul>
-        ) : (
-          <SeasonalPicks
-            seasonal={seasonal}
-            lead="None of your shows are on this week's schedule — find something new:"
-          />
         )}
+        <QuietNightRecs seasonal={seasonal} />
       </div>
     );
   }
@@ -125,8 +125,10 @@ export function YourEvening({
   return (
     <div className="space-y-3">
       <Spotlight entry={headliner} rooms={rooms} aired={headlinerAired} />
+      {/* Desktop reads tonight as a timeline; under lg the rail carries it. */}
+      <EveningTimeline entries={tonight} rooms={rooms} />
       {rest.length > 0 && (
-        <ul className="flex gap-3 overflow-x-auto pb-2">
+        <ul className="flex gap-3 overflow-x-auto pb-2 lg:hidden">
           {rest.map((e) => (
             <EveningTile key={`${e.anime.id}-${e.episode}`} entry={e} rooms={rooms} />
           ))}

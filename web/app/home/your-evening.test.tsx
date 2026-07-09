@@ -13,6 +13,13 @@ vi.mock("next/image", () => ({
 
 vi.mock("@/lib/auth/session", () => ({ useSession: vi.fn() }));
 vi.mock("@/lib/hooks/use-list", () => ({ useMyList: vi.fn() }));
+// Both children own react-query fetches; their behavior has its own tests.
+vi.mock("./evening-timeline", () => ({
+  EveningTimeline: () => <div data-testid="evening-timeline" />,
+}));
+vi.mock("./quiet-night-recs", () => ({
+  QuietNightRecs: () => <div data-testid="quiet-night-recs" />,
+}));
 
 import { useSession } from "@/lib/auth/session";
 import { useMyList } from "@/lib/hooks/use-list";
@@ -119,6 +126,8 @@ describe("YourEvening", () => {
     expect(screen.getByText(/2 in there now/)).toBeInTheDocument();
     expect(screen.getByText("Show 3")).toBeInTheDocument();
     expect(screen.queryByText("Show 9")).not.toBeInTheDocument();
+    // Desktop gets the timeline alongside (CSS decides which one shows).
+    expect(screen.getByTestId("evening-timeline")).toBeInTheDocument();
   });
 
   it("marks a just-aired headliner as live", () => {
@@ -131,7 +140,7 @@ describe("YourEvening", () => {
     expect(screen.getByText("airing now")).toBeInTheDocument();
   });
 
-  it("falls back to the week ahead on a quiet night, tagged by weekday", () => {
+  it("falls back to the week ahead plus recommendations on a quiet night", () => {
     session("authed");
     list([listEntry(1)]);
     render(
@@ -140,6 +149,15 @@ describe("YourEvening", () => {
     expect(screen.getByText(/Nothing on your list airs in the next 24 hours/)).toBeInTheDocument();
     expect(screen.getByText(/Ep 5 ·/)).toBeInTheDocument();
     expect(screen.getByText(/in 2d 0h/)).toBeInTheDocument();
+    expect(screen.getByTestId("quiet-night-recs")).toBeInTheDocument();
+  });
+
+  it("still offers recommendations when even the week is clear", () => {
+    session("authed");
+    list([listEntry(1)]);
+    render(<YourEvening schedule={[]} rooms={{}} seasonal={seasonal} />);
+    expect(screen.getByText(/the week's schedule is clear/)).toBeInTheDocument();
+    expect(screen.getByTestId("quiet-night-recs")).toBeInTheDocument();
   });
 
   it("pitches seasonal picks when the watching list is empty", () => {
