@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AnimeSummary, ScheduleEntry, ThreadComment, TrendingThread } from "@/lib/api/client";
-import { agoLabel, buildTicker, heroCovers, threadHref, tonightEntries } from "./landing";
+import type { AnimeSummary, ScheduleEntry, TrendingThread } from "@/lib/api/client";
+import { agoLabel, buildRooms, heroCovers, threadHref, tonightEntries } from "./landing";
 
 const NOW = new Date("2026-07-08T20:00:00Z");
 
@@ -42,21 +42,6 @@ function mkThread(
     recent_comments: 3,
     presence: 0,
     ...rest,
-  };
-}
-
-function mkComment(over: Partial<ThreadComment> & Pick<ThreadComment, "id">): ThreadComment {
-  return {
-    thread_id: 1,
-    parent_id: null,
-    author: { username: `user${over.id}`, avatar_url: null },
-    body: `body ${over.id}`,
-    timestamp_seconds: null,
-    has_spoilers: false,
-    deleted: false,
-    reactions: [],
-    created_at: NOW.toISOString(),
-    ...over,
   };
 }
 
@@ -148,45 +133,41 @@ describe("heroCovers", () => {
   });
 });
 
-describe("buildTicker", () => {
-  it("filters spoilers and deletions, sorts newest first across threads, and caps", () => {
-    const a = mkThread({
+describe("buildRooms", () => {
+  it("maps trending threads to rooms in rank order — no comment text anywhere", () => {
+    const ep = mkThread({
       animeId: 1,
       threadId: 10,
       episode: { number: 4, title: null, airing_at: null },
+      presence: 3,
     });
-    const b = mkThread({ animeId: 2, threadId: 20 });
-    const comments = new Map([
-      [
-        10,
-        [
-          mkComment({ id: 1, created_at: minsAgo(10) }),
-          mkComment({ id: 2, created_at: minsAgo(1), has_spoilers: true }),
-          mkComment({ id: 3, created_at: minsAgo(2), deleted: true, body: "[removed]" }),
-        ],
-      ],
-      [20, [mkComment({ id: 4, created_at: minsAgo(5) })]],
-    ]);
+    ep.thread.last_activity_at = minsAgo(5);
+    const series = mkThread({ animeId: 2, threadId: 20 });
 
-    const items = buildTicker([a, b], comments, NOW);
-    expect(items.map((i) => i.id)).toEqual([4, 1]); // spoiler + deleted gone, newest first
-    expect(items[0]).toMatchObject({
-      animeTitle: "Title 2",
-      episode: null,
-      href: "/anime/2/discussion",
+    const rooms = buildRooms([ep, series], NOW);
+    expect(rooms.map((r) => r.threadId)).toEqual([10, 20]); // trending order kept
+    expect(rooms[0]).toMatchObject({
+      title: "Title 1",
+      label: "Ep 4 room",
+      commentCount: 5,
+      recent: 3,
+      presence: 3,
       ago: "5m ago",
+      href: "/anime/1/episode/4",
     });
-    expect(items[1]).toMatchObject({ episode: 4, href: "/anime/1/episode/4" });
+    expect(rooms[1]).toMatchObject({ label: "Series room", href: "/anime/2/discussion" });
+    for (const room of rooms) {
+      expect(Object.values(room).join(" ")).not.toContain("body"); // rooms carry stats, not speech
+    }
   });
 
-  it("caps the feed and ignores threads without fetched comments", () => {
-    const t = mkThread({ animeId: 1, threadId: 10 });
-    const quiet = mkThread({ animeId: 2, threadId: 20 });
-    const many = Array.from({ length: 12 }, (_, i) =>
-      mkComment({ id: i + 1, created_at: minsAgo(i) }),
-    );
-    const items = buildTicker([t, quiet], new Map([[10, many]]), NOW);
-    expect(items).toHaveLength(8);
-    expect(items[0].id).toBe(1);
+  it("drops dead rooms unless someone is present", () => {
+    const dead = mkThread({ animeId: 1, threadId: 10 });
+    dead.thread.comment_count = 0;
+    dead.recent_comments = 0;
+    const lurkers = mkThread({ animeId: 2, threadId: 20, presence: 2 });
+    lurkers.thread.comment_count = 0;
+
+    expect(buildRooms([dead, lurkers], NOW).map((r) => r.threadId)).toEqual([20]);
   });
 });

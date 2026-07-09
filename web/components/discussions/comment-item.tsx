@@ -55,7 +55,7 @@ const EMOJI_GLYPHS: Record<Emoji, string> = {
 };
 
 /** Stable hue per username so the same person is the same color everywhere. */
-export function hueFor(username: string): number {
+function hueFor(username: string): number {
   let h = 0;
   for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) >>> 0;
   return h % 360;

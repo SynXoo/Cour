@@ -1,9 +1,4 @@
-import type {
-  AnimeSummary,
-  ScheduleEntry,
-  ThreadComment,
-  TrendingThread,
-} from "@/lib/api/client";
+import type { AnimeSummary, ScheduleEntry, TrendingThread } from "@/lib/api/client";
 import { displayTitle } from "@/lib/anime";
 
 /** Where a trending thread lives: episode page, or the series board. */
@@ -80,49 +75,40 @@ export function agoLabel(iso: string, from = new Date()): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export type TickerItem = {
-  id: number;
-  username: string;
-  avatarUrl: string | null;
-  body: string;
+export type LiveRoom = {
+  threadId: number;
+  title: string;
+  cover: string | null;
+  /** "Ep 10 room" | "Series room" */
+  label: string;
+  commentCount: number;
+  /** Comments inside the trending window — the "happening now" signal. */
+  recent: number;
+  presence: number;
   ago: string;
-  animeTitle: string;
-  episode: number | null;
   href: string;
 };
 
 /**
- * Flattens the newest comments of the busiest threads into one landing-page
- * ticker feed, newest first. Spoiler-marked and deleted comments never reach
- * visitors; threads with no fetched comments contribute nothing.
+ * The landing's live panel shows rooms, not speech: which threads are busy,
+ * how busy, and who's in them — never a quotable comment body. A stranger's
+ * hot take must not be the site's front door, and unlike a reaction- or
+ * reputation-gated snippet feed this stays honest at three users or three
+ * thousand. Trending order is preserved; dead rooms (no comments, nobody
+ * present) don't count as proof of life.
  */
-export function buildTicker(
-  threads: TrendingThread[],
-  commentsByThread: ReadonlyMap<number, ThreadComment[]>,
-  now = new Date(),
-  cap = 8,
-): TickerItem[] {
-  const items: Array<{ at: number; item: TickerItem }> = [];
-  for (const t of threads) {
-    for (const c of commentsByThread.get(t.thread.id) ?? []) {
-      if (c.deleted || c.has_spoilers) continue;
-      items.push({
-        at: new Date(c.created_at).getTime(),
-        item: {
-          id: c.id,
-          username: c.author.username,
-          avatarUrl: c.author.avatar_url,
-          body: c.body,
-          ago: agoLabel(c.created_at, now),
-          animeTitle: displayTitle(t.anime),
-          episode: t.episode?.number ?? null,
-          href: threadHref(t),
-        },
-      });
-    }
-  }
-  return items
-    .sort((a, b) => b.at - a.at)
-    .slice(0, cap)
-    .map((e) => e.item);
+export function buildRooms(threads: TrendingThread[], now = new Date()): LiveRoom[] {
+  return threads
+    .filter((t) => t.thread.comment_count > 0 || t.presence > 0)
+    .map((t) => ({
+      threadId: t.thread.id,
+      title: displayTitle(t.anime),
+      cover: t.anime.cover_image,
+      label: t.episode ? `Ep ${t.episode.number} room` : "Series room",
+      commentCount: t.thread.comment_count,
+      recent: t.recent_comments,
+      presence: t.presence,
+      ago: agoLabel(t.thread.last_activity_at, now),
+      href: threadHref(t),
+    }));
 }

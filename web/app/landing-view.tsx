@@ -3,12 +3,12 @@ import Link from "next/link";
 import { ScheduleStrip } from "@/components/anime/schedule-strip";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
-import { serverApi, type ThreadComment } from "@/lib/api/client";
+import { serverApi } from "@/lib/api/client";
 import { currentSeason, displayTitle, seasonLabel } from "@/lib/anime";
 import { cn } from "@/lib/utils";
-import { buildTicker, heroCovers, threadHref, tonightEntries } from "@/lib/landing";
+import { buildRooms, heroCovers, threadHref, tonightEntries } from "@/lib/landing";
 import { HeroPosterWall } from "./hero-poster-wall";
-import { LiveTicker } from "./live-ticker";
+import { LiveRooms } from "./live-rooms";
 import { SeasonalCarousel } from "./seasonal-carousel";
 
 // The live-proof data (busiest threads + their newest comments) refreshes
@@ -37,25 +37,10 @@ export async function LandingView() {
   const threads = threadsRes?.data?.data ?? [];
   const covers = heroCovers(trendingRes?.data?.data ?? [], seasonal);
 
-  // Newest comments from the top few threads with actual chatter feed the
-  // ticker. Threads are publicly readable, so visitors see the real thing.
-  const chattering = threads.filter((t) => t.recent_comments > 0).slice(0, 3);
-  const commentPages = await Promise.all(
-    chattering.map((t) =>
-      api
-        .GET("/threads/{threadId}/comments", {
-          params: { path: { threadId: t.thread.id }, query: { limit: 10 } },
-          fetch: liveFetch,
-        })
-        .catch(() => null),
-    ),
-  );
-  const commentsByThread = new Map<number, ThreadComment[]>(
-    chattering.map((t, i) => [t.thread.id, commentPages[i]?.data?.data ?? []]),
-  );
-
   const now = new Date();
-  const ticker = buildTicker(threads, commentsByThread, now);
+  // Rooms, not quotes: the live panel never puts a stranger's hot take on
+  // the front page (see buildRooms).
+  const rooms = buildRooms(threads, now);
   const tonight = tonightEntries(schedule, now);
   const peekHref = threads[0] ? threadHref(threads[0]) : "/schedule";
 
@@ -89,7 +74,7 @@ export async function LandingView() {
         <div
           className={cn(
             "relative mx-auto grid w-full max-w-[88rem] items-center gap-10 px-4 pb-16 pt-12 md:pt-16 lg:min-h-[36rem] lg:pb-20",
-            ticker.length > 0 && "lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16",
+            rooms.length > 0 && "lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-16",
           )}
         >
           {/* min-w-0 on both grid items: the ticker's nowrap truncate line
@@ -97,11 +82,11 @@ export async function LandingView() {
           <div
             className={cn(
               "flex min-w-0 flex-col items-center gap-5 text-center",
-              ticker.length > 0 && "lg:items-start lg:text-left",
+              rooms.length > 0 && "lg:items-start lg:text-left",
             )}
           >
             {seasonal.length > 0 && (
-              <p className="font-mono text-xs text-primary">
+              <p className="rounded-full border border-border/60 bg-background/60 px-3 py-1 font-mono text-xs text-primary backdrop-blur-sm">
                 {seasonLabel(season)} {year} · {seasonal.length} shows airing
               </p>
             )}
@@ -123,19 +108,19 @@ export async function LandingView() {
             </div>
           </div>
 
-          {ticker.length > 0 && (
+          {rooms.length > 0 && (
             <aside
-              aria-label="Right now on Cour"
+              aria-label="Live on Cour"
               className="mx-auto w-full min-w-0 max-w-md lg:max-w-none"
             >
               <div className="rounded-xl border border-border/60 bg-background/60 p-3 backdrop-blur-md md:p-4">
                 <div className="mb-3 flex items-baseline justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+                  <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                     </span>
-                    Right now on Cour
+                    Live on Cour
                   </h2>
                   {threads[0] && (
                     <Link
@@ -146,7 +131,7 @@ export async function LandingView() {
                     </Link>
                   )}
                 </div>
-                <LiveTicker items={ticker} />
+                <LiveRooms rooms={rooms} />
               </div>
             </aside>
           )}

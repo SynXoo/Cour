@@ -138,6 +138,37 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-08 · M3.1 follow-up 3 (out-of-band, Miguel's editorial-safety ask)
+  · Live panel: quotes → rooms. **The problem:** the hero ticker quoted raw
+  comment bodies — an unmoderated hot take as the site's first impression.
+  **The call:** show the *fact* of conversation, never its content. New
+  `buildRooms`/`LiveRoom` (`lib/landing.ts`) maps trending threads straight
+  to room cards — cover, title, "Ep 10 room · 12 comments · 3 in there",
+  mono `last_activity` ago — replacing `buildTicker`/`LiveTicker` (deleted;
+  `app/live-rooms.tsx` ports the rotation window/pause/reduced-motion
+  logic). This is scale-independent (a reaction/verified gate starves at
+  exactly the low user counts where the landing matters; idea parked with
+  that caveat), kills the landing's per-thread comment fetches entirely
+  (trending payload already carries every stat), and nothing user-authored
+  renders on the landing anymore — the spoiler-filter worry died with it.
+  Dead rooms (0 comments, 0 presence) are dropped; lurker-only rooms rank
+  (presence counts as life, matching M2.3's trending). **Bigger discussion
+  presence:** panel column 26→30 rem, rows grew cover art + p-3, VISIBLE
+  3→4 (4th slot `max-lg:[&>li:nth-child(n+4)]:hidden` keeps the stacked
+  mobile hero lean), header "Live on Cour" at text-base. **Slower arrivals:**
+  new `room-slide-in` (globals.css) — 480 ms, translateY(14px) +
+  scale(0.97), overshoot bezier (0.34,1.3,0.64,1) — iMessage-ish settle vs
+  the thread pages' 220 ms; rotation 4→5 s; reduced-motion drops it. Season
+  chip got a glass pill (was unreadable over busy wall art). Cleanup:
+  `hueFor` export reverted, unused `ThreadComment` alias removed. Tests
+  swapped 1:1, still **124** vitest (buildRooms: mapping/order/no-speech +
+  dead-room-unless-present; LiveRooms: stats-render, 5 s rotation, fits/
+  reduced-motion/hover stills); lint clean. Verified live 375/1440 on the
+  autoPort preview (**:3000 is the compose web container again — its image
+  predates all of M3.1**, rebuild before demoing prod): rotation sampled,
+  3-of-4 rows on mobile, 0 console errors, no h-overflow. **Next (M3.2)**
+  unchanged — note "Tonight on Cour"'s *Live now* rail (§M3 item 2) can
+  reuse `buildRooms`/`LiveRooms` nearly as-is.
 - 2026-07-08 · M3.1 follow-up 2 (out-of-band, Miguel's design pass on the
   wall) · Landing layout + motion continuity. **Hero:** on `lg` the copy
   takes the left column and the live ticker rides the right as a glass panel
@@ -621,6 +652,15 @@ Miguel + Fable walked the live site; diagnosis and specs in
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **Comment snippets on the landing, behind a quality gate** (from the
+  2026-07-08 landing sessions) — the landing briefly quoted real comment
+  bodies and was reworked to activity-only "live rooms": an unmoderated hot
+  take must not be the site's first impression. If real traffic ever makes a
+  curated feel-of-the-conversation feed worth it, gate it hard (reaction
+  threshold, account age/verified tier, mod allowlist — Miguel floated all
+  three) and note every gate starves at low user counts, which is exactly
+  when the landing matters most. Rooms may simply stay the right answer.
 
 - **Episode titles in the list** (from a 2026-07-08 M2.5 follow-up ask) —
   the UI already renders them (`episode-list.tsx` `{e.title && …}`, and the
