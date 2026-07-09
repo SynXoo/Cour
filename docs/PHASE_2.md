@@ -115,10 +115,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   live-proof ticker, tonight strip, busiest threads, seasonal preview,
   no-streams promise, SEO metadata. (Verified live 375/desktop, anon +
   authed round-trip.)
-- [ ] **M3.2** (O) "Tonight on Cour" — your-evening row, live-now threads,
-  continue-watching, the season's conversation, compact existing strips,
+- [x] **M3.2** (F) "Tonight on Cour" — your-evening row (spotlight +
+  countdowns), live-now rooms panel, continue-watching with inline `+1`,
+  the season's conversation with talk stats, compact existing strips,
   **"Back in the conversation" row** (trending titles not from the current
-  season — the viral-revival story told explicitly; see §M3).
+  season — the viral-revival story told explicitly; see §M3). Verified live
+  375/1440 as sakuga_sam incl. the quiet-night and +1 flows.
 - [ ] **M3.3** (O) Onboarding + threads hub — post-register pick-your-shows
   + import CTA, `/threads` page (tonight / busiest this week), nav
   updates on desktop + bottom bar.
@@ -138,7 +140,57 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
-- 2026-07-08 · M3.1 follow-up 3 (out-of-band, Miguel's editorial-safety ask)
+- 2026-07-08 · M3.2 · "Tonight on Cour" — `home-view.tsx` rebuilt as server
+  shell + client islands (the access token never leaves the browser, so the
+  personal rows resolve client-side over one shared `useMyList("watching")`
+  query; SSR emits skeletons, no hydration risk). **New `lib/home.ts`** (pure,
+  10 unit tests): `myTonight` (tonight window ∩ watching, just-aired sorts
+  *first* — that room is live now), `nextUpLater` (beyond-24 h, deduped per
+  show), `continueWatching` (watchable cap = `next_airing_episode − 1` |
+  FINISHED count | NOT_YET_RELEASED 0, permissive on unknowns, recency sort —
+  demo's "Here U Are" is NOT_YET_RELEASED with progress 4, a seed quirk the
+  cap correctly excludes), `splitConversation` (undated titles ride the main
+  row — the revival label must be provable), `talkStatsByAnime` /
+  `roomStatsByEpisode` / `pulseStats`, `greetingFor`. **The page:** header
+  (h1 + client greeting + live pulse line "N comments in 48 h · M in rooms"),
+  *Your evening* — soonest episode as a **spotlight card** (cover-color stage
+  lighting via `--tint` + `color-mix` classes `.tint-card`/`.tint-glow` in
+  globals.css, 30 s-ticking `Countdown`, LIVE ping once aired, room
+  presence/comments, one 44 px CTA) + tinted rail tiles; *Live now* —
+  `buildRooms`/`LiveRooms` reused **verbatim** as M3.1-fu3 predicted (spec
+  §M3 item 2 amended: rooms, never comment snippets, per the
+  editorial-safety rule); *Continue watching* — per-show tinted cards,
+  radix Progress bar, `+1` fires `{status:"watching", progress: nextEp}`
+  with a `tapback-pop` on the count (progress-keyed span), "Discuss ep N";
+  *The season's conversation* — `ConversationGrid` = `AnimeCard` + talk-stat
+  line linking the show's hottest thread; *Back in the conversation* —
+  revival titles with mono season chips (Frieren Fall 2023 / AoT Spring 2013
+  / Demon Slayer Spring 2019 in demo); week strip + two `color-mix` explore
+  tiles (gems / full chart). `.home-ambient` = quieter landing wash. Empty
+  states split (spec item 1 amended): no list → picks + browse/import CTAs;
+  quiet night → the viewer's own next-up week (verified live: DIGIMON
+  "Sat · Ep 38 · in 2d 22h"). **Lint rules shaped the code:** react-hooks
+  purity bars `Date.now()`/`new Date()` in render (allowed in lazy
+  initializers/memos — `aired` is computed in the island's memo and passed
+  down) and `set-state-in-effect` killed the mounted-gate — `Greeting` uses
+  a `useSyncExternalStore` hydration gate instead. **JSX gotcha:** a space
+  before an em dash after an expression gets eaten (`{user…} — text` →
+  "sam— text"); explicit `{" — "}` string fixed it. Tests: **144** vitest /
+  20 files (+20: 10 lib, 6 your-evening incl. all four island states, 4
+  continue-watching incl. +1 payload + caught-up null), `task lint` clean.
+  **Verified live** at 375/812 + 1440/900 as sakuga_sam on this session's
+  own preview (previous session's `next dev` held the Next-16 workdir
+  lockfile — killed per M2.4 precedent; `.claude/launch.json` recreated,
+  autoPort): spotlight + rail (via a 2-row SQL scaffold on sam's list —
+  **deleted after**), +1 on Frieren 8→9 live then reverted by SQL — **a
+  progress upsert writes an `activities` row** (`type=progress`), deleted
+  (id > 689) so Trending stays clean, DB byte-identical to seeded state;
+  rooms rotation sampled (advances @5 s), quiet-night state, 0 console
+  errors (spotlight cover got `priority` — it's the LCP), no h-overflow,
+  44 px targets, section order sane on mobile. **Next (M3.3):** onboarding
+  (post-register pick-your-shows + import CTA) + `/threads` hub + nav
+  updates; the ledger row for M3.2 flipped to (F) — the design went
+  pattern-setting (tint system, spotlight) rather than pure execution.
   · Live panel: quotes → rooms. **The problem:** the hero ticker quoted raw
   comment bodies — an unmoderated hot take as the site's first impression.
   **The call:** show the *fact* of conversation, never its content. New
@@ -1177,9 +1229,16 @@ Server shell + client islands, top to bottom:
 1. **Your evening** — episodes airing in the next 24 h from the viewer's
    *watching* list, each with countdown and thread link + live count
    ("ep 9 thread · 14 in there"). Composable client-side from the existing
-   `/schedule` + list data. Empty state: seasonal picks.
-2. **Live now** — busiest threads (M2 velocity + presence), latest comment
-   snippet ticking in.
+   `/schedule` + list data. *(Amended in M3.2:)* the soonest episode gets a
+   cover-color **spotlight card** (live countdown, room presence, one CTA);
+   empty states split — no list at all → seasonal picks + pick/import CTAs,
+   list-but-quiet-night → the viewer's *own* next-up episodes from the
+   7-day schedule (truer to "your evening" than generic picks).
+2. **Live now** — busiest threads (M2 velocity + presence). *(Amended in
+   M3.2:)* rooms, never comment snippets — the M3.1 editorial-safety rule
+   (show the fact of conversation, not its content) applies to every
+   assembled surface; reuses the landing's `buildRooms`/`LiveRooms` panel
+   verbatim.
 3. **Continue watching** — next unwatched episode per show, inline `+1`,
    "discuss ep N" link.
 4. **The season's conversation** — existing trending, reframed with

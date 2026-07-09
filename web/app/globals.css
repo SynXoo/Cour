@@ -291,6 +291,58 @@
     );
 }
 
+/* ── Tonight on Cour (signed-in home) ───────────────────────────────────────
+   A quieter cousin of the landing ambience: one violet wash behind the
+   header/evening block that fades out by ~48rem, plus a faint off-axis glow
+   further down. The home is a nightly tool, not a pitch — the tint should
+   read as stage lighting, never wallpaper. */
+.home-ambient {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 8%, transparent),
+      color-mix(in oklab, var(--primary) 5%, transparent) 22rem,
+      transparent 48rem
+    ),
+    radial-gradient(
+      48rem 32rem at 92% 60rem,
+      color-mix(in oklab, var(--primary) 6%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      52rem 36rem at -8% 110rem,
+      color-mix(in oklab, var(--primary) 5%, transparent),
+      transparent 72%
+    );
+}
+
+/* Cards tinted by the show's dominant cover color (--tint, from AniList's
+   coverImage.color). The mix ratios keep any hex readable on both themes:
+   a whisper of the color in the surface, a stronger dose on the border, so
+   a row of shows reads as a row of *different* shows. */
+.tint-card {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--tint, var(--primary)) 16%, var(--card)),
+      var(--card) 65%
+    );
+  border-color: color-mix(in oklab, var(--tint, var(--primary)) 32%, var(--border));
+}
+.tint-card:hover {
+  border-color: color-mix(in oklab, var(--tint, var(--primary)) 55%, var(--border));
+}
+
+/* The spotlight's backstage glow — a soft radial of the cover color behind
+   the art, so tonight's headliner casts light on the page. */
+.tint-glow {
+  background: radial-gradient(
+    24rem 16rem at 18% 50%,
+    color-mix(in oklab, var(--tint, var(--primary)) 28%, transparent),
+    transparent 70%
+  );
+}
+
 /* ── Thread conversation layer ──────────────────────────────────────────────
    The pieces that make a thread feel like a chat rather than a table: per-user
    avatar tints, the jump-to-parent flash, tapback-style reaction pops, and the
