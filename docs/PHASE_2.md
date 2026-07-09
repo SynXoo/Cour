@@ -126,10 +126,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   seeds the watching list, skippable) + import CTA, `/threads` hub (opening
   tonight + busiest this week), Threads in the desktop header nav and the
   mobile Menu sheet. (Verified live 375/1440, anon + authed; no demo-DB writes.)
-- [ ] **M3.4** (F) Thread texture — timestamp-density strip (mini episode
-  timeline; clusters jump the list via `jumpToComment`), richer empty
-  state (countdown/presence instead of "No comments yet"), live-window
-  LIVE badge + velocity in the thread header. Spec in §M3.
+- [x] **M3.4** (F) Thread texture — timestamp-density strip (40-bucket
+  waveform + cluster-region buttons jumping the list via `jumpToComment`),
+  dressed empty state (ticking airing countdown / presence / be-first
+  nudge), SSR LIVE pill in the episode header + comments-per-minute
+  velocity in the thread vitals within 24 h of airing. (Verified live
+  375/1440 against a SQL scaffold; demo DB restored.)
 - [ ] **M3.5** (F) Profile revamp — banner + accent color from the owner's
   favorites, elevated bio, interactive stats (score histogram, watch time,
   clickable genre bars), public library tabs (watching/completed/dropped/…
@@ -147,6 +149,53 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-09 · M3.4 · Thread texture. **New pure `lib/thread-texture.ts`:**
+  `commentDensity` — non-deleted `12:34`-anchored comments bucketed into 40
+  bars over an axis of 0:00→last stamp (runtime isn't in the payload; the
+  discussion's own extent is the honest axis), adjacent busy buckets merged
+  into clusters (earliest comment = jump target; the peak bucket's *real*
+  stamp = the "around 12:34" label); `threadVelocity` — live comments/min
+  over a 15-min window from the loaded pages, **span-shortened when
+  `truncated` and even the oldest loaded comment is in-window** (a blazing
+  newest-page-only thread would otherwise undercount), null under 3 (noise
+  floor); `velocityLabel` (decimal < 10, rounded above); `withinLiveWindow`
+  (aired ≤ 24 h — **clock read defaults inside the helper**;
+  react-hooks/purity flags `Date.now()` in RSC render too, the isUpcoming
+  pattern). **Strip (`timestamp-density.tsx`):** 40-bar waveform (height +
+  opacity encode density; `density-grow` mount ripple via `--i` delay, off
+  under reduced-motion) with **transparent cluster-region buttons overlaid**
+  — thin bars can't be touch targets, cluster regions can (`max(w%, 1.75rem)`
+  wide, full 48 px strip height); click = `jumpToComment(firstId)` + flash;
+  self-hides with nothing stamped, `allowTimestamps` keeps it off series
+  boards; sits above the composer. **Empty state:** the dashed "No comments
+  yet — first!" → dressed room: upcoming eps get a ticking mono "Airs in
+  1h 57m" (30 s cadence, flips to "Airing now") + "call it now, gloat later";
+  aired rooms get "Quiet in here so far — the first comment sets the tone.";
+  presence ≥ 2 adds a pulsing "N in the room right now". ThreadView grew
+  `airingAt`/`upcoming`/`live` props (episode page passes them, series board
+  defaults false). **Live-window header (spec amended in place):** SSR LIVE
+  pill next to the header airing line; velocity chip in the thread vitals row
+  beside presence — the split is deliberate, the client data lives there.
+  Tests: **187** vitest / 27 files (+22: 14 lib incl. bucket/cluster/
+  span-shortening/clock-skew, 3 strip incl. jump wiring, 5 thread-view:
+  countdown room, presence room, velocity in/out of window, strip-jump-flash
+  E2E-ish, no strip on series; the old empty-state sentinel swapped for the
+  quiet-room copy). Go unit + `task lint` clean; **no `task gen`** (web-only).
+  **Verified live** 375/1440 anon on this session's preview (no leftover dev
+  server this time) against a 16-comment SQL scaffold on Dogul Wang ep-1
+  (thread 240, aired 15 h ago): 4 clusters ("3 around 1:10" … "4 around
+  18:40") matched the bucket math, cluster click scrolled to "THE CUT AT
+  8:05" + flash, LIVE pill up, 0.4/min (6 recent comments), night-of chips
+  riding along; PetitCure ep-16 (in ~2 h): ticking countdown + "2 in the
+  room right now" via a second SSE connection; a 30 h-old ep + the series
+  board: quiet-room copy, no LIVE/strip/velocity; reduced-motion override
+  confirmed in the served CSS; 0 console errors, no h-overflow. **Scaffold
+  deleted after** — comments back to max id 53, thread-240 counters reset,
+  activities untouched at 689 (SQL inserts, no API posts — the M2.6 lesson);
+  empty thread shells 240/216/(152 ep 27) left, harmless per precedent.
+  **Next (M3.5):** profile revamp — full spec in §M3.5, **spec-first** (small
+  API/schema deltas: `banner_anime_id` migration, histogram/watch-minutes
+  stats, public `GET /users/{username}/list` → `task gen`).
 - 2026-07-09 · M3.3 follow-up (Miguel's ask) · Onboarding for non-seasonal /
   returning fans. **The gap:** the picker only offered the current-season chart
   + a bare "Skip" — nothing for a long-term fan signing up between seasons who
@@ -1433,13 +1482,20 @@ M2.2/M2.3 make it *behave* alive; this makes it *look* alive:
   collected, and the one genuinely novel visual in this space — nobody
   else has progress-timestamped episode discussion. Hidden when a thread
   has no timestamped comments; honors `prefers-reduced-motion`.
+  *(Built: axis spans 0:00→last stamp — episode runtime isn't in the
+  thread payload, so the discussion's own extent is the honest axis;
+  bars are decorative, transparent cluster-region buttons carry the
+  semantics and the touch targets.)*
 - **Empty state** — replace "No comments yet — first!" with something
   alive: airing countdown for upcoming episodes, presence count when
   anyone's in the room, a be-first nudge. Dead air is the enemy.
 - **Live-window header** — within ~24 h of `airing_at`, the thread header
   gets a LIVE badge + M2.3's velocity ("N/min"). The M2.3 stretch
   night-of badge marks *comments* in the permanent record; this marks
-  the *room* while the ritual is happening.
+  the *room* while the ritual is happening. *(Built as a split: the LIVE
+  pill renders SSR in the page header next to the airing line; velocity —
+  computed client-side from the loaded comments, no new endpoint — sits
+  in the thread vitals row beside presence, where the live data lives.)*
 
 ### Profile revamp (M3.5)
 

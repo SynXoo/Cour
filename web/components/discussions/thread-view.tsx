@@ -9,9 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { untilLabel } from "@/lib/anime";
 import { browserApi } from "@/lib/api/client";
 import { useSession } from "@/lib/auth/session";
 import { useThreadEvents } from "@/lib/hooks/use-thread-events";
+import { threadVelocity, velocityLabel } from "@/lib/thread-texture";
 import { formatTimestamp, parseTimestamp } from "@/lib/timestamp";
 import {
   CommentItem,
@@ -22,6 +24,7 @@ import {
   SpoilerShieldContext,
   type Comment,
 } from "./comment-item";
+import { TimestampDensity } from "./timestamp-density";
 
 type Sort = "newest" | "oldest" | "top" | "timeline";
 
@@ -34,9 +37,18 @@ const SORT_LABELS: Record<Exclude<Sort, "timeline">, string> = {
 export function ThreadView({
   threadId,
   allowTimestamps,
+  airingAt = null,
+  upcoming = false,
+  live = false,
 }: {
   threadId: number;
   allowTimestamps: boolean;
+  /** Episode airing time, for the empty room's countdown (episode threads only). */
+  airingAt?: string | null;
+  /** Server-computed flags (react-hooks/purity bars Date.now() in render). */
+  upcoming?: boolean;
+  /** Within ~24 h of airing — the ritual window; shows the velocity vitals. */
+  live?: boolean;
 }) {
   const { status, user } = useSession();
   const qc = useQueryClient();
@@ -175,6 +187,8 @@ export function ThreadView({
 
   return (
     <div className="space-y-4">
+      {allowTimestamps && <TimestampDensity comments={comments} />}
+
       {status === "authed" ? (
         <Composer
           threadId={threadId}
@@ -216,15 +230,18 @@ export function ThreadView({
             </Button>
           )}
         </div>
-        {presence >= 2 && (
-          <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
-            <span className="relative flex h-2 w-2" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+        <div className="flex shrink-0 items-center gap-3">
+          {live && <VelocityChip comments={comments} truncated={hasNextPage === true} />}
+          {presence >= 2 && (
+            <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+              <span className="relative flex h-2 w-2" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              {presence} here now
             </span>
-            {presence} here now
-          </span>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Honest scope note: with older pages unloaded, every sort — Top and
@@ -246,9 +263,7 @@ export function ThreadView({
               <Skeleton className="h-20 rounded-lg" />
             </div>
           ) : comments.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-              No comments yet — first!
-            </p>
+            <EmptyRoom upcoming={upcoming} airingAt={airingAt} presence={presence} />
           ) : timeline ? (
             <ul className="divide-y divide-border/60">
               {timeline.map((c) => (
@@ -298,6 +313,88 @@ export function ThreadView({
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * The dressed empty state (M3.4): dead air is the enemy, so an empty room
+ * shows what's alive about it — a ticking countdown when the episode hasn't
+ * aired, who's in the room right now, and a be-first nudge.
+ */
+function EmptyRoom({
+  upcoming,
+  airingAt,
+  presence,
+}: {
+  upcoming: boolean;
+  airingAt: string | null;
+  presence: number;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 bg-card/50 px-4 py-10 text-center">
+      {upcoming && airingAt ? (
+        <>
+          <AiringCountdown iso={airingAt} />
+          <p className="text-sm text-muted-foreground">
+            The room&apos;s open early — call it now, gloat later.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Quiet in here so far — the first comment sets the tone.
+        </p>
+      )}
+      {presence >= 2 && (
+        <p className="flex items-center justify-center gap-1.5 font-mono text-xs text-primary">
+          <span className="relative flex h-2 w-2" aria-hidden>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+          </span>
+          {presence} in the room right now
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Airs in 1h 24m", re-rendered every 30 s (the home Countdown's cadence).
+ * Information, not decoration — it keeps ticking under prefers-reduced-motion.
+ */
+function AiringCountdown({ iso }: { iso: string }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const label = untilLabel(iso, now);
+  return (
+    <p className="font-mono text-xl font-semibold tracking-tight">
+      <time dateTime={iso}>{label === "airing now" ? "Airing now" : `Airs ${label}`}</time>
+    </p>
+  );
+}
+
+/**
+ * Comments per minute over the last 15 minutes, from the loaded comments.
+ * Mounted only inside the live window; hides itself while the room isn't
+ * really moving. The 30 s tick keeps the rate decaying while you linger.
+ */
+function VelocityChip({ comments, truncated }: { comments: Comment[]; truncated: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const rate = threadVelocity(comments, now, { truncated });
+  if (rate == null) return null;
+  return (
+    <span
+      title="Comments per minute over the last 15 minutes"
+      className="font-mono text-xs text-primary"
+    >
+      {velocityLabel(rate)}
+    </span>
   );
 }
 

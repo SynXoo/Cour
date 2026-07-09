@@ -1,8 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Comment } from "@/lib/hooks/use-thread-events";
 import { ThreadView } from "./thread-view";
+
+/** The empty room's be-first nudge — the "thread finished loading" sentinel. */
+const EMPTY_ROOM = /Quiet in here so far/;
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -60,11 +64,11 @@ function comment(id: number, body: string): Comment {
   };
 }
 
-function renderThread() {
+function renderThread(props: Partial<ComponentProps<typeof ThreadView>> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ThreadView threadId={7} allowTimestamps />
+      <ThreadView threadId={7} allowTimestamps {...props} />
     </QueryClientProvider>,
   );
   return FakeEventSource.instances.at(-1)!;
@@ -93,7 +97,7 @@ describe("ThreadView live layer", () => {
 
   it("shows the presence badge only at two or more readers", async () => {
     const es = renderThread();
-    await screen.findByText("No comments yet — first!");
+    await screen.findByText(EMPTY_ROOM);
 
     expect(screen.queryByText(/here now/)).not.toBeInTheDocument();
 
@@ -106,7 +110,7 @@ describe("ThreadView live layer", () => {
 
   it("appends a live comment and surfaces the 'N new' pill while scrolled up", async () => {
     const es = renderThread();
-    await screen.findByText("No comments yet — first!");
+    await screen.findByText(EMPTY_ROOM);
 
     act(() => es.emit("comment.created", comment(1, "streamed in")));
     expect(await screen.findByText("streamed in")).toBeInTheDocument();
@@ -118,7 +122,7 @@ describe("ThreadView live layer", () => {
 
   it("marks live comments so they play the slide-in animation", async () => {
     const es = renderThread();
-    await screen.findByText("No comments yet — first!");
+    await screen.findByText(EMPTY_ROOM);
 
     act(() => es.emit("comment.created", comment(1, "fresh")));
     const li = (await screen.findByText("fresh")).closest("li");
@@ -242,6 +246,87 @@ describe("ThreadView live layer", () => {
     // The orphan is promoted to a display root instead of vanishing, and marked.
     expect(await screen.findByText("orphan reply")).toBeInTheDocument();
     expect(screen.getByText("earlier comment")).toBeInTheDocument();
+  });
+
+  it("dresses an upcoming episode's empty room with a ticking countdown", async () => {
+    const airingAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    renderThread({ upcoming: true, airingAt });
+
+    expect(await screen.findByText(/^Airs in/)).toBeInTheDocument();
+    expect(screen.getByText(/open early/)).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_ROOM)).not.toBeInTheDocument();
+  });
+
+  it("shows who's in the empty room", async () => {
+    const es = renderThread();
+    await screen.findByText(EMPTY_ROOM);
+
+    act(() => es.emit("presence", { count: 3 }));
+    expect(await screen.findByText("3 in the room right now")).toBeInTheDocument();
+  });
+
+  it("shows comment velocity in the live window only", async () => {
+    const recent = (id: number, minutesAgo: number) => ({
+      ...comment(id, `speed ${id}`),
+      created_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+    });
+    apiGet.mockResolvedValue({
+      data: { data: [recent(3, 1), recent(2, 2), recent(1, 5)] },
+      error: undefined,
+    });
+
+    renderThread({ live: true });
+    // 3 comments in the 15-minute window → 0.2/min.
+    expect(await screen.findByText("0.2/min")).toBeInTheDocument();
+  });
+
+  it("keeps the velocity chip out of threads past their live window", async () => {
+    const recent = (id: number) => ({
+      ...comment(id, `speed ${id}`),
+      created_at: new Date(Date.now() - id * 60_000).toISOString(),
+    });
+    apiGet.mockResolvedValue({
+      data: { data: [recent(3), recent(2), recent(1)] },
+      error: undefined,
+    });
+
+    renderThread();
+    await screen.findByText("speed 1");
+    expect(screen.queryByText(/\/min/)).not.toBeInTheDocument();
+  });
+
+  it("renders the density strip for timestamped threads, jumping on cluster click", async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        data: [
+          { ...comment(2, "late scene"), timestamp_seconds: 700 },
+          { ...comment(1, "cold open"), timestamp_seconds: 15 },
+        ],
+      },
+      error: undefined,
+    });
+
+    renderThread();
+    const strip = await screen.findByRole("region", { name: /where the discussion lands/i });
+    expect(strip).toHaveTextContent("2 anchored comments");
+    expect(strip).toHaveTextContent("11:40"); // 700 s — the axis' right edge
+
+    fireEvent.click(screen.getByRole("button", { name: /jump to 1 comment around 0:15/i }));
+    // jumpToComment scrolls after a double rAF; the flash lands on the li.
+    await waitFor(() =>
+      expect(document.getElementById("comment-1")?.classList.contains("comment-flash")).toBe(true),
+    );
+  });
+
+  it("keeps the strip off series boards (no timestamps there)", async () => {
+    apiGet.mockResolvedValue({
+      data: { data: [{ ...comment(1, "series talk"), timestamp_seconds: 60 }] },
+      error: undefined,
+    });
+
+    renderThread({ allowTimestamps: false });
+    await screen.findByText("series talk");
+    expect(screen.queryByRole("region", { name: /where the discussion lands/i })).not.toBeInTheDocument();
   });
 
   it("closes the stream on unmount", async () => {

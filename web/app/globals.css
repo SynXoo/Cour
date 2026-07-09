@@ -440,12 +440,29 @@ details[open] .picker-item {
   animation: reply-chip-in 180ms ease-out both;
 }
 
+/* Timestamp-density strip (M3.4): the waveform's bars grow in on mount with a
+   slight left-to-right ripple (--i is the bucket index). */
+@keyframes density-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.density-bar {
+  transform-origin: bottom;
+  animation: density-grow 420ms ease-out both;
+  animation-delay: calc(var(--i) * 6ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .comment-flash,
   .tapback-pop,
   .tapback-burst,
   details[open] .picker-item,
-  .reply-chip {
+  .reply-chip,
+  .density-bar {
     animation: none;
   }
   .tapback-burst {

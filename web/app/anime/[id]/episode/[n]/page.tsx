@@ -8,6 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { airDateLabel, animeHref, displayTitle, isUpcoming, untilLabel } from "@/lib/anime";
+import { withinLiveWindow } from "@/lib/thread-texture";
 
 type EpisodeThread = components["schemas"]["EpisodeThread"];
 type Params = { id: string; n: string };
@@ -44,6 +45,10 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
 
   const { anime, episode, thread } = data;
   const upcoming = isUpcoming(episode.airing_at);
+  // The ritual window (M3.4): aired within ~24 h — the header marks the room
+  // as LIVE and the thread vitals show velocity. Server clock; the page is
+  // uncached (no-store fetch above), so it's current per request.
+  const live = withinLiveWindow(episode.airing_at);
   const prev = episode.number > 1 ? episode.number - 1 : null;
   const next =
     anime.episodes_count == null || episode.number < anime.episodes_count
@@ -71,10 +76,21 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
               {episode.title ? ` — ${episode.title}` : ""}
             </h1>
             {episode.airing_at && (
-              <p className="font-mono text-xs text-muted-foreground">
-                {upcoming
-                  ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
-                  : `Aired ${airDateLabel(episode.airing_at)}`}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs text-muted-foreground">
+                {live && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-primary">
+                    <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                    </span>
+                    LIVE
+                  </span>
+                )}
+                <span>
+                  {upcoming
+                    ? `Airs ${untilLabel(episode.airing_at)} · ${airDateLabel(episode.airing_at)}`
+                    : `Aired ${airDateLabel(episode.airing_at)}`}
+                </span>
               </p>
             )}
           </div>
@@ -117,7 +133,13 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
         // speculation banner owns those).
         aired={!upcoming}
       >
-        <ThreadView threadId={thread.id} allowTimestamps />
+        <ThreadView
+          threadId={thread.id}
+          allowTimestamps
+          airingAt={episode.airing_at ?? null}
+          upcoming={upcoming}
+          live={live}
+        />
       </EpisodeSpoilerShield>
 
       <p className="text-xs text-muted-foreground">
