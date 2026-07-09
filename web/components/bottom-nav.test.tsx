@@ -42,10 +42,11 @@ describe("BottomNav", () => {
     const user = userEvent.setup();
     render(<BottomNav />);
     await user.click(screen.getByRole("button", { name: "Menu" }));
-    expect(await screen.findByRole("link", { name: "Schedule" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Threads" })).toHaveAttribute(
       "href",
-      "/schedule",
+      "/threads",
     );
+    expect(screen.getByRole("link", { name: "Schedule" })).toHaveAttribute("href", "/schedule");
     expect(screen.getByRole("link", { name: "Trending" })).toHaveAttribute("href", "/trending");
     expect(screen.getByRole("link", { name: "Hidden Gems" })).toHaveAttribute(
       "href",

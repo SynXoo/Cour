@@ -3,6 +3,7 @@
 import {
   CalendarBlankIcon,
   CalendarDotsIcon,
+  ChatsCircleIcon,
   HouseIcon,
   type Icon,
   ListChecksIcon,
@@ -41,6 +42,7 @@ const tabs: { href: string; label: string; icon: Icon; exact?: boolean }[] = [
 ];
 
 const browseLinks: { href: string; label: string; icon: Icon }[] = [
+  { href: "/threads", label: "Threads", icon: ChatsCircleIcon },
   { href: "/schedule", label: "Schedule", icon: CalendarBlankIcon },
   { href: "/trending", label: "Trending", icon: TrendUpIcon },
   { href: "/hidden-gems", label: "Hidden Gems", icon: SparkleIcon },

@@ -4,6 +4,7 @@ import { NotificationBell } from "@/components/notifications/bell";
 
 const nav = [
   { href: "/seasonal", label: "Seasonal" },
+  { href: "/threads", label: "Threads" },
   { href: "/schedule", label: "Schedule" },
   { href: "/trending", label: "Trending" },
   { href: "/hidden-gems", label: "Hidden Gems" },

@@ -121,9 +121,11 @@ Miguel + Fable walked the live site; diagnosis and specs in
   **"Back in the conversation" row** (trending titles not from the current
   season — the viral-revival story told explicitly; see §M3). Verified live
   375/1440 as sakuga_sam incl. the quiet-night and +1 flows.
-- [ ] **M3.3** (O) Onboarding + threads hub — post-register pick-your-shows
-  + import CTA, `/threads` page (tonight / busiest this week), nav
-  updates on desktop + bottom bar.
+- [x] **M3.3** (O) Onboarding + threads hub — post-register `/welcome`
+  pick-your-shows grid (seeds the watching list, skippable) + import CTA,
+  `/threads` hub (opening tonight + busiest this week), Threads in the
+  desktop header nav and the mobile Menu sheet. (Verified live 375/1440,
+  anon + authed; no demo-DB writes.)
 - [ ] **M3.4** (F) Thread texture — timestamp-density strip (mini episode
   timeline; clusters jump the list via `jumpToComment`), richer empty
   state (countdown/presence instead of "No comments yet"), live-window
@@ -145,6 +147,55 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-09 · M3.3 · Onboarding + threads hub. **Onboarding
+  (`app/welcome/`):** register now routes to `/welcome` instead of `/`
+  (`register-form.tsx`); the server shell fetches the current-season chart,
+  sorts by popularity, caps 60, and hands it to `<Onboarding>` — a client
+  picker where each poster is an `aria-pressed` toggle (local `Set<number>`),
+  a sticky action bar shows the live count + Skip/Add, and "Add N & finish"
+  runs one `Promise.allSettled` of per-entry `PUT /me/list/{id}
+  {status:"watching"}` writes, then toasts the real success count and
+  `router.push("/")`. **Deliberately the normal per-entry path, not the
+  M1 activity-bypass:** a handful of genuine "I'm watching this" picks *should*
+  write `status` activities — the zero-activity rule is about bulk imports of
+  arbitrary size, not manual onboarding. Skip/anon both leave cleanly (anon →
+  sign-in prompt; page is `robots:noindex`). Discord OAuth still lands on `/`
+  (backend-controlled redirect, left alone). **Threads hub (`app/threads/`):**
+  server shell over `/schedule` + `/threads/trending?limit=20`. New pure
+  `lib/threads-hub.ts` `tonightRooms` (tonight window ∩ schedule, soonest-first,
+  enriched with presence/comments from `roomStatsByEpisode` when the episode
+  thread is already trending) feeds `<TonightRail>` — a client island only
+  because the countdowns tick (a just-aired room flips to a pulsing LIVE badge;
+  `aired` frozen at mount via lazy `useState(()=>Date.now())`, the
+  purity-safe clock read — `Date.now()` inside a `useMemo` factory *is* flagged
+  by react-hooks/purity, unlike the state-initializer/`new Date()`-in-memo
+  cases, so don't reach for useMemo there). "Busiest this week" reuses the
+  landing's `buildRooms` verbatim, rendered as a static server grid (rooms,
+  never quotes — same editorial rule). Both grids 1/2/3-col; honest empty
+  states each. **Nav:** Threads added to `site-header` nav (after Seasonal) and
+  as the *first* browse link in `bottom-nav`'s Menu sheet (`ChatsCircleIcon`).
+  Kept the 4-tab thumb bar intact — promoting Threads to a thumb slot displaces
+  a deliberate destination; parked as a possible follow-up. **Server-component
+  icon gotcha:** import phosphor from `@phosphor-icons/react/dist/ssr` in RSCs
+  (`ChatsCircleIcon` is there) — the main entry is `"use client"`. Tests: **163**
+  vitest / 25 files (+10: 3 `threads-hub` incl. window/sort/stat-enrichment,
+  3 `TonightRail` incl. LIVE-vs-upcoming + hot/quiet copy, 4 `Onboarding` incl.
+  toggle-count, per-pick PUT payloads, skip-writes-nothing, anon prompt;
+  bottom-nav test asserts Threads in the menu). `task lint` (eslint + tsc)
+  clean; **no `task gen`** — web-only, no openapi/schema touch. **Verified
+  live** on this session's own `next dev` (a leftover next-dev from a prior
+  session held the Next-16 workdir lock — killed per the M2.4/M3.2 precedent
+  before `preview_start`; compose web on :3000 is a stale image, use the native
+  preview) at 375 + 1440, anon and as sakuga_sam (fetch-login per the
+  react-hook-form note): `/threads` both sections render (Frieren series/ep-10
+  rooms + a 5-comment tonight room cross-referenced), 3-col desktop / 1-col
+  mobile, no h-overflow, 0 console errors; header + Menu-sheet Threads links
+  resolve; `/welcome` picker renders 60 tiles, toggle → "2 picked" /
+  "Add 2 & finish", sticky bar clears the tab bar, import CTA → /settings/import.
+  **No demo-DB writes** — verified the picker toggles (local state) but never
+  submitted the add. **Next (M3.4):** thread texture — timestamp-density strip,
+  richer empty state, live-window LIVE badge + velocity in the thread header
+  (spec §"Thread texture (M3.4)").
 - 2026-07-08 · M3.2 follow-up (out-of-band, Miguel's asks) · Evening
   timeline + quiet-night recs + M3.5 spec'd. **(1) Physical timeline**
   (`app/home/evening-timeline.tsx`, `lg`+ only — under `lg` the rail cards

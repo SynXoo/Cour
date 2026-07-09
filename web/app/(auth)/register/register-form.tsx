@@ -44,7 +44,8 @@ export function RegisterForm() {
     try {
       const user = await signUp(values.email, values.username, values.password);
       toast.success(`Welcome to Cour, ${user.username}! Check your email to verify your address.`);
-      router.push("/");
+      // Straight into onboarding (§M3.3) — pick shows so home isn't empty.
+      router.push("/welcome");
       router.refresh();
     } catch (err) {
       if (err instanceof AuthError) {
