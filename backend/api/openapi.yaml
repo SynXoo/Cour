@@ -284,10 +284,47 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /users/{username}/list:
+    get:
+      operationId: getUserPublicList
+      summary: One page of a user's list, publicly browsable
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/ListStatus" }
+        - name: score
+          in: query
+          description: Only entries rated exactly this (the histogram filter)
+          schema: { type: integer, minimum: 1, maximum: 10 }
+        - name: genre
+          in: query
+          schema: { type: string, maxLength: 30 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [updated, score, title], default: updated }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 50 }
+      responses:
+        "200":
+          description: Entries with their anime, plus the filtered total
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserList" }
+        default:
+          $ref: "#/components/responses/Error"
+
   /me/profile:
     patch:
       operationId: updateMyProfile
-      summary: Edit bio, avatar, and favorite genres
+      summary: Edit bio, avatar, favorite genres, and profile banner
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1212,8 +1249,8 @@ components:
     UserProfile:
       type: object
       required:
-        [username, avatar_url, bio, favorite_genres, role, created_at, stats,
-         favorites, currently_watching]
+        [username, avatar_url, bio, favorite_genres, role, created_at, banner,
+         stats, favorites, currently_watching]
       properties:
         username: { type: string }
         avatar_url: { type: string, nullable: true }
@@ -1223,6 +1260,10 @@ components:
           items: { type: string }
         role: { $ref: "#/components/schemas/Role" }
         created_at: { type: string, format: date-time }
+        banner:
+          nullable: true
+          description: The owner's chosen banner anime, resolved; null when unset
+          allOf: [{ $ref: "#/components/schemas/ProfileBanner" }]
         stats: { $ref: "#/components/schemas/ProfileStats" }
         favorites:
           type: array
@@ -1231,9 +1272,19 @@ components:
           type: array
           items: { $ref: "#/components/schemas/WatchingEntry" }
 
+    ProfileBanner:
+      type: object
+      required: [anime_id, banner_image, cover_color]
+      properties:
+        anime_id: { type: integer, format: int64 }
+        banner_image: { type: string, nullable: true }
+        cover_color: { type: string, nullable: true, description: Dominant cover color, hex }
+
     ProfileStats:
       type: object
-      required: [counts, mean_score, rated_count, episodes_watched, genres]
+      required:
+        [counts, mean_score, rated_count, episodes_watched, watch_minutes,
+         score_histogram, genres]
       properties:
         counts:
           type: object
@@ -1250,6 +1301,19 @@ components:
           description: Mean of 1-10 scores; null until something is rated
         rated_count: { type: integer }
         episodes_watched: { type: integer }
+        watch_minutes:
+          type: integer
+          format: int64
+          description: Σ progress × episode duration; 0 when nothing watched
+        score_histogram:
+          type: array
+          description: All ten 1-10 buckets, ascending; zero counts included
+          items:
+            type: object
+            required: [score, count]
+            properties:
+              score: { type: integer }
+              count: { type: integer }
         genres:
           type: array
           items:
@@ -1279,6 +1343,11 @@ components:
           type: array
           maxItems: 10
           items: { type: string, maxLength: 30 }
+        banner_anime_id:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Anime whose banner art heads the profile; 0 clears it, omitted keeps it
 
     ListStatus:
       type: string
@@ -1311,6 +1380,17 @@ components:
         data:
           type: array
           items: { $ref: "#/components/schemas/ListEntryWithAnime" }
+
+    UserList:
+      type: object
+      required: [data, total, page, per_page]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/ListEntryWithAnime" }
+        total: { type: integer, description: Entries matching the filters across all pages }
+        page: { type: integer }
+        per_page: { type: integer }
 
     UpsertListEntryRequest:
       type: object

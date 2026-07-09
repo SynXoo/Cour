@@ -343,6 +343,51 @@
   );
 }
 
+/* ── Profile accents (M3.5): a page colored by its owner's taste ──────────
+   --tint here is the profile owner's banner/top-favorite cover color; the
+   mixes keep any hex readable on both themes. .tint-ring is unlayered on
+   purpose — it must beat the ring utility's default color. */
+.tint-ink {
+  color: color-mix(in oklab, var(--tint, var(--primary)) 52%, var(--foreground));
+}
+.tint-fill {
+  background-color: color-mix(in oklab, var(--tint, var(--primary)) 64%, var(--muted-foreground));
+}
+.tint-ring {
+  --tw-ring-color: color-mix(in oklab, var(--tint, var(--primary)) 60%, var(--background));
+}
+/* Active library tab picks up the owner's accent. */
+.tint-tabs [data-state="active"] {
+  color: color-mix(in oklab, var(--tint, var(--primary)) 52%, var(--foreground));
+  box-shadow: inset 0 -2px 0 0 color-mix(in oklab, var(--tint, var(--primary)) 55%, var(--border));
+}
+
+/* The banner art melts into the page instead of hiding behind painted
+   washes (the hero-wall-mask idea, profile-shaped): solid where the art
+   lives, dissolving at the bottom edge and the sides. */
+.profile-banner-mask {
+  mask-image:
+    linear-gradient(to bottom, black 45%, transparent 99%),
+    linear-gradient(to right, transparent, black 7%, black 93%, transparent);
+  mask-composite: intersect;
+}
+
+/* Zero-media profiles still get a dressed hero: the ambient violet, tinted
+   if a favorite ever supplies a color. */
+.profile-ambient {
+  background:
+    radial-gradient(
+      42rem 20rem at 18% 0%,
+      color-mix(in oklab, var(--tint, var(--primary)) 20%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      36rem 18rem at 88% 30%,
+      color-mix(in oklab, var(--primary) 11%, transparent),
+      transparent 72%
+    );
+}
+
 /* ── Thread conversation layer ──────────────────────────────────────────────
    The pieces that make a thread feel like a chat rather than a table: per-user
    avatar tints, the jump-to-parent flash, tapback-style reaction pops, and the
@@ -456,13 +501,33 @@ details[open] .picker-item {
   animation-delay: calc(var(--i) * 6ms);
 }
 
+/* Profile stats animate in once on mount: histogram bars rise, genre bars
+   sweep. Same scaleY trick as the density strip, statelier pace. */
+.stat-bar {
+  transform-origin: bottom;
+  animation: density-grow 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i) * 45ms);
+}
+@keyframes genre-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.genre-fill {
+  transform-origin: left;
+  animation: genre-grow 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i) * 55ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .comment-flash,
   .tapback-pop,
   .tapback-burst,
   details[open] .picker-item,
   .reply-chip,
-  .density-bar {
+  .density-bar,
+  .stat-bar,
+  .genre-fill {
     animation: none;
   }
   .tapback-burst {

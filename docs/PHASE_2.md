@@ -132,11 +132,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   nudge), SSR LIVE pill in the episode header + comments-per-minute
   velocity in the thread vitals within 24 h of airing. (Verified live
   375/1440 against a SQL scaffold; demo DB restored.)
-- [ ] **M3.5** (F) Profile revamp — banner + accent color from the owner's
+- [x] **M3.5** (F) Profile revamp — banner + accent color from the owner's
   favorites, elevated bio, interactive stats (score histogram, watch time,
   clickable genre bars), public library tabs (watching/completed/dropped/…
   as a browsable poster wall), dressed empty states. Spec in §M3.5;
-  needs small API/schema deltas (spec-first).
+  needs small API/schema deltas (spec-first). (Verified live 375/1440 as
+  owner + visitor + fresh zero-list account; demo DB restored after.)
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -149,6 +150,81 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-07-09 · M3.5 · Profile revamp. **Spec-first backend:** migration
+  000016 `users.banner_anime_id` (FK `ON DELETE SET NULL`); `PATCH
+  /me/profile` takes `banner_anime_id` with the score-field convention (**0
+  clears, omitted keeps** — spec §M3.5 amended: it was never PUT, and
+  oapi-codegen pointers can't tell null from absent), unknown anime → 422;
+  `UserProfile` gains resolved `banner {anime_id, banner_image,
+  cover_color}|null`; `ProfileStats` gains `watch_minutes` (Σ progress ×
+  `COALESCE(duration_min,0)` — an honest floor) + `score_histogram`
+  zero-filled to all 10 buckets server-side; **profile cache key v1→v2**
+  (shape change — stale JSON must miss). New public `GET
+  /users/{username}/list` — offset pages of ≤50 with `total` via `COUNT(*)
+  OVER()`, sorts updated/score(`DESC NULLS LAST`)/title(`lower(coalesce(
+  title_english, title_romaji))`), plus **score+genre filter params beyond
+  the sketch** so histogram/genre clicks stay honest across pages
+  (uncached; keyset not needed at list scale). `toListEntryWithAnime`
+  extracted (GetMyList now shares it). Tests: 2 new integration (histogram/
+  watch-minutes/banner-lifecycle incl. cache-bust assert via re-GET;
+  pagination walk asserting pages tile exactly + both filters + 404), all
+  green. **One flake struck**: `TestMALImportZeroActivity` — near-equal
+  trending scores swapped rank between recomputes; passed isolated + full
+  rerun; unrelated to this diff → **parked "trending tie-break is
+  nondeterministic"** with the one-line fix. **Web:** `page.tsx` is now a
+  thin server shell → `ProfileView` client root (ThreadView pattern — the
+  banner pick must repaint hero+accent instantly and stat clicks must land
+  in the library, so one tree owns `--tint`, banner state, and the filter).
+  Hero: full-bleed masked banner art (`profile-banner-mask` — mask-image
+  melts, not painted washes; anime-detail's `-mx-4` bleed pattern) →
+  fallback **static tilted poster-wall strip** (favorites∪watching, ≥4
+  covers, first 6 `priority` — it's the LCP, warning was live) → ambient
+  violet; avatar rides the band edge with a **tint ring** (`.tint-ring`
+  unlayered to beat the utility). New `lib/profile.ts` (pure):
+  `formatWatchTime`, `profileTint` (banner color → first favorite with
+  one), `fallbackWallCovers`, `libraryTotal`, `nextListPage`.
+  `ScoreHistogram` (bars rise once via `.stat-bar`; radix Tooltip hover =
+  count+share; click → filter) + `GenreBars` (`.genre-fill` sweep, click →
+  genre filter) + `LibrarySection` (**All tab + five status tabs** with
+  mono counts — stat clicks land on All since an exact score cuts across
+  statuses, filter = removable chip; sort select; `useInfiniteQuery` "Show
+  more" pages of 50; "N of M" scope line; owner "Manage on My list →") +
+  `BannerPicker` (popover; candidates = favorites' banner art via lazy
+  `/anime/{id}` `["anime-preview",id]` staleTime ∞ — **no new endpoint**,
+  AnimeSummary lacks banner urls) + `WatchingRail` (per-card own-cover
+  `--tint` + radix Progress). Headings/numbers/active-tab all `.tint-ink`/
+  `.tint-tabs` (spec's "colored by its owner's taste"; `color-mix` over
+  theme vars, reduced-motion drops both bar animations). Tests: **239**
+  vitest / 35 files (+26: 9 lib, 2 histogram, 5 library incl. tab-switch
+  →`onFilterChange`, show-more append, filter-chip clear, zero-state,
+  owner-gate; 7 profile-view incl. tint-from-banner/favorite-fallback,
+  histogram-click→All-tab+chip+`score=8` fetch+scroll, genre-click,
+  owner-vs-visitor, zero-list dressed; 3 test-infra gotchas worth
+  remembering: **jsdom needs a ResizeObserver stub for radix Tooltip**,
+  reset shared fetch mocks in `beforeEach` (call history leaks across
+  tests), and testing-library's default matcher sees only *direct* text
+  nodes — match `/follower ·/` not `/1 follower/`). `task lint` + `gen`
+  clean. **Verified live** (api image rebuilt — migration 16 auto-applied
+  on boot; fresh preview after killing a leftover dev server + `.next`
+  wipe per precedent): sam@375+1440 anon/owner/visitor — poster-wall
+  fallback first (sam has **no seeded favorites**; favorited JJK+FMA:B via
+  API as sam to exercise the real path), picker lazy-fetched `/anime/{11,71}`,
+  pick → PATCH 200 + hero/tint flip to `#e45d5d` instantly (no reload),
+  histogram click → `?score=8` + All tab + chip + scroll (Miguel drove
+  extra clicks live in the pane: score 7/6 + chip-clear all round-tripped),
+  **TabsList wrap bug caught live at 375** (variant `h-8` clipped row 2
+  under the sort select — fixed with `group-data-horizontal/tabs:h-auto`;
+  the bare `h-auto` loses to the variant), fresh zero-list account
+  dressed (ambient + CTAs), 0 console errors, no h-overflow, served CSS
+  verified incl. reduced-motion. **Demo DB restored to byte-identical**
+  (favorites+2 `favorite` activities deleted, banner NULL, throwaway user
+  cascaded, redis `profile:v2:*` busted — activities back to 691/max 747).
+  **SSR gotcha for next sessions:** `revalidate: 60` is
+  stale-while-revalidate — after any server-side data change, the *next*
+  load triggers the refresh and the one after shows it; don't chase
+  "stale" bugs before two reloads. **Next (M4.1):** watch parties begin —
+  WS gateway + presence behind `FEATURE_WATCH_PARTIES`, design in
+  WATCH_PARTIES.md.
 - 2026-07-09 · M3.4 · Thread texture. **New pure `lib/thread-texture.ts`:**
   `commentDensity` — non-deleted `12:34`-anchored comments bucketed into 40
   bars over an axis of 0:00→last stamp (runtime isn't in the payload; the
@@ -990,6 +1066,18 @@ Miguel + Fable walked the live site; diagnosis and specs in
   only in the rail). Avoid a rail on the seasonal chart itself — it steals
   the auto-fill grid columns M0.2 just added.
 
+- **Trending tie-break is nondeterministic** (spotted 2026-07-09 while
+  M3.5's integration run flaked once) — `TestMALImportZeroActivity`
+  failed on two near-equal decayed scores swapping rank between the
+  before/after recomputes (`[…, 9, 14]` → `[…, 14, 9]`), then passed on
+  rerun; nothing in M3.5 touches activities or scoring. Root cause: the
+  trending rankings (anime `discovery` and thread `trending.go`) order by
+  float score with no stable tie-break, and exponential decay means two
+  close scores can cross between any two recomputes. One-line fix when it
+  next itches: `ORDER BY score DESC, id` (and the same in the test's
+  expected ordering). Product impact is a cosmetic rank jitter for tied
+  titles; the test flake is the real cost.
+
 ---
 
 ## The thesis: the tracker powers the conversation
@@ -1547,17 +1635,34 @@ playbook: art-backed hero, data-driven color, motion that means something.
 6. **Currently-watching rail** stays (it's good), gains progress bars and
    the tint treatment.
 
-**API/schema deltas (spec-first, all small):**
+**API/schema deltas (spec-first, all small; as-built amendments in place):**
 
-- `users.banner_anime_id bigint NULL REFERENCES anime` migration;
-  `PUT /me/profile` accepts it; `UserProfile` returns a resolved
-  `banner: { anime_id, banner_image, cover_color } | null`.
-- `ProfileStats` grows `score_histogram: [{score, count}]` and
-  `watch_minutes` (one GROUP BY + one SUM in the stats query);
-  stretch: `season_counts: [{year, count}]`.
-- New `GET /users/{username}/list?status=&sort=&page=` — public,
-  paginated (50), reuses the list-entry mapper. Lists are public by
-  default (MAL/AniList convention); a privacy toggle is parked.
+- `users.banner_anime_id bigint NULL REFERENCES anime ON DELETE SET NULL`
+  migration (000016); **`PATCH /me/profile`** (the endpoint was always
+  PATCH, not PUT) accepts `banner_anime_id` with the score-field
+  convention — **0 clears, omitted keeps** (oapi-codegen pointers can't
+  tell JSON null from absent); unknown anime → 422. `UserProfile` returns
+  a resolved `banner: { anime_id, banner_image, cover_color } | null`.
+  Profile cache key bumped `profile:v1` → `v2` (shape change).
+- `ProfileStats` grows `score_histogram: [{score, count}]` (all ten
+  buckets, zero-filled server-side) and `watch_minutes` (one GROUP BY +
+  one SUM in the stats query); stretch `season_counts` **deferred** —
+  session was already the biggest M3 build.
+- New `GET /users/{username}/list?status=&score=&genre=&sort=&page=&per_page=`
+  — public, paginated (50), reuses the list-entry mapper; `total` rides
+  along via `COUNT(*) OVER()`. **`score` + `genre` params added beyond the
+  original sketch**: the histogram/genre-bar clicks filter server-side, so
+  the tabs stay honest across pages instead of filtering loaded rows.
+  Lists are public by default (MAL/AniList convention); a privacy toggle
+  is parked.
+- **Banner candidates need no endpoint**: `AnimeSummary` doesn't carry
+  `banner_image`, so the own-profile picker lazily fetches `/anime/{id}`
+  per favorite on first open (`["anime-preview", id]`, staleTime ∞ —
+  the M3.2 preview-cache pattern).
+- **UI decision:** the library gets an **All tab** ahead of the five
+  status tabs; a histogram/genre click lands there (an exact-score filter
+  cuts across statuses — landing on a narrower tab would silently drop
+  matches) with the filter as a removable chip.
 
 **Acceptance.** sakuga_sam's profile at 375/1440: banner + tint applied,
 histogram hover/click filters the library tab, all five tabs page through

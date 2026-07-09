@@ -9,6 +9,23 @@ import (
 	"context"
 )
 
+const getBannerAnime = `-- name: GetBannerAnime :one
+SELECT id, banner_image, cover_color FROM anime WHERE id = $1
+`
+
+type GetBannerAnimeRow struct {
+	ID          int64
+	BannerImage *string
+	CoverColor  *string
+}
+
+func (q *Queries) GetBannerAnime(ctx context.Context, id int64) (GetBannerAnimeRow, error) {
+	row := q.db.QueryRow(ctx, getBannerAnime, id)
+	var i GetBannerAnimeRow
+	err := row.Scan(&i.ID, &i.BannerImage, &i.CoverColor)
+	return i, err
+}
+
 const userCurrentlyWatching = `-- name: UserCurrentlyWatching :many
 SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id, le.progress
 FROM list_entries le
@@ -154,6 +171,144 @@ func (q *Queries) UserListStatusCounts(ctx context.Context, userID int64) ([]Use
 	return items, nil
 }
 
+const userPublicList = `-- name: UserPublicList :many
+SELECT list_entries.id, list_entries.user_id, list_entries.anime_id, list_entries.status, list_entries.score, list_entries.progress, list_entries.started_on, list_entries.finished_on, list_entries.created_at, list_entries.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id, COUNT(*) OVER ()::bigint AS total
+FROM list_entries
+JOIN anime ON anime.id = list_entries.anime_id
+WHERE list_entries.user_id = $1
+  AND ($2::list_status IS NULL OR list_entries.status = $2)
+  AND ($3::smallint IS NULL OR list_entries.score = $3)
+  AND ($4::text IS NULL OR $4::text = ANY(anime.genres))
+ORDER BY
+  CASE WHEN $5::text = 'title'
+       THEN lower(coalesce(anime.title_english, anime.title_romaji)) END ASC,
+  CASE WHEN $5::text = 'score' THEN list_entries.score END DESC NULLS LAST,
+  list_entries.updated_at DESC
+LIMIT $7 OFFSET $6
+`
+
+type UserPublicListParams struct {
+	UserID     int64
+	Status     *ListStatus
+	Score      *int16
+	Genre      *string
+	Sort       string
+	PageOffset int32
+	PageLimit  int32
+}
+
+type UserPublicListRow struct {
+	ListEntry ListEntry
+	Anime     Anime
+	Total     int64
+}
+
+// The public library browse behind the profile tabs (M3.5): status tabs,
+// the histogram's exact-score filter, genre-bar filter, three sorts, offset
+// pages. COUNT(*) OVER() rides along so one query yields page + total.
+func (q *Queries) UserPublicList(ctx context.Context, arg UserPublicListParams) ([]UserPublicListRow, error) {
+	rows, err := q.db.Query(ctx, userPublicList,
+		arg.UserID,
+		arg.Status,
+		arg.Score,
+		arg.Genre,
+		arg.Sort,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserPublicListRow
+	for rows.Next() {
+		var i UserPublicListRow
+		if err := rows.Scan(
+			&i.ListEntry.ID,
+			&i.ListEntry.UserID,
+			&i.ListEntry.AnimeID,
+			&i.ListEntry.Status,
+			&i.ListEntry.Score,
+			&i.ListEntry.Progress,
+			&i.ListEntry.StartedOn,
+			&i.ListEntry.FinishedOn,
+			&i.ListEntry.CreatedAt,
+			&i.ListEntry.UpdatedAt,
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const userScoreHistogram = `-- name: UserScoreHistogram :many
+SELECT score::smallint AS score, COUNT(*)::bigint AS count
+FROM list_entries
+WHERE user_id = $1 AND score IS NOT NULL
+GROUP BY score
+ORDER BY score
+`
+
+type UserScoreHistogramRow struct {
+	Score int16
+	Count int64
+}
+
+func (q *Queries) UserScoreHistogram(ctx context.Context, userID int64) ([]UserScoreHistogramRow, error) {
+	rows, err := q.db.Query(ctx, userScoreHistogram, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserScoreHistogramRow
+	for rows.Next() {
+		var i UserScoreHistogramRow
+		if err := rows.Scan(&i.Score, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const userScoreStats = `-- name: UserScoreStats :one
 SELECT COALESCE(AVG(score), 0)::float8 AS mean_score, COUNT(score)::bigint AS rated_count
 FROM list_entries
@@ -170,4 +325,20 @@ func (q *Queries) UserScoreStats(ctx context.Context, userID int64) (UserScoreSt
 	var i UserScoreStatsRow
 	err := row.Scan(&i.MeanScore, &i.RatedCount)
 	return i, err
+}
+
+const userWatchMinutes = `-- name: UserWatchMinutes :one
+SELECT COALESCE(SUM(le.progress::bigint * COALESCE(a.duration_min, 0)), 0)::bigint AS minutes
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+WHERE le.user_id = $1
+`
+
+// Σ progress × duration. Unknown durations count 0 — the number stays an
+// honest floor rather than a guess.
+func (q *Queries) UserWatchMinutes(ctx context.Context, userID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, userWatchMinutes, userID)
+	var minutes int64
+	err := row.Scan(&minutes)
+	return minutes, err
 }

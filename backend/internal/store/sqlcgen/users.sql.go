@@ -12,7 +12,7 @@ import (
 const createDiscordUser = `-- name: CreateDiscordUser :one
 INSERT INTO users (email, username, discord_id, avatar_url, email_verified_at)
 VALUES ($1, $2, $3, $4, now())
-RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at
+RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id
 `
 
 type CreateDiscordUserParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateDiscordUser(ctx context.Context, arg CreateDiscordUserPa
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
@@ -50,7 +51,7 @@ func (q *Queries) CreateDiscordUser(ctx context.Context, arg CreateDiscordUserPa
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, username, password_hash)
 VALUES ($1, $2, $3)
-RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at
+RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id
 `
 
 type CreateUserParams struct {
@@ -75,12 +76,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
@@ -99,12 +101,13 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
 
 const getUserByDiscordID = `-- name: GetUserByDiscordID :one
-SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at FROM users WHERE discord_id = $1
+SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id FROM users WHERE discord_id = $1
 `
 
 func (q *Queries) GetUserByDiscordID(ctx context.Context, discordID *string) (User, error) {
@@ -123,12 +126,13 @@ func (q *Queries) GetUserByDiscordID(ctx context.Context, discordID *string) (Us
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -147,12 +151,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at FROM users WHERE username = $1
+SELECT id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -171,6 +176,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }
@@ -217,9 +223,10 @@ const updateProfile = `-- name: UpdateProfile :one
 UPDATE users SET
   bio = $2,
   avatar_url = $3,
-  favorite_genres = $4
+  favorite_genres = $4,
+  banner_anime_id = $5
 WHERE id = $1
-RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at
+RETURNING id, email, username, password_hash, discord_id, avatar_url, bio, favorite_genres, role, email_verified_at, created_at, updated_at, banner_anime_id
 `
 
 type UpdateProfileParams struct {
@@ -227,6 +234,7 @@ type UpdateProfileParams struct {
 	Bio            string
 	AvatarUrl      *string
 	FavoriteGenres []string
+	BannerAnimeID  *int64
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (User, error) {
@@ -235,6 +243,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (U
 		arg.Bio,
 		arg.AvatarUrl,
 		arg.FavoriteGenres,
+		arg.BannerAnimeID,
 	)
 	var i User
 	err := row.Scan(
@@ -250,6 +259,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (U
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BannerAnimeID,
 	)
 	return i, err
 }

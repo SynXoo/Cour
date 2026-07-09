@@ -36,6 +36,7 @@ UPDATE users SET password_hash = $2 WHERE id = $1;
 UPDATE users SET
   bio = $2,
   avatar_url = $3,
-  favorite_genres = $4
+  favorite_genres = $4,
+  banner_anime_id = $5
 WHERE id = $1
 RETURNING *;

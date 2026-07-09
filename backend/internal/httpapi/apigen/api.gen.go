@@ -403,6 +403,27 @@ func (e ThreadKind) Valid() bool {
 	}
 }
 
+// Defines values for GetUserPublicListParamsSort.
+const (
+	Score   GetUserPublicListParamsSort = "score"
+	Title   GetUserPublicListParamsSort = "title"
+	Updated GetUserPublicListParamsSort = "updated"
+)
+
+// Valid indicates whether the value is a known member of the GetUserPublicListParamsSort enum.
+func (e GetUserPublicListParamsSort) Valid() bool {
+	switch e {
+	case Score:
+		return true
+	case Title:
+		return true
+	case Updated:
+		return true
+	default:
+		return false
+	}
+}
+
 // ActivityType defines model for ActivityType.
 type ActivityType string
 
@@ -782,6 +803,15 @@ type PostCommentRequest struct {
 	TimestampSeconds *int `json:"timestamp_seconds,omitempty"`
 }
 
+// ProfileBanner defines model for ProfileBanner.
+type ProfileBanner struct {
+	AnimeId     int64   `json:"anime_id"`
+	BannerImage *string `json:"banner_image"`
+
+	// CoverColor Dominant cover color
+	CoverColor *string `json:"cover_color"`
+}
+
 // ProfileStats defines model for ProfileStats.
 type ProfileStats struct {
 	Counts struct {
@@ -800,6 +830,15 @@ type ProfileStats struct {
 	// MeanScore Mean of 1-10 scores; null until something is rated
 	MeanScore  *float32 `json:"mean_score"`
 	RatedCount int      `json:"rated_count"`
+
+	// ScoreHistogram All ten 1-10 buckets, ascending; zero counts included
+	ScoreHistogram []struct {
+		Count int `json:"count"`
+		Score int `json:"score"`
+	} `json:"score_histogram"`
+
+	// WatchMinutes Σ progress × episode duration; 0 when nothing watched
+	WatchMinutes int64 `json:"watch_minutes"`
 }
 
 // ReactionCount defines model for ReactionCount.
@@ -1035,7 +1074,10 @@ type UnreadCount struct {
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
 	// AvatarUrl http(s) URL; null clears the avatar
-	AvatarUrl      *string   `json:"avatar_url,omitempty"`
+	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// BannerAnimeId Anime whose banner art heads the profile; 0 clears it, omitted keeps it
+	BannerAnimeId  *int64    `json:"banner_anime_id,omitempty"`
 	Bio            *string   `json:"bio,omitempty"`
 	FavoriteGenres *[]string `json:"favorite_genres,omitempty"`
 }
@@ -1058,6 +1100,16 @@ type UpsertReviewRequest struct {
 	Score       int    `json:"score"`
 }
 
+// UserList defines model for UserList.
+type UserList struct {
+	Data    []ListEntryWithAnime `json:"data"`
+	Page    int                  `json:"page"`
+	PerPage int                  `json:"per_page"`
+
+	// Total Entries matching the filters across all pages
+	Total int `json:"total"`
+}
+
 // UserPrivate defines model for UserPrivate.
 type UserPrivate struct {
 	AvatarUrl      *string   `json:"avatar_url"`
@@ -1073,7 +1125,10 @@ type UserPrivate struct {
 
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
-	AvatarUrl         *string         `json:"avatar_url"`
+	AvatarUrl *string `json:"avatar_url"`
+
+	// Banner The owner's chosen banner anime, resolved; null when unset
+	Banner            *ProfileBanner  `json:"banner"`
 	Bio               string          `json:"bio"`
 	CreatedAt         time.Time       `json:"created_at"`
 	CurrentlyWatching []WatchingEntry `json:"currently_watching"`
@@ -1181,6 +1236,21 @@ type ListCommentsParams struct {
 type GetTrendingParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// GetUserPublicListParams defines parameters for GetUserPublicList.
+type GetUserPublicListParams struct {
+	Status *ListStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Score Only entries rated exactly this (the histogram filter)
+	Score   *int                         `form:"score,omitempty" json:"score,omitempty"`
+	Genre   *string                      `form:"genre,omitempty" json:"genre,omitempty"`
+	Sort    *GetUserPublicListParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Page    *int                         `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int                         `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
+// GetUserPublicListParamsSort defines parameters for GetUserPublicList.
+type GetUserPublicListParamsSort string
 
 // ListUserReviewsParams defines parameters for ListUserReviews.
 type ListUserReviewsParams struct {
@@ -1352,7 +1422,7 @@ type ServerInterface interface {
 	// Unread notification count (for the bell)
 	// (GET /me/notifications/unread-count)
 	GetUnreadCount(w http.ResponseWriter, r *http.Request)
-	// Edit bio, avatar, and favorite genres
+	// Edit bio, avatar, favorite genres, and profile banner
 	// (PATCH /me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	// Taste-based suggestions with explanations
@@ -1415,6 +1485,9 @@ type ServerInterface interface {
 	// Who this user follows
 	// (GET /users/{username}/following)
 	ListFollowing(w http.ResponseWriter, r *http.Request, username string)
+	// One page of a user's list, publicly browsable
+	// (GET /users/{username}/list)
+	GetUserPublicList(w http.ResponseWriter, r *http.Request, username string, params GetUserPublicListParams)
 	// Reviews written by a user, newest first
 	// (GET /users/{username}/reviews)
 	ListUserReviews(w http.ResponseWriter, r *http.Request, username string, params ListUserReviewsParams)
@@ -1658,7 +1731,7 @@ func (_ Unimplemented) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Edit bio, avatar, and favorite genres
+// Edit bio, avatar, favorite genres, and profile banner
 // (PATCH /me/profile)
 func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1781,6 +1854,12 @@ func (_ Unimplemented) ListFollowers(w http.ResponseWriter, r *http.Request, use
 // Who this user follows
 // (GET /users/{username}/following)
 func (_ Unimplemented) ListFollowing(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One page of a user's list, publicly browsable
+// (GET /users/{username}/list)
+func (_ Unimplemented) GetUserPublicList(w http.ResponseWriter, r *http.Request, username string, params GetUserPublicListParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3635,6 +3714,113 @@ func (siw *ServerInterfaceWrapper) ListFollowing(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetUserPublicList operation middleware
+func (siw *ServerInterfaceWrapper) GetUserPublicList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserPublicListParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "score" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "score", r.URL.Query(), &params.Score, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "score"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "score", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre", r.URL.Query(), &params.Genre, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "per_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserPublicList(w, r, username, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListUserReviews operation middleware
 func (siw *ServerInterfaceWrapper) ListUserReviews(w http.ResponseWriter, r *http.Request) {
 
@@ -3982,6 +4168,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}/following", wrapper.ListFollowing)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{username}/list", wrapper.GetUserPublicList)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}/reviews", wrapper.ListUserReviews)

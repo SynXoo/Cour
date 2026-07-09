@@ -229,7 +229,7 @@ func (q *Queries) GetThread(ctx context.Context, id int64) (Thread, error) {
 }
 
 const listComments = `-- name: ListComments :many
-SELECT comments.id, comments.thread_id, comments.parent_id, comments.user_id, comments.body, comments.timestamp_seconds, comments.has_spoilers, comments.deleted_at, comments.created_at, comments.updated_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at
+SELECT comments.id, comments.thread_id, comments.parent_id, comments.user_id, comments.body, comments.timestamp_seconds, comments.has_spoilers, comments.deleted_at, comments.created_at, comments.updated_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, users.banner_anime_id
 FROM comments
 JOIN users ON users.id = comments.user_id
 WHERE comments.thread_id = $1 AND comments.id < $2
@@ -283,6 +283,7 @@ func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]L
 			&i.User.EmailVerifiedAt,
 			&i.User.CreatedAt,
 			&i.User.UpdatedAt,
+			&i.User.BannerAnimeID,
 		); err != nil {
 			return nil, err
 		}

@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{username}/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One page of a user's list, publicly browsable */
+        get: operations["getUserPublicList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -289,7 +306,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Edit bio, avatar, and favorite genres */
+        /** Edit bio, avatar, favorite genres, and profile banner */
         patch: operations["updateMyProfile"];
         trace?: never;
     };
@@ -1009,9 +1026,18 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Format: date-time */
             created_at: string;
+            /** @description The owner's chosen banner anime, resolved; null when unset */
+            banner: components["schemas"]["ProfileBanner"] | null;
             stats: components["schemas"]["ProfileStats"];
             favorites: components["schemas"]["AnimeSummary"][];
             currently_watching: components["schemas"]["WatchingEntry"][];
+        };
+        ProfileBanner: {
+            /** Format: int64 */
+            anime_id: number;
+            banner_image: string | null;
+            /** @description Dominant cover color */
+            cover_color: string | null;
         };
         ProfileStats: {
             counts: {
@@ -1025,6 +1051,16 @@ export interface components {
             mean_score: number | null;
             rated_count: number;
             episodes_watched: number;
+            /**
+             * Format: int64
+             * @description Σ progress × episode duration; 0 when nothing watched
+             */
+            watch_minutes: number;
+            /** @description All ten 1-10 buckets, ascending; zero counts included */
+            score_histogram: {
+                score: number;
+                count: number;
+            }[];
             genres: {
                 genre: string;
                 count: number;
@@ -1039,6 +1075,11 @@ export interface components {
             /** @description http(s) URL; null clears the avatar */
             avatar_url?: string | null;
             favorite_genres?: string[];
+            /**
+             * Format: int64
+             * @description Anime whose banner art heads the profile; 0 clears it, omitted keeps it
+             */
+            banner_anime_id?: number;
         };
         /** @enum {string} */
         ListStatus: "watching" | "completed" | "planning" | "paused" | "dropped";
@@ -1060,6 +1101,13 @@ export interface components {
         };
         MyList: {
             data: components["schemas"]["ListEntryWithAnime"][];
+        };
+        UserList: {
+            data: components["schemas"]["ListEntryWithAnime"][];
+            /** @description Entries matching the filters across all pages */
+            total: number;
+            page: number;
+            per_page: number;
         };
         UpsertListEntryRequest: {
             status: components["schemas"]["ListStatus"];
@@ -1935,6 +1983,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserPublicList: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ListStatus"];
+                /** @description Only entries rated exactly this (the histogram filter) */
+                score?: number;
+                genre?: string;
+                sort?: "updated" | "score" | "title";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entries with their anime, plus the filtered total */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
                 };
             };
             default: components["responses"]["Error"];

@@ -51,16 +51,7 @@ func (h listHandlers) GetMyList(w http.ResponseWriter, r *http.Request, params a
 	}
 	data := make([]apigen.ListEntryWithAnime, len(rows))
 	for i, row := range rows {
-		data[i] = apigen.ListEntryWithAnime{
-			AnimeId:    row.ListEntry.AnimeID,
-			Status:     apigen.ListStatus(row.ListEntry.Status),
-			Score:      toIntFrom16(row.ListEntry.Score),
-			Progress:   int(row.ListEntry.Progress),
-			StartedOn:  toDate(row.ListEntry.StartedOn),
-			FinishedOn: toDate(row.ListEntry.FinishedOn),
-			UpdatedAt:  row.ListEntry.UpdatedAt,
-			Anime:      toSummary(row.Anime),
-		}
+		data[i] = toListEntryWithAnime(row.ListEntry, row.Anime)
 	}
 	writeJSON(w, http.StatusOK, apigen.MyList{Data: data})
 }
@@ -219,6 +210,19 @@ func toListEntry(e sqlcgen.ListEntry) apigen.ListEntry {
 		StartedOn:  toDate(e.StartedOn),
 		FinishedOn: toDate(e.FinishedOn),
 		UpdatedAt:  e.UpdatedAt,
+	}
+}
+
+func toListEntryWithAnime(e sqlcgen.ListEntry, a sqlcgen.Anime) apigen.ListEntryWithAnime {
+	return apigen.ListEntryWithAnime{
+		AnimeId:    e.AnimeID,
+		Status:     apigen.ListStatus(e.Status),
+		Score:      toIntFrom16(e.Score),
+		Progress:   int(e.Progress),
+		StartedOn:  toDate(e.StartedOn),
+		FinishedOn: toDate(e.FinishedOn),
+		UpdatedAt:  e.UpdatedAt,
+		Anime:      toSummary(a),
 	}
 }
 
