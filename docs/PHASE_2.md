@@ -138,6 +138,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   as a browsable poster wall), dressed empty states. Spec in §M3.5;
   needs small API/schema deltas (spec-first). (Verified live 375/1440 as
   owner + visitor + fresh zero-list account; demo DB restored after.)
+- [x] **M3.6** (F) Profile personality — taste statistics (score bias vs the
+  community, use of the scale, per-genre mean, eras, formats, habits,
+  milestones), owner-picked accent from a favorite's cover art, bio editable
+  in place, count-up on the headline numbers; hero-glow and profile-banner
+  alignment fixes; favoriting given a label and a second home in the list
+  dialog. Spec in §M3.6.
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -150,7 +156,81 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
-- 2026-07-09 · M3.5 · Profile revamp. **Spec-first backend:** migration
+- 2026-07-09 · Hero readability refactor (supersedes M3.6's hero geometry; not
+  a ledger task — the oval kept missing the copy as the window shrank). The
+  wall mask no longer opens a hole and `splitLayout` is gone (prop, `-split`
+  class, five-constant calc). Readability + bloom live on one copy-anchored
+  element instead: `.hero-copy-backdrop`, `-z-10` inside the now-`isolate`
+  copy column — a flat near-background plate melted over fixed-rem inset
+  margins by a mask, plus the violet bloom whose x-center
+  (`--hero-copy-focus`) slides to `min(20rem, 50%)` when the copy sets
+  ragged-right at lg (5rem inset + half the 30rem h1). Why: wall coordinates
+  can only chase the copy — the tuned hole's fully-cleared center was ~140px
+  under a ~340px phone headline even with the anchor dead-on — while a child
+  of the copy column binds to it by construction. §M3.6's glyph-rect
+  measuring lesson still stands.
+
+- 2026-07-09 · M3.6 · Profile personality + two alignment fixes. Full spec in
+  §M3.6. **The hero bug generalized:** the bloom was `left-1/2` (viewport) but
+  the copy sits in the left column at `lg`; the wall's mask hole chased it with
+  a hardcoded `30%`, which is only right near 1440 (**74px off at 1024, 105px
+  at 1920**). **First fix was wrong and Miguel caught it in a screenshot:**
+  centring the bloom on the copy *column* (`calc(50% - 17rem)` — half the
+  `30rem` panel plus half the `4rem` gap) is exact for the column, and still
+  ~180px right of the words, because at 1440 the `h1` box is its `max-w-3xl`
+  768px while `text-wrap: balance` leaves the glyphs at 470px (glyph centre
+  **259**, column centre **441**). Lesson: measure
+  `range.selectNodeContents(h1).getBoundingClientRect()`, not the `h1` box —
+  the box lies. Real anchor is the headline's half-width from the column's left
+  edge: `left: min(15rem, 50%)` on the bloom, `max(calc(50% - 28rem), 16rem)`
+  for the mask hole (same point expressed from the section, since the column's
+  left edge is `50% - 43rem` once `max-w-[88rem]` binds). Verified against
+  glyph rects at 375/768/1024/1280/1440/1920: **delta ≤ 5px** wherever the
+  bloom is narrower than the column, 0 below `lg`. `HeroPosterWall` takes
+  `splitLayout` because only the caller knows whether the live panel claimed the
+  right column. Profile fallback wall: `-rotate-2` gone, covers crop to the band
+  height. **Backend (spec-first):** migration 000017 `users.accent_color` with a
+  *lowercase* `#rrggbb` CHECK (service lowercases first, so the constraint fires
+  on bugs, not users); `PATCH /me/profile` accent uses the avatar convention
+  (`"" clears`, omitted keeps); 7 new queries. **sqlc nullability gotcha:** a
+  `WHERE x IS NOT NULL` does not make sqlc type the column non-null — it types
+  the *column*, not the predicate — so `UserFormatSplit` needs
+  `COALESCE(a.format::text,'')::text`; likewise every mean is `COALESCE(AVG(…),0)`
+  plus a `rated_count` so **Go**, not SQL, decides null-ness. `UserTopStudios`
+  filters `is_main` (else everyone's house studio is Aniplex);
+  `UserLongestCompleted` is `:many LIMIT 1` because an empty shelf is the common
+  case, not `ErrNoRows`. New named schemas (`ScoreBias`, `GenreStat`,
+  `SeasonCount`, `FormatCount`, `StudioCount`, `LibrarySpan`) so oapi-codegen
+  emits real types instead of anonymous structs — `genres` moved from inline to
+  `$ref` at the same time. Public list gains `year`+`format`; an era click also
+  pins the tab to **completed**, which is all `season_counts` ever counted. Cache
+  key **v2→v3**. **Withholding rules matter more than the stats:** bias needs ≥5
+  shared-scored shows, stddev ≥2 ratings, a genre mean ≥3 — and every section
+  hides itself on a shelf that can't support it, so a fresh profile shows no
+  zeroes. **`CountUp` was the subtle one:** it renders the true value through
+  React and animates `textContent` from a layout effect (SSR/no-JS/reduced-motion
+  all truthful, no hydration mismatch). First cut kept `value` in the dep array
+  and restored `fmt(value)` in cleanup — a mid-flight change then wrote the *old*
+  value, re-zeroed, and stalled until re-intersection (**caught by test**). Now:
+  deps `[]`, target+formatter in refs *refreshed in a commit-time layout effect*
+  — writing refs during render trips `react-hooks/refs`, correctly, since
+  rendering can be interrupted. **Tests:** +21 vitest on `lib/profile` helpers
+  (incl. `criticVerdict` band edges, which need synthetic means: `7.65-8.0` is
+  `-0.34999999999999964` and silently misses the boundary), +6 on `CountUp`
+  (monotonic, retarget, survives inline-formatter re-render), +11 on
+  `ProfileView` (era/format clicks, accent hover-preview, in-place bio); the
+  profile suite runs **reduced-motion** so CountUp leaves real numbers where
+  jsdom has no IntersectionObserver. New Go unit test on accent validation +
+  `TestProfileTasteStats` integration (bias sample excludes community-scoreless
+  shows; eras exclude the dropped movie but the span includes it; `is_main`
+  studio wins; bad format/year → 400). All green: 252 vitest, full Go
+  integration, golangci 0, `task gen` clean. **Env notes:** another chat held a
+  `next dev` on B:\cour\web (Next allows one per directory), and its **stale
+  fetch cache 500'd `/users/*`** on the new required fields — a dev-only
+  artifact, gone on a fresh `docker compose up -d --build web`; screenshots also
+  hang against that dev server while `read_page`/`javascript_tool` work, so the
+  alignment fixes were verified numerically. Demo DB restored (the favorite test
+  left one `activities` row — deleted; favorites back to 0, no accents set).
   000016 `users.banner_anime_id` (FK `ON DELETE SET NULL`); `PATCH
   /me/profile` takes `banner_anime_id` with the score-field convention (**0
   clears, omitted keeps** — spec §M3.5 amended: it was never PUT, and
@@ -957,6 +1037,23 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- Mid-session ideas land here instead of in the diff. -->
 
+- **The owner's own profile edits look like they vanish for 60 s** (found
+  2026-07-09 while verifying M3.6). `users/[username]/page.tsx` fetches the
+  profile with `next: { revalidate: 60 }`, so after saving a bio/accent/banner
+  the client state shows the truth, but navigating away and back re-renders
+  from Next's *fetch* cache and shows the old value until it expires. The API
+  side is already correct — `Service.Update` deletes the Redis profile key, and
+  a direct `GET /users/{u}` returns the new value immediately. Pre-existing
+  since M3.5 (the banner picker has the same wart); M3.6's edit-in-place bio and
+  accent just make it obvious. Fix is a tagged fetch (`next: { tags: ["profile",
+  username] }`) plus a server action calling `revalidateTag` after a successful
+  `PATCH /me/profile` — needs a read of the Next 16 caching guide in
+  `web/node_modules/next/dist/docs/` first, since this is exactly the area that
+  differs from training data. Also worth deciding whether an owner viewing their
+  own profile should bypass the cache entirely. Same staleness makes a
+  just-added favorite miss the accent-swatch row and the banner picker for a
+  minute — `PUT /me/favorites/{id}` does not bust the profile cache either.
+
 - **Comment snippets on the landing, behind a quality gate** (from the
   2026-07-08 landing sessions) — the landing briefly quoted real comment
   bodies and was reworked to activity-only "live rooms": an unmoderated hot
@@ -1671,6 +1768,133 @@ zero-list profile still looks dressed. Stats queries unit-tested,
 histogram/tabs vitest-covered, `task gen` clean (spec changes), no
 h-overflow at 375, 44 px targets, reduced-motion drops the count-up/bar
 animations.
+
+### Profile personality (M3.6)
+
+*(From Miguel's 2026-07-09 ask: the hero's purple patch never lines up with
+the headline; the profile's default banner "looks crooked"; favoriting is
+hard to find; stats are fun and there should be more of them; more movement;
+and since profiles will be public, real personalization — bio, accents.)*
+
+**Two alignment bugs, one root cause.** The landing hero's violet bloom was
+pinned `left-1/2` — viewport center — while the copy moves to the left column
+at `lg`. The poster wall's mask already opened its readability hole at `30%`
+to follow the copy, but 30% is only correct near 1440px (it is 74px off at
+1024, 105px off at 1920).
+
+**The trap:** anchoring to the copy *column* is not enough. Making the bloom a
+child of the column tracks the column's center, but at `lg` the column is
+832px while the headline's glyphs span only ~470 of it — the `h1` is
+`max-w-3xl` (768px) and `text-wrap: balance` never fills it. Measured at 1440:
+the glyphs centre on **259**, the column on **441**. So a column-centred bloom
+still sits ~180px right of the words, which is exactly what it looked like.
+
+The right anchor is the headline's half-width, `15rem`, measured from the
+column's **left edge**, with a `50%` floor for columns too narrow to hold it:
+`left: min(15rem, 50%)`. From the section's side — where the wall's mask lives
+— the same point is `max(calc(50% - 28rem), 16rem)`: the column's left edge is
+`50% - 43rem` once `max-w-[88rem]` binds (half the shell, less the `30rem`
+panel and the `4rem` gap, plus the `1rem` gutter), and `-43rem + 15rem =
+-28rem`; below that the shell stops binding, the gutter pins the column at
+`1rem`, and the anchor settles at a constant `16rem`. The two expressions
+agree to the pixel for every width ≥ 1056px, and diverge by ≤16px below it,
+where the bloom is already wider than the column. The wall takes a
+`splitLayout` prop, because only the caller knows whether the live panel
+claimed the right column — a roomless hero centres its copy and its hole.
+
+> **Superseded later the same day** (Session log: hero readability refactor):
+> the mask hole and `splitLayout` are gone entirely — readability rides on a
+> copy-anchored `.hero-copy-backdrop` inside the isolated copy column, which
+> binds to the text instead of chasing it from wall coordinates. The
+> glyph-rect measurement lesson above still stands (it is how the backdrop's
+> `--hero-copy-focus` bloom anchor was derived).
+
+The profile's fallback poster wall simply loses its `-rotate-2`; covers now
+crop to the band height instead of keeping a 2:3 box, because a banner is a
+horizon.
+
+**Favoriting.** The control was an unlabelled heart wedged between two
+labelled buttons, and it existed on exactly one page. It now says *Favorite* /
+*Favorited* and wears the accent when on. A second home: a switch in the
+list-editor dialog, which applies on **Save** alongside the entry (its state
+is `boolean | null`, where null = untouched — seeding a boolean at mount would
+lie if the favorite query resolved after the dialog opened). Hearts stay off
+`AnimeCard`: it is a server component, and one favorite query per grid cell is
+not worth it. The profile's empty Favorites shelf tells the owner where the
+heart lives *and* what it buys (banner + accent).
+
+**Statistics.** All four groups Miguel picked, all derived from data already
+stored — no new sync:
+
+- **Taste fingerprint.** `score_bias` compares the owner's mean with AniList's
+  over only the shows both scored (`average_score / 10` puts them on one
+  scale); withheld below **5** shared shows, because a verdict from three is a
+  coin flip. `score_stddev` (population) says how much of the 1-10 scale gets
+  used; withheld below 2 ratings, where it is trivially 0. Genre bars gained a
+  notch at the owner's mean for that genre, on a 1-10 axis rather than the
+  count axis — suppressed below 3 ratings.
+- **Eras & formats.** `season_counts` buckets *completed* shows by premiere
+  year (a planning list is a wish, not a history); the strip zero-fills gap
+  years client-side (`fillEraGaps`) or an 18-year hole reads as two adjacent
+  bars. `format_counts` is one stacked bar, separated by opacity rather than
+  hue so it never fights the owner's accent.
+- **Habits.** Follow-through and drop rate share one denominator —
+  completed + dropped + paused, the shows that *settled* — so they are
+  comparable; planning never started and watching hasn't stopped. Top studio
+  reads `studios` JSONB filtered to `is_main` (nobody's most-watched studio is
+  Aniplex).
+- **Milestones.** Longest completed series, shelf span, and a watch-time
+  framing (percent of a year, feature-film equivalents).
+
+Every one of these hides itself on a shelf that can't support it: a fresh
+profile shows none of them rather than a wall of zeroes and dashes.
+
+**Movement.** `CountUp` animates the headline numbers on first scroll into
+view. It renders the *true* value through React and mutates `textContent`
+imperatively from a layout effect, so SSR, no-JS, and reduced-motion readers
+all get the real number with no hydration mismatch, and a re-render mid-flight
+can only restore the truth. Target and formatter live in refs refreshed after
+commit (writing refs during render is unsafe once rendering can be
+interrupted, and `react-hooks/refs` rightly rejects it) — so the animation
+runs once per mount, retargets rather than restarts, and an inline `format`
+arrow can't re-zero a landed number. The bias needle swings out from the
+crowd's midpoint; era columns rise; format segments sweep.
+
+**Personalization.** Migration `000017` adds `users.accent_color TEXT` with a
+**lowercase** `#rrggbb` CHECK — the service lowercases before writing, so the
+constraint only ever fires on a bug, never on user input (uppercase in,
+lowercase out; garbage is a 422, not a constraint-violation 500). `PATCH
+/me/profile` takes it with the avatar convention (**empty string clears,
+omitted keeps**). Swatches come from the owner's favorites' `cover_color`
+first — every accent then belongs to a show they love — plus a short house
+palette spread across the wheel for the case where every favorite is the same
+muted teal. Hovering a swatch repaints the *live page*, not a 24px chip, since
+the accent touches the avatar ring, every heading, and every bar. Everything
+lands through the existing `color-mix` pipeline, so no pick can make either
+theme unreadable. The bio is editable where it is read; Settings still owns
+the field, but sending someone to /settings to write one sentence is how bios
+stay empty. `profileTint` order is now **accent → banner → first favorite with
+a color**.
+
+**API/schema deltas.** `ProfileStats` grows `score_stddev`, `score_bias`,
+`genres[].mean_score` + `rated_count`, `season_counts`, `format_counts`,
+`top_studios`, `longest_completed` (an `AnimeSummary`), `library_span`; new
+named schemas rather than inline objects, so oapi-codegen emits real Go types
+instead of anonymous structs. `UserProfile` gains `accent_color`. The public
+list gains `year` + `format` params so the era strip and format split filter
+server-side like every other stat — an era click also narrows the tab to
+**completed**, since that is all that chart ever counted. Profile cache key
+bumped **v2 → v3** (shape change).
+
+**Acceptance.** Both alignment fixes hold at 375/768/1024/1280/1440/1920 — the
+bloom's centre is within ~5px of the headline's *glyph* centre at every width
+where the bloom is narrower than the column, and dead-centre on the copy below
+`lg`. Measure `range.selectNodeContents(h1).getBoundingClientRect()`, never the
+`h1` box: the box is `max-w-3xl` and lies about where the words are. Favorite
+round-trips from the detail button and the dialog switch. Stats match the
+database. Accent previews on hover, persists on click, and clears. Bio saves
+in place. A zero-list profile shows no stat sections at all. Reduced motion
+leaves every number truthful and every bar still.
 
 ---
 

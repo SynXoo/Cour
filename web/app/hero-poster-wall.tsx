@@ -14,8 +14,10 @@ const REPS = 3;
  * The landing hero's backdrop: popular covers drifting in two slow
  * counter-moving rows behind the copy. Purely decorative — hidden from the
  * accessibility tree, no links, no pointer events. The wall dissolves at its
- * edges (and behind the copy) via `hero-wall-mask`, letting the landing's
- * ambient tint show through instead of painting a color that must match.
+ * edges via `hero-wall-mask`, letting the landing's ambient tint show
+ * through instead of painting a color that must match. Readability over the
+ * copy is the copy's own job (its backdrop plate in landing-view.tsx), so
+ * the wall never needs to know where the text sits.
  */
 export function HeroPosterWall({ anime }: { anime: AnimeSummary[] }) {
   const covers = anime.filter((a) => a.cover_image);

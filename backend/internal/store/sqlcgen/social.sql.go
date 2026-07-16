@@ -10,7 +10,7 @@ import (
 )
 
 const feedActivities = `-- name: FeedActivities :many
-SELECT activities.id, activities.user_id, activities.type, activities.anime_id, activities.ref_id, activities.payload, activities.created_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, users.banner_anime_id, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
+SELECT activities.id, activities.user_id, activities.type, activities.anime_id, activities.ref_id, activities.payload, activities.created_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, users.banner_anime_id, users.accent_color, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
 FROM activities
 JOIN users ON users.id = activities.user_id
 JOIN anime ON anime.id = activities.anime_id
@@ -66,6 +66,7 @@ func (q *Queries) FeedActivities(ctx context.Context, arg FeedActivitiesParams) 
 			&i.User.CreatedAt,
 			&i.User.UpdatedAt,
 			&i.User.BannerAnimeID,
+			&i.User.AccentColor,
 			&i.Anime.ID,
 			&i.Anime.AnilistID,
 			&i.Anime.TitleRomaji,

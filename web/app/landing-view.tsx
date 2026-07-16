@@ -61,36 +61,65 @@ export async function LandingView() {
           everything; on lg the copy takes the left column and the live
           ticker rides the right as a glass panel — the conversation is part
           of the front door, not a section below it. */}
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-32 left-1/2 h-[26rem] w-[40rem] max-w-full -translate-x-1/2 rounded-full bg-primary/20 blur-[120px]"
-        />
+      <section className="relative isolate overflow-hidden">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-40 -left-24 h-[22rem] w-[30rem] rounded-full bg-primary/10 blur-[100px]"
         />
         <HeroPosterWall anime={covers} />
+        {/* The copy track floors at 30rem — the headline's two-line footprint
+            — so the first ~20px above lg can't wrap it to three lines. The
+            panel absorbs the squeeze; it already renders narrower than that
+            under its max-w-md cap below lg. */}
         <div
           className={cn(
             "relative mx-auto grid w-full max-w-[88rem] items-center gap-10 px-4 pb-16 pt-12 md:pt-16 lg:min-h-[36rem] lg:pb-20",
-            rooms.length > 0 && "lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-16",
+            rooms.length > 0 && "lg:grid-cols-[minmax(30rem,1fr)_minmax(0,30rem)] lg:gap-16",
           )}
         >
           {/* min-w-0 on both grid items: the ticker's nowrap truncate line
-              would otherwise widen the implicit track past the viewport. */}
+              would otherwise widen the implicit track past the viewport.
+              w-fit: the column shrink-wraps the copy stack (the paragraph's
+              max-w-xl is the widest piece) instead of stretching across the
+              track, so the backdrop below can borrow its box as "where the text
+              is" — justify-self keeps the shrunk item on the same axis the
+              stretched one sat on. */}
           <div
             className={cn(
-              "flex min-w-0 flex-col items-center gap-5 text-center",
-              rooms.length > 0 && "lg:items-start lg:text-left",
+              "relative isolate flex w-fit min-w-0 flex-col items-center justify-self-center gap-5 text-center",
+              rooms.length > 0 && "lg:items-start lg:justify-self-start lg:text-left",
             )}
           >
+            {/* Readability lives with the words: this one element is both
+                the plate that quiets the posters and the violet bloom,
+                inset-anchored to the shrink-wrapped column so it re-centers
+                and re-proportions as the text reflows at any width. (The
+                wall's mask used to open a hole here instead, aimed from the
+                wall's own coordinates — a fixed 50% below lg, a
+                five-constant calc() at lg — and its cleared center was
+                still narrower than a phone's headline.) The plate melts
+                over the inset margins (mask in globals.css), so the spill
+                past the text is exactly the inset. `isolate` on the column
+                keeps -z-10 above the wall yet under the words. When the
+                copy sets ragged-right at lg, --hero-copy-focus slides the
+                bloom onto the headline's glyph center — 5rem inset + half
+                the 30rem h1, capped at 50% in case the box ever narrows. */}
+            <div
+              aria-hidden
+              className={cn(
+                "hero-copy-backdrop pointer-events-none absolute -inset-x-20 -inset-y-14 -z-10",
+                rooms.length > 0 && "lg:[--hero-copy-focus:min(20rem,50%)]",
+              )}
+            />
             {seasonal.length > 0 && (
               <p className="rounded-full border border-border/60 bg-background/60 px-3 py-1 font-mono text-xs text-primary backdrop-blur-sm">
                 {seasonLabel(season)} {year} · {seasonal.length} shows airing
               </p>
             )}
-            <h1 className="max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-6xl">
+            {/* 30rem = the two-line footprint (glyphs wrap at ~29.4rem); the
+                old 3xl cap never bound visually but left a 48rem box that
+                inflated the column's fit-content and off-centered the glow. */}
+            <h1 className="max-w-[30rem] text-balance text-4xl font-bold tracking-tight sm:text-6xl">
               Watch the season <span className="text-primary">together</span>.
             </h1>
             <p className="max-w-xl text-balance text-muted-foreground">

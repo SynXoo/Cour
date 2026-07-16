@@ -12,7 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -22,12 +28,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useSession } from "@/lib/auth/session";
 import {
   LIST_STATUSES,
   statusLabel,
   useDeleteEntry,
+  useFavoriteState,
   useMyListEntry,
+  useToggleFavorite,
   useUpsertEntry,
   type ListEntry,
   type ListStatus,
@@ -122,12 +131,25 @@ function EditorForm({
   const upsert = useUpsertEntry(animeId);
   const remove = useDeleteEntry(animeId);
 
+  // The favorite lives behind its own endpoint, but users think of it as one
+  // more thing about the show — so it rides this form and lands on Save.
+  // null = untouched: seeding a boolean at mount would lie if the (cached,
+  // usually warm) favorite query happened to resolve after the dialog opened.
+  const { data: favorited } = useFavoriteState(animeId);
+  const [favTouched, setFavTouched] = useState<boolean | null>(null);
+  const toggleFavorite = useToggleFavorite(animeId);
+  const serverFav = favorited ?? false;
+  const isFav = favTouched ?? serverFav;
+
   async function save() {
     await upsert.mutateAsync({
       status,
       score: score === "none" ? 0 : Number(score),
       progress: Math.max(0, Number(progress) || 0),
     });
+    if (favTouched != null && favTouched !== serverFav) {
+      await toggleFavorite.mutateAsync(favTouched);
+    }
     close();
   }
 
@@ -199,6 +221,19 @@ function EditorForm({
               />
             </Field>
           </div>
+
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="le-favorite">Favorite</FieldLabel>
+              <FieldDescription>Favorites headline your profile.</FieldDescription>
+            </FieldContent>
+            <Switch
+              id="le-favorite"
+              checked={isFav}
+              onCheckedChange={setFavTouched}
+              disabled={favorited === undefined}
+            />
+          </Field>
         </FieldGroup>
 
         <DialogFooter className="gap-2 sm:justify-between">

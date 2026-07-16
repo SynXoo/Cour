@@ -303,6 +303,14 @@ paths:
         - name: genre
           in: query
           schema: { type: string, maxLength: 30 }
+        - name: year
+          in: query
+          description: Only shows that premiered this year (the era-strip filter)
+          schema: { type: integer, minimum: 1900, maximum: 2200 }
+        - name: format
+          in: query
+          description: Only shows of this format (the format-split filter)
+          schema: { $ref: "#/components/schemas/Format" }
         - name: sort
           in: query
           schema: { type: string, enum: [updated, score, title], default: updated }
@@ -324,7 +332,7 @@ paths:
   /me/profile:
     patch:
       operationId: updateMyProfile
-      summary: Edit bio, avatar, favorite genres, and profile banner
+      summary: Edit bio, avatar, favorite genres, profile banner, and accent
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1250,7 +1258,7 @@ components:
       type: object
       required:
         [username, avatar_url, bio, favorite_genres, role, created_at, banner,
-         stats, favorites, currently_watching]
+         accent_color, stats, favorites, currently_watching]
       properties:
         username: { type: string }
         avatar_url: { type: string, nullable: true }
@@ -1264,6 +1272,10 @@ components:
           nullable: true
           description: The owner's chosen banner anime, resolved; null when unset
           allOf: [{ $ref: "#/components/schemas/ProfileBanner" }]
+        accent_color:
+          type: string
+          nullable: true
+          description: Owner-picked page accent (hex); null = derive from banner/favorites
         stats: { $ref: "#/components/schemas/ProfileStats" }
         favorites:
           type: array
@@ -1284,7 +1296,8 @@ components:
       type: object
       required:
         [counts, mean_score, rated_count, episodes_watched, watch_minutes,
-         score_histogram, genres]
+         score_histogram, score_stddev, score_bias, genres, season_counts,
+         format_counts, top_studios, longest_completed, library_span]
       properties:
         counts:
           type: object
@@ -1314,14 +1327,96 @@ components:
             properties:
               score: { type: integer }
               count: { type: integer }
+        score_stddev:
+          type: number
+          nullable: true
+          description: >-
+            Population standard deviation of the 1-10 scores — how much of the
+            scale the owner actually uses. Null with fewer than two ratings.
+        score_bias:
+          nullable: true
+          description: >-
+            The owner's mean against the community's mean over the same shows.
+            Null until enough of their rated shows carry a community score for
+            the comparison to mean anything.
+          allOf: [{ $ref: "#/components/schemas/ScoreBias" }]
         genres:
           type: array
-          items:
-            type: object
-            required: [genre, count]
-            properties:
-              genre: { type: string }
-              count: { type: integer }
+          items: { $ref: "#/components/schemas/GenreStat" }
+        season_counts:
+          type: array
+          description: Completed shows bucketed by premiere year, ascending — the owner's eras
+          items: { $ref: "#/components/schemas/SeasonCount" }
+        format_counts:
+          type: array
+          description: Library split by format, largest first
+          items: { $ref: "#/components/schemas/FormatCount" }
+        top_studios:
+          type: array
+          description: Main studios behind the library, most-watched first (max 3)
+          items: { $ref: "#/components/schemas/StudioCount" }
+        longest_completed:
+          nullable: true
+          description: The longest series the owner has finished; null when nothing is completed
+          allOf: [{ $ref: "#/components/schemas/AnimeSummary" }]
+        library_span:
+          nullable: true
+          description: Premiere years of the oldest and newest show on the shelves
+          allOf: [{ $ref: "#/components/schemas/LibrarySpan" }]
+
+    ScoreBias:
+      type: object
+      required: [user_mean, community_mean, sample_size]
+      properties:
+        user_mean: { type: number, description: Owner's mean over the compared shows }
+        community_mean:
+          type: number
+          description: AniList's mean over the same shows, rescaled to 1-10
+        sample_size:
+          type: integer
+          description: Shows the owner rated that also carry a community score
+
+    GenreStat:
+      type: object
+      required: [genre, count, mean_score, rated_count]
+      properties:
+        genre: { type: string }
+        count: { type: integer }
+        mean_score:
+          type: number
+          nullable: true
+          description: Mean 1-10 score across the owner's rated entries in this genre
+        rated_count:
+          type: integer
+          description: How many of those entries carry a score — the mean's weight
+
+    SeasonCount:
+      type: object
+      required: [year, count]
+      properties:
+        year: { type: integer }
+        count: { type: integer }
+
+    FormatCount:
+      type: object
+      required: [format, count]
+      properties:
+        format: { $ref: "#/components/schemas/Format" }
+        count: { type: integer }
+
+    StudioCount:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer }
+
+    LibrarySpan:
+      type: object
+      required: [earliest_year, latest_year]
+      properties:
+        earliest_year: { type: integer }
+        latest_year: { type: integer }
 
     WatchingEntry:
       type: object
@@ -1348,6 +1443,10 @@ components:
           format: int64
           minimum: 0
           description: Anime whose banner art heads the profile; 0 clears it, omitted keeps it
+        accent_color:
+          type: string
+          maxLength: 7
+          description: "Page accent as #rrggbb; empty string clears it, omitted keeps it"
 
     ListStatus:
       type: string

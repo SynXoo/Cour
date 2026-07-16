@@ -37,6 +37,7 @@ UPDATE users SET
   bio = $2,
   avatar_url = $3,
   favorite_genres = $4,
-  banner_anime_id = $5
+  banner_anime_id = $5,
+  accent_color = $6
 WHERE id = $1
 RETURNING *;

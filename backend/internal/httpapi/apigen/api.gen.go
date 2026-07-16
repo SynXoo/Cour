@@ -610,6 +610,24 @@ type FileReportRequest struct {
 // Format defines model for Format.
 type Format string
 
+// FormatCount defines model for FormatCount.
+type FormatCount struct {
+	Count  int    `json:"count"`
+	Format Format `json:"format"`
+}
+
+// GenreStat defines model for GenreStat.
+type GenreStat struct {
+	Count int    `json:"count"`
+	Genre string `json:"genre"`
+
+	// MeanScore Mean 1-10 score across the owner's rated entries in this genre
+	MeanScore *float32 `json:"mean_score"`
+
+	// RatedCount How many of those entries carry a score — the mean's weight
+	RatedCount int `json:"rated_count"`
+}
+
 // HelpfulState defines model for HelpfulState.
 type HelpfulState struct {
 	HelpfulCount int  `json:"helpful_count"`
@@ -710,6 +728,12 @@ type ImportSource string
 
 // ImportStatus pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
 type ImportStatus string
+
+// LibrarySpan defines model for LibrarySpan.
+type LibrarySpan struct {
+	EarliestYear int `json:"earliest_year"`
+	LatestYear   int `json:"latest_year"`
+}
 
 // ListEntry defines model for ListEntry.
 type ListEntry struct {
@@ -822,20 +846,38 @@ type ProfileStats struct {
 		Watching  int `json:"watching"`
 	} `json:"counts"`
 	EpisodesWatched int `json:"episodes_watched"`
-	Genres          []struct {
-		Count int    `json:"count"`
-		Genre string `json:"genre"`
-	} `json:"genres"`
+
+	// FormatCounts Library split by format, largest first
+	FormatCounts []FormatCount `json:"format_counts"`
+	Genres       []GenreStat   `json:"genres"`
+
+	// LibrarySpan Premiere years of the oldest and newest show on the shelves
+	LibrarySpan *LibrarySpan `json:"library_span"`
+
+	// LongestCompleted The longest series the owner has finished; null when nothing is completed
+	LongestCompleted *AnimeSummary `json:"longest_completed"`
 
 	// MeanScore Mean of 1-10 scores; null until something is rated
 	MeanScore  *float32 `json:"mean_score"`
 	RatedCount int      `json:"rated_count"`
+
+	// ScoreBias The owner's mean against the community's mean over the same shows. Null until enough of their rated shows carry a community score for the comparison to mean anything.
+	ScoreBias *ScoreBias `json:"score_bias"`
 
 	// ScoreHistogram All ten 1-10 buckets, ascending; zero counts included
 	ScoreHistogram []struct {
 		Count int `json:"count"`
 		Score int `json:"score"`
 	} `json:"score_histogram"`
+
+	// ScoreStddev Population standard deviation of the 1-10 scores — how much of the scale the owner actually uses. Null with fewer than two ratings.
+	ScoreStddev *float32 `json:"score_stddev"`
+
+	// SeasonCounts Completed shows bucketed by premiere year, ascending — the owner's eras
+	SeasonCounts []SeasonCount `json:"season_counts"`
+
+	// TopStudios Main studios behind the library, most-watched first (max 3)
+	TopStudios []StudioCount `json:"top_studios"`
 
 	// WatchMinutes Σ progress × episode duration; 0 when nothing watched
 	WatchMinutes int64 `json:"watch_minutes"`
@@ -970,6 +1012,18 @@ type ScheduleList struct {
 	Data []ScheduleEntry `json:"data"`
 }
 
+// ScoreBias defines model for ScoreBias.
+type ScoreBias struct {
+	// CommunityMean AniList's mean over the same shows, rescaled to 1-10
+	CommunityMean float32 `json:"community_mean"`
+
+	// SampleSize Shows the owner rated that also carry a community score
+	SampleSize int `json:"sample_size"`
+
+	// UserMean Owner's mean over the compared shows
+	UserMean float32 `json:"user_mean"`
+}
+
 // Season defines model for Season.
 type Season string
 
@@ -978,6 +1032,12 @@ type SeasonChart struct {
 	Data   []AnimeSummary `json:"data"`
 	Season Season         `json:"season"`
 	Year   int            `json:"year"`
+}
+
+// SeasonCount defines model for SeasonCount.
+type SeasonCount struct {
+	Count int `json:"count"`
+	Year  int `json:"year"`
 }
 
 // SessionResponse defines model for SessionResponse.
@@ -1004,6 +1064,12 @@ type StartAniListImportRequest struct {
 type Studio struct {
 	IsMain bool   `json:"is_main"`
 	Name   string `json:"name"`
+}
+
+// StudioCount defines model for StudioCount.
+type StudioCount struct {
+	Count int    `json:"count"`
+	Name  string `json:"name"`
 }
 
 // Tag defines model for Tag.
@@ -1073,6 +1139,9 @@ type UnreadCount struct {
 
 // UpdateProfileRequest defines model for UpdateProfileRequest.
 type UpdateProfileRequest struct {
+	// AccentColor Page accent as #rrggbb; empty string clears it, omitted keeps it
+	AccentColor *string `json:"accent_color,omitempty"`
+
 	// AvatarUrl http(s) URL; null clears the avatar
 	AvatarUrl *string `json:"avatar_url,omitempty"`
 
@@ -1125,7 +1194,9 @@ type UserPrivate struct {
 
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
-	AvatarUrl *string `json:"avatar_url"`
+	// AccentColor Owner-picked page accent (hex); null = derive from banner/favorites
+	AccentColor *string `json:"accent_color"`
+	AvatarUrl   *string `json:"avatar_url"`
 
 	// Banner The owner's chosen banner anime, resolved; null when unset
 	Banner            *ProfileBanner  `json:"banner"`
@@ -1242,8 +1313,14 @@ type GetUserPublicListParams struct {
 	Status *ListStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Score Only entries rated exactly this (the histogram filter)
-	Score   *int                         `form:"score,omitempty" json:"score,omitempty"`
-	Genre   *string                      `form:"genre,omitempty" json:"genre,omitempty"`
+	Score *int    `form:"score,omitempty" json:"score,omitempty"`
+	Genre *string `form:"genre,omitempty" json:"genre,omitempty"`
+
+	// Year Only shows that premiered this year (the era-strip filter)
+	Year *int `form:"year,omitempty" json:"year,omitempty"`
+
+	// Format Only shows of this format (the format-split filter)
+	Format  *Format                      `form:"format,omitempty" json:"format,omitempty"`
 	Sort    *GetUserPublicListParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
 	Page    *int                         `form:"page,omitempty" json:"page,omitempty"`
 	PerPage *int                         `form:"per_page,omitempty" json:"per_page,omitempty"`
@@ -1422,7 +1499,7 @@ type ServerInterface interface {
 	// Unread notification count (for the bell)
 	// (GET /me/notifications/unread-count)
 	GetUnreadCount(w http.ResponseWriter, r *http.Request)
-	// Edit bio, avatar, favorite genres, and profile banner
+	// Edit bio, avatar, favorite genres, profile banner, and accent
 	// (PATCH /me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	// Taste-based suggestions with explanations
@@ -1731,7 +1808,7 @@ func (_ Unimplemented) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Edit bio, avatar, favorite genres, and profile banner
+// Edit bio, avatar, favorite genres, profile banner, and accent
 // (PATCH /me/profile)
 func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -3767,6 +3844,32 @@ func (siw *ServerInterfaceWrapper) GetUserPublicList(w http.ResponseWriter, r *h
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", r.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
 		}
 		return
 	}

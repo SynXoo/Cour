@@ -76,7 +76,7 @@ function mount(
       <LibrarySection
         username="sam"
         counts={counts}
-        filter={{ status: "completed", score: null, genre: null }}
+        filter={{ status: "completed", score: null, genre: null, year: null, format: null }}
         onFilterChange={onFilterChange}
         {...props}
       />
@@ -121,12 +121,18 @@ describe("LibrarySection", () => {
     await screen.findByText("Solo");
 
     await userEvent.click(screen.getByRole("tab", { name: /Watching/ }));
-    expect(onFilterChange).toHaveBeenCalledWith({ status: "watching", score: null, genre: null });
+    expect(onFilterChange).toHaveBeenCalledWith({
+      status: "watching",
+      score: null,
+      genre: null,
+      year: null,
+      format: null,
+    });
   });
 
   it("sends active score/genre filters and clears them from the chips", async () => {
     getMock.mockResolvedValue({ data: { data: [], total: 0, page: 1, per_page: 50 } });
-    const { onFilterChange } = mount({ filter: { status: "all", score: 7, genre: "Action" } });
+    const { onFilterChange } = mount({ filter: { status: "all", score: 7, genre: "Action", year: null, format: null } });
 
     await waitFor(() =>
       expect(getMock).toHaveBeenCalledWith(
@@ -141,7 +147,13 @@ describe("LibrarySection", () => {
     expect(await screen.findByText(/Nothing here matches the filter/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Scored 7/ }));
-    expect(onFilterChange).toHaveBeenCalledWith({ status: "all", score: null, genre: "Action" });
+    expect(onFilterChange).toHaveBeenCalledWith({
+      status: "all",
+      score: null,
+      genre: "Action",
+      year: null,
+      format: null,
+    });
   });
 
   it("dresses an empty library and keeps the owner shortcut for owners only", () => {

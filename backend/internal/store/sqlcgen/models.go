@@ -798,4 +798,5 @@ type User struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	BannerAnimeID   *int64
+	AccentColor     *string
 }

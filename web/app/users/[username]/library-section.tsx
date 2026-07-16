@@ -16,7 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { browserApi } from "@/lib/api/client";
-import { animeHref, displayTitle } from "@/lib/anime";
+import { animeHref, displayTitle, formatLabel } from "@/lib/anime";
 import { useSession } from "@/lib/auth/session";
 import {
   libraryTotal,
@@ -36,6 +36,16 @@ const SORT_LABELS: Record<LibrarySort, string> = {
   score: "Score",
   title: "Title",
 };
+
+/** Any stat-driven narrowing is on — the status tabs are not a "filter". */
+function hasFilters(filter: LibraryFilter): boolean {
+  return (
+    filter.score != null ||
+    filter.genre != null ||
+    filter.year != null ||
+    filter.format != null
+  );
+}
 
 /**
  * The quick-browse ask: the five status counts as real tabs over a dense
@@ -61,7 +71,16 @@ export function LibrarySection({
   const [sort, setSort] = useState<LibrarySort>("updated");
 
   const query = useInfiniteQuery({
-    queryKey: ["public-list", username, filter.status, filter.score, filter.genre, sort],
+    queryKey: [
+      "public-list",
+      username,
+      filter.status,
+      filter.score,
+      filter.genre,
+      filter.year,
+      filter.format,
+      sort,
+    ],
     enabled: total > 0,
     initialPageParam: 1,
     queryFn: async ({ pageParam }): Promise<UserList> => {
@@ -72,6 +91,8 @@ export function LibrarySection({
             status: filter.status === "all" ? undefined : filter.status,
             score: filter.score ?? undefined,
             genre: filter.genre ?? undefined,
+            year: filter.year ?? undefined,
+            format: filter.format ?? undefined,
             sort,
             page: pageParam,
             per_page: 50,
@@ -160,7 +181,7 @@ export function LibrarySection({
             </div>
           </div>
 
-          {(filter.score != null || filter.genre != null) && (
+          {hasFilters(filter) && (
             <div className="flex flex-wrap items-center gap-2">
               {filter.score != null && (
                 <FilterChip
@@ -172,6 +193,18 @@ export function LibrarySection({
                 <FilterChip
                   label={filter.genre}
                   onClear={() => onFilterChange({ ...filter, genre: null })}
+                />
+              )}
+              {filter.year != null && (
+                <FilterChip
+                  label={`Premiered ${filter.year}`}
+                  onClear={() => onFilterChange({ ...filter, year: null })}
+                />
+              )}
+              {filter.format != null && (
+                <FilterChip
+                  label={formatLabel(filter.format) ?? filter.format}
+                  onClear={() => onFilterChange({ ...filter, format: null })}
                 />
               )}
             </div>
@@ -192,7 +225,7 @@ export function LibrarySection({
           ) : entries.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
               Nothing here
-              {filter.score != null || filter.genre != null
+              {hasFilters(filter)
                 ? " matches the filter"
                 : filter.status === "all"
                   ? ""

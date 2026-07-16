@@ -4,9 +4,10 @@ import Image from "next/image";
 import { FollowButton } from "@/components/social/follow-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useSession } from "@/lib/auth/session";
 import { fallbackWallCovers, type ProfileBanner, type UserProfile } from "@/lib/profile";
+import { AccentPicker } from "./accent-picker";
 import { BannerPicker } from "./banner-picker";
+import { BioEditor } from "./bio-editor";
 
 /**
  * The profile's front door: full-bleed banner art (the owner's pick) melting
@@ -16,15 +17,25 @@ import { BannerPicker } from "./banner-picker";
  */
 export function ProfileHero({
   profile,
+  isOwner,
   banner,
+  bio,
+  accent,
   onBannerChange,
+  onBioChange,
+  onAccentPreview,
+  onAccentChange,
 }: {
   profile: UserProfile;
+  isOwner: boolean;
   banner: ProfileBanner | null;
+  bio: string;
+  accent: string | null;
   onBannerChange: (banner: ProfileBanner | null) => void;
+  onBioChange: (bio: string) => void;
+  onAccentPreview: (hex: string | null) => void;
+  onAccentChange: (hex: string | null) => void;
 }) {
-  const { user } = useSession();
-  const isOwner = user?.username === profile.username;
   const wall = fallbackWallCovers(profile.favorites, profile.currently_watching);
 
   return (
@@ -69,7 +80,13 @@ export function ProfileHero({
             </p>
           </div>
           {isOwner && (
-            <div className="pb-1">
+            <div className="flex flex-wrap gap-2 pb-1">
+              <AccentPicker
+                favorites={profile.favorites}
+                current={accent}
+                onPreview={onAccentPreview}
+                onPicked={onAccentChange}
+              />
               <BannerPicker
                 favorites={profile.favorites}
                 current={banner}
@@ -79,11 +96,7 @@ export function ProfileHero({
           )}
         </div>
 
-        {profile.bio && (
-          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-foreground/90">
-            {profile.bio}
-          </p>
-        )}
+        <BioEditor bio={bio} isOwner={isOwner} onSaved={onBioChange} />
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <FollowButton username={profile.username} />
@@ -102,15 +115,18 @@ export function ProfileHero({
   );
 }
 
-/** One slow-tilted row of covers standing in for banner art. Static — the
- * landing's marquee would be noise here — and purely decorative. */
+/** One level row of covers standing in for banner art: a filmstrip that fills
+ * the band edge to edge, centered so the overflow is even on both sides. Each
+ * cover crops to the band's height rather than keeping its 2:3 box — a banner
+ * is a horizon, and a tilted or letterboxed row reads as a mistake. Static —
+ * the landing's marquee would be noise here — and purely decorative. */
 function PosterWallStrip({ covers }: { covers: { id: number; cover_image: string }[] }) {
   return (
-    <ul className="profile-banner-mask absolute -inset-x-4 -top-6 bottom-0 flex -rotate-2 items-start justify-center gap-2 opacity-80">
+    <ul className="profile-banner-mask absolute inset-0 flex items-stretch justify-center gap-1.5 opacity-80">
       {covers.map((c, i) => (
-        <li key={c.id} className="relative aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-md sm:w-28 lg:w-32">
+        <li key={c.id} className="relative w-28 shrink-0 overflow-hidden sm:w-32 lg:w-40">
           {/* The wall is the LCP when it stands in for the banner. */}
-          <Image src={c.cover_image} alt="" fill priority={i < 6} sizes="128px" className="object-cover" />
+          <Image src={c.cover_image} alt="" fill priority={i < 6} sizes="160px" className="object-cover" />
         </li>
       ))}
     </ul>

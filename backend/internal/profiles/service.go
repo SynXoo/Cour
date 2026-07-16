@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,7 +32,15 @@ const (
 	maxGenres       = 10
 
 	publicListMaxPerPage = 50
+
+	// A critic verdict drawn from three shows is a coin flip with extra steps;
+	// below this the bias is withheld rather than qualified.
+	minBiasSample = 5
+	// STDDEV_POP of one rating is 0, which would read as "never varies".
+	minSpreadSample = 2
 )
+
+var accentPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
 
 type Service struct {
 	q     *sqlcgen.Queries
@@ -50,6 +59,22 @@ type Banner struct {
 	CoverColor  *string
 }
 
+// ScoreBias compares the owner's ratings with the community's over the shows
+// they both scored. Nil on a Profile when the sample is too thin to mean
+// anything (see minBiasSample).
+type ScoreBias struct {
+	UserMean      float64
+	CommunityMean float64
+	SampleSize    int64
+}
+
+// LibrarySpan is the premiere-year range of the shelves. Nil when nothing on
+// them carries a premiere year.
+type LibrarySpan struct {
+	EarliestYear int32
+	LatestYear   int32
+}
+
 // Profile is the public view: no email, no auth details.
 type Profile struct {
 	User              sqlcgen.User
@@ -60,13 +85,21 @@ type Profile struct {
 	EpisodesWatched   int64
 	WatchMinutes      int64
 	ScoreHistogram    [10]int64 // index i = count of entries scored i+1
+	ScoreStddev       *float64  // nil below minSpreadSample ratings
+	ScoreBias         *ScoreBias
 	Genres            []sqlcgen.UserGenreBreakdownRow
+	SeasonCounts      []sqlcgen.UserSeasonSpreadRow
+	FormatCounts      []sqlcgen.UserFormatSplitRow
+	TopStudios        []sqlcgen.UserTopStudiosRow
+	LongestCompleted  *sqlcgen.Anime
+	LibrarySpan       *LibrarySpan
 	Favorites         []sqlcgen.ListFavoritesRow
 	CurrentlyWatching []sqlcgen.UserCurrentlyWatchingRow
 }
 
-// v2: M3.5 added banner/histogram/watch-minutes — stale v1 JSON must miss.
-func profileKey(username string) string { return "profile:v2:" + strings.ToLower(username) }
+// v3: M3.6 added the taste stats (bias/spread/eras/formats/studios/span) and
+// the accent — stale v2 JSON must miss.
+func profileKey(username string) string { return "profile:v3:" + strings.ToLower(username) }
 
 func (s *Service) ByUsername(ctx context.Context, username string) (Profile, error) {
 	key := profileKey(username)
@@ -117,6 +150,30 @@ func (s *Service) ByUsername(ctx context.Context, username string) (Profile, err
 	if err != nil {
 		return Profile{}, fmt.Errorf("watch minutes: %w", err)
 	}
+	bias, err := s.q.UserScoreBias(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("score bias: %w", err)
+	}
+	seasons, err := s.q.UserSeasonSpread(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("season spread: %w", err)
+	}
+	formats, err := s.q.UserFormatSplit(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("format split: %w", err)
+	}
+	studios, err := s.q.UserTopStudios(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("top studios: %w", err)
+	}
+	longest, err := s.q.UserLongestCompleted(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("longest completed: %w", err)
+	}
+	span, err := s.q.UserLibrarySpan(ctx, user.ID)
+	if err != nil {
+		return Profile{}, fmt.Errorf("library span: %w", err)
+	}
 
 	p = Profile{
 		User:              user,
@@ -126,6 +183,9 @@ func (s *Service) ByUsername(ctx context.Context, username string) (Profile, err
 		EpisodesWatched:   episodes,
 		WatchMinutes:      watchMinutes,
 		Genres:            genres,
+		SeasonCounts:      seasons,
+		FormatCounts:      formats,
+		TopStudios:        studios,
 		Favorites:         favorites,
 		CurrentlyWatching: watching,
 	}
@@ -136,6 +196,22 @@ func (s *Service) ByUsername(ctx context.Context, username string) (Profile, err
 		if b.Score >= 1 && b.Score <= 10 {
 			p.ScoreHistogram[b.Score-1] = b.Count
 		}
+	}
+	if scores.RatedCount >= minSpreadSample {
+		p.ScoreStddev = &scores.ScoreStddev
+	}
+	if bias.SampleSize >= minBiasSample {
+		p.ScoreBias = &ScoreBias{
+			UserMean:      bias.UserMean,
+			CommunityMean: bias.CommunityMean,
+			SampleSize:    bias.SampleSize,
+		}
+	}
+	if len(longest) > 0 {
+		p.LongestCompleted = &longest[0].Anime
+	}
+	if span.DatedCount > 0 {
+		p.LibrarySpan = &LibrarySpan{EarliestYear: span.EarliestYear, LatestYear: span.LatestYear}
 	}
 	if user.BannerAnimeID != nil {
 		// ON DELETE SET NULL keeps this fresh, but tolerate a miss anyway.
@@ -159,7 +235,8 @@ type UpdateInput struct {
 	AvatarURL      *string // nil = keep; pointer to "" = clear
 	ClearAvatar    bool
 	FavoriteGenres *[]string
-	BannerAnimeID  *int64 // nil = keep; 0 = clear (the score-field convention)
+	BannerAnimeID  *int64  // nil = keep; 0 = clear (the score-field convention)
+	AccentColor    *string // nil = keep; pointer to "" = clear
 }
 
 // Validate returns per-field problems; empty map = valid.
@@ -176,6 +253,11 @@ func (in UpdateInput) Validate() map[string]string {
 	}
 	if in.FavoriteGenres != nil && len(*in.FavoriteGenres) > maxGenres {
 		problems["favorite_genres"] = fmt.Sprintf("at most %d genres", maxGenres)
+	}
+	// Case-folded here so the column's lowercase CHECK only ever fires on a bug.
+	if in.AccentColor != nil && *in.AccentColor != "" &&
+		!accentPattern.MatchString(strings.ToLower(*in.AccentColor)) {
+		problems["accent_color"] = "must be a #rrggbb hex color"
 	}
 	return problems
 }
@@ -201,6 +283,16 @@ func (s *Service) Update(ctx context.Context, userID int64, in UpdateInput) (sql
 	if in.FavoriteGenres != nil {
 		genres = *in.FavoriteGenres
 	}
+	accent := current.AccentColor
+	switch {
+	case in.AccentColor == nil:
+		// keep
+	case *in.AccentColor == "":
+		accent = nil
+	default:
+		lowered := strings.ToLower(*in.AccentColor)
+		accent = &lowered
+	}
 	banner := current.BannerAnimeID
 	switch {
 	case in.BannerAnimeID == nil:
@@ -224,6 +316,7 @@ func (s *Service) Update(ctx context.Context, userID int64, in UpdateInput) (sql
 		AvatarUrl:      avatar,
 		FavoriteGenres: genres,
 		BannerAnimeID:  banner,
+		AccentColor:    accent,
 	})
 	if err != nil {
 		return sqlcgen.User{}, fmt.Errorf("update profile: %w", err)
@@ -240,6 +333,8 @@ type PublicListQuery struct {
 	Status  *sqlcgen.ListStatus
 	Score   *int16
 	Genre   *string
+	Year    *int32
+	Format  *sqlcgen.AnimeFormat
 	Sort    string // updated | score | title
 	Page    int
 	PerPage int
@@ -283,6 +378,8 @@ func (s *Service) PublicList(ctx context.Context, username string, q PublicListQ
 		Status:     q.Status,
 		Score:      q.Score,
 		Genre:      q.Genre,
+		Year:       q.Year,
+		Format:     q.Format,
 		Sort:       q.Sort,
 		PageLimit:  int32(q.PerPage),                //nolint:gosec // clamped above
 		PageOffset: int32((q.Page - 1) * q.PerPage), //nolint:gosec // clamped above

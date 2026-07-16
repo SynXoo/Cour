@@ -7,11 +7,23 @@ import (
 
 	"cour/internal/httpapi/apigen"
 	"cour/internal/profiles"
+	"cour/internal/store/sqlcgen"
 )
 
 type profileHandlers struct {
 	svc *profiles.Service
 	log *slog.Logger
+}
+
+// Same bare-constant caveat as validListStatuses (see lists.go).
+var validFormats = map[apigen.Format]sqlcgen.AnimeFormat{
+	apigen.TV:      sqlcgen.AnimeFormatTV,
+	apigen.TVSHORT: sqlcgen.AnimeFormatTVSHORT,
+	apigen.MOVIE:   sqlcgen.AnimeFormatMOVIE,
+	apigen.SPECIAL: sqlcgen.AnimeFormatSPECIAL,
+	apigen.OVA:     sqlcgen.AnimeFormatOVA,
+	apigen.ONA:     sqlcgen.AnimeFormatONA,
+	apigen.MUSIC:   sqlcgen.AnimeFormatMUSIC,
 }
 
 func (h profileHandlers) GetUserProfile(w http.ResponseWriter, r *http.Request, username string) {
@@ -33,19 +45,61 @@ func (h profileHandlers) GetUserProfile(w http.ResponseWriter, r *http.Request, 
 	for i, wch := range p.CurrentlyWatching {
 		watching[i] = apigen.WatchingEntry{Anime: toSummary(wch.Anime), Progress: int(wch.Progress)}
 	}
-	genres := make([]struct {
-		Count int    `json:"count"`
-		Genre string `json:"genre"`
-	}, len(p.Genres))
+	genres := make([]apigen.GenreStat, len(p.Genres))
 	for i, g := range p.Genres {
-		genres[i].Genre = g.Genre
-		genres[i].Count = int(g.Count)
+		genres[i] = apigen.GenreStat{
+			Genre:      g.Genre,
+			Count:      int(g.Count),
+			RatedCount: int(g.RatedCount),
+		}
+		if g.RatedCount > 0 {
+			v := float32(g.MeanScore)
+			genres[i].MeanScore = &v
+		}
+	}
+
+	seasonCounts := make([]apigen.SeasonCount, len(p.SeasonCounts))
+	for i, s := range p.SeasonCounts {
+		seasonCounts[i] = apigen.SeasonCount{Year: int(s.Year), Count: int(s.Count)}
+	}
+	formatCounts := make([]apigen.FormatCount, len(p.FormatCounts))
+	for i, f := range p.FormatCounts {
+		formatCounts[i] = apigen.FormatCount{Format: apigen.Format(f.Format), Count: int(f.Count)}
+	}
+	topStudios := make([]apigen.StudioCount, len(p.TopStudios))
+	for i, s := range p.TopStudios {
+		topStudios[i] = apigen.StudioCount{Name: s.Name, Count: int(s.Count)}
 	}
 
 	var meanScore *float32
 	if p.RatedCount > 0 {
 		v := float32(p.MeanScore)
 		meanScore = &v
+	}
+	var scoreStddev *float32
+	if p.ScoreStddev != nil {
+		v := float32(*p.ScoreStddev)
+		scoreStddev = &v
+	}
+	var scoreBias *apigen.ScoreBias
+	if p.ScoreBias != nil {
+		scoreBias = &apigen.ScoreBias{
+			UserMean:      float32(p.ScoreBias.UserMean),
+			CommunityMean: float32(p.ScoreBias.CommunityMean),
+			SampleSize:    int(p.ScoreBias.SampleSize),
+		}
+	}
+	var longestCompleted *apigen.AnimeSummary
+	if p.LongestCompleted != nil {
+		v := toSummary(*p.LongestCompleted)
+		longestCompleted = &v
+	}
+	var librarySpan *apigen.LibrarySpan
+	if p.LibrarySpan != nil {
+		librarySpan = &apigen.LibrarySpan{
+			EarliestYear: int(p.LibrarySpan.EarliestYear),
+			LatestYear:   int(p.LibrarySpan.LatestYear),
+		}
 	}
 
 	histogram := make([]struct {
@@ -74,6 +128,7 @@ func (h profileHandlers) GetUserProfile(w http.ResponseWriter, r *http.Request, 
 		Role:           apigen.Role(p.User.Role),
 		CreatedAt:      p.User.CreatedAt,
 		Banner:         banner,
+		AccentColor:    p.User.AccentColor,
 		Stats: apigen.ProfileStats{
 			Counts: struct {
 				Completed int `json:"completed"`
@@ -88,12 +143,19 @@ func (h profileHandlers) GetUserProfile(w http.ResponseWriter, r *http.Request, 
 				Paused:    int(p.StatusCounts["paused"]),
 				Dropped:   int(p.StatusCounts["dropped"]),
 			},
-			MeanScore:       meanScore,
-			RatedCount:      int(p.RatedCount),
-			EpisodesWatched: int(p.EpisodesWatched),
-			WatchMinutes:    p.WatchMinutes,
-			ScoreHistogram:  histogram,
-			Genres:          genres,
+			MeanScore:        meanScore,
+			RatedCount:       int(p.RatedCount),
+			EpisodesWatched:  int(p.EpisodesWatched),
+			WatchMinutes:     p.WatchMinutes,
+			ScoreHistogram:   histogram,
+			ScoreStddev:      scoreStddev,
+			ScoreBias:        scoreBias,
+			Genres:           genres,
+			SeasonCounts:     seasonCounts,
+			FormatCounts:     formatCounts,
+			TopStudios:       topStudios,
+			LongestCompleted: longestCompleted,
+			LibrarySpan:      librarySpan,
 		},
 		Favorites:         favorites,
 		CurrentlyWatching: watching,
@@ -120,6 +182,22 @@ func (h profileHandlers) GetUserPublicList(w http.ResponseWriter, r *http.Reques
 	}
 	if params.Genre != nil {
 		q.Genre = params.Genre
+	}
+	if params.Year != nil {
+		if *params.Year < 1900 || *params.Year > 2200 {
+			writeError(w, http.StatusBadRequest, CodeBadRequest, "year out of range")
+			return
+		}
+		v := int32(*params.Year) //nolint:gosec // bounded above
+		q.Year = &v
+	}
+	if params.Format != nil {
+		f, valid := validFormats[*params.Format]
+		if !valid {
+			writeError(w, http.StatusBadRequest, CodeBadRequest, "unknown format")
+			return
+		}
+		q.Format = &f
 	}
 	if params.Sort != nil {
 		if !params.Sort.Valid() {
@@ -179,6 +257,7 @@ func (h profileHandlers) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 		Bio:            req.Bio,
 		FavoriteGenres: req.FavoriteGenres,
 		BannerAnimeID:  req.BannerAnimeId,
+		AccentColor:    req.AccentColor,
 	}
 	// Distinguish "avatar_url": null (clear) from omitted (keep): the field
 	// is *string and nullable, so decode gives nil for both — re-check raw

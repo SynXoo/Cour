@@ -240,26 +240,54 @@
   }
 }
 
-/* The hero wall dissolves via masks instead of painted washes, so whatever
-   sits behind it (the landing's ambient tint) shows through — no color
-   seams to keep in sync. Layers intersect: melt top/bottom edges, melt the
-   sides, and open a hole behind the copy (center on mobile, left column on
-   desktop, where the live panel takes the right). */
+/* The hero wall dissolves at its edges via masks instead of painted washes,
+   so whatever sits behind it (the landing's ambient tint) shows through —
+   no color seams to keep in sync. Edge melts only: readability over the
+   copy belongs to the copy's own backdrop (.hero-copy-backdrop below). The
+   radial "hole" that used to be a third layer here had to re-derive the
+   copy's position in wall coordinates — a fixed 50% centre below lg, a
+   five-constant calc() above it — and its cleared centre was still narrower
+   than a phone's headline. Wall-side geometry can only chase the text; a
+   child of the copy column binds to it. */
 .hero-wall-mask {
   mask-image:
     linear-gradient(to bottom, transparent, black 22%, black 70%, transparent),
-    linear-gradient(to right, transparent, black 10%, black 90%, transparent),
-    radial-gradient(ellipse 62% 60% at 50% 52%, transparent 30%, black 76%);
+    linear-gradient(to right, transparent, black 10%, black 90%, transparent);
   mask-composite: intersect;
 }
-@media (min-width: 1024px) {
-  .hero-wall-mask {
-    mask-image:
-      linear-gradient(to bottom, transparent, black 22%, black 70%, transparent),
-      linear-gradient(to right, transparent, black 10%, black 90%, transparent),
-      radial-gradient(ellipse 55% 68% at 30% 52%, transparent 32%, black 74%);
-    mask-composite: intersect;
-  }
+
+/* The hero copy's backdrop: readability plate + violet bloom in one
+   element. landing-view.tsx insets it around the shrink-wrapped copy column
+   (and isolates the column, so -z-10 rides above the poster wall yet under
+   the words) — its box IS the copy stack, so both layers re-center and
+   re-proportion with the text at every width, no wall coordinates to keep
+   in sync.
+   The background-color is the plate: it repaints near-background over the
+   posters (the readability the wall-mask hole used to provide by guessing
+   where the copy was), held flat across the whole stack and melted over the
+   outer 4rem/3rem by the mask — fixed-rem fades read the same at any box
+   size, and the melt finishes before the box edge, where a radial that
+   cleared the text's corners would still be mid-fade.
+   The gradient is the violet bloom, riding at 45% height because the
+   headline — the brightest thing it backs — sits in the upper half.
+   --hero-copy-focus is its x-center: 50% (the var() fallback — declaring a
+   default here would win over the utility that sets it, since this file is
+   unlayered and beats @layer utilities) while the copy is centered;
+   landing-view.tsx slides it onto the headline's glyph center when the copy
+   sets ragged-right at lg, since left-aligned text's visual mass sits left
+   of its box center (the box is as wide as the paragraph; headline and
+   buttons stop short of its right edge). */
+.hero-copy-backdrop {
+  background-color: color-mix(in oklab, var(--background) 90%, transparent);
+  background-image: radial-gradient(
+    ellipse 58% 58% at var(--hero-copy-focus, 50%) 45%,
+    color-mix(in oklab, var(--primary) 26%, transparent),
+    transparent 74%
+  );
+  mask-image:
+    linear-gradient(to right, transparent, black 4rem calc(100% - 4rem), transparent),
+    linear-gradient(to bottom, transparent, black 3rem calc(100% - 3rem), transparent);
+  mask-composite: intersect;
 }
 
 /* Page-wide ambience for the logged-out landing: the violet wash the hero
@@ -519,6 +547,26 @@ details[open] .picker-item {
   animation-delay: calc(var(--i) * 55ms);
 }
 
+/* The score-bias needle swings out from the crowd's midpoint to where the
+   owner actually sits — the verdict, drawn. Overshoots a touch, like a real
+   one settling. Its resting place is --offset, set inline. */
+@keyframes needle-swing {
+  from {
+    left: 50%;
+  }
+}
+.needle {
+  animation: needle-swing 720ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  animation-delay: 120ms;
+}
+
+/* Era columns grow like the histogram, but a year at a time. */
+.era-bar {
+  transform-origin: bottom;
+  animation: density-grow 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i) * 22ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .comment-flash,
   .tapback-pop,
@@ -527,7 +575,9 @@ details[open] .picker-item {
   .reply-chip,
   .density-bar,
   .stat-bar,
-  .genre-fill {
+  .genre-fill,
+  .needle,
+  .era-bar {
     animation: none;
   }
   .tapback-burst {

@@ -104,8 +104,48 @@ func (q *Queries) UserEpisodesWatched(ctx context.Context, userID int64) (int64,
 	return episodes, err
 }
 
+const userFormatSplit = `-- name: UserFormatSplit :many
+SELECT COALESCE(a.format::text, '')::text AS format, COUNT(*)::bigint AS count
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+WHERE le.user_id = $1 AND a.format IS NOT NULL
+GROUP BY a.format
+ORDER BY count DESC, a.format
+`
+
+type UserFormatSplitRow struct {
+	Format string
+	Count  int64
+}
+
+// COALESCE forces a non-null text out of a nullable enum column the WHERE has
+// already filtered — sqlc types the column, not the predicate.
+func (q *Queries) UserFormatSplit(ctx context.Context, userID int64) ([]UserFormatSplitRow, error) {
+	rows, err := q.db.Query(ctx, userFormatSplit, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserFormatSplitRow
+	for rows.Next() {
+		var i UserFormatSplitRow
+		if err := rows.Scan(&i.Format, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const userGenreBreakdown = `-- name: UserGenreBreakdown :many
-SELECT g.genre::text AS genre, COUNT(*)::bigint AS count
+SELECT
+  g.genre::text AS genre,
+  COUNT(*)::bigint AS count,
+  COUNT(le.score)::bigint AS rated_count,
+  COALESCE(AVG(le.score), 0)::float8 AS mean_score
 FROM list_entries le
 JOIN anime a ON a.id = le.anime_id
 CROSS JOIN LATERAL unnest(a.genres) AS g(genre)
@@ -116,10 +156,14 @@ LIMIT 10
 `
 
 type UserGenreBreakdownRow struct {
-	Genre string
-	Count int64
+	Genre      string
+	Count      int64
+	RatedCount int64
+	MeanScore  float64
 }
 
+// rated_count rides along so the mean can be suppressed when it rests on
+// nothing: "9.0 across one show" is noise dressed as taste.
 func (q *Queries) UserGenreBreakdown(ctx context.Context, userID int64) ([]UserGenreBreakdownRow, error) {
 	rows, err := q.db.Query(ctx, userGenreBreakdown, userID)
 	if err != nil {
@@ -129,7 +173,12 @@ func (q *Queries) UserGenreBreakdown(ctx context.Context, userID int64) ([]UserG
 	var items []UserGenreBreakdownRow
 	for rows.Next() {
 		var i UserGenreBreakdownRow
-		if err := rows.Scan(&i.Genre, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.Genre,
+			&i.Count,
+			&i.RatedCount,
+			&i.MeanScore,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -138,6 +187,31 @@ func (q *Queries) UserGenreBreakdown(ctx context.Context, userID int64) ([]UserG
 		return nil, err
 	}
 	return items, nil
+}
+
+const userLibrarySpan = `-- name: UserLibrarySpan :one
+SELECT
+  COUNT(a.season_year)::bigint AS dated_count,
+  COALESCE(MIN(a.season_year), 0)::int AS earliest_year,
+  COALESCE(MAX(a.season_year), 0)::int AS latest_year
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+WHERE le.user_id = $1
+`
+
+type UserLibrarySpanRow struct {
+	DatedCount   int64
+	EarliestYear int32
+	LatestYear   int32
+}
+
+// dated_count distinguishes "no shows" from "no shows with a premiere year";
+// both would otherwise arrive as the 0/0 the COALESCEs invent.
+func (q *Queries) UserLibrarySpan(ctx context.Context, userID int64) (UserLibrarySpanRow, error) {
+	row := q.db.QueryRow(ctx, userLibrarySpan, userID)
+	var i UserLibrarySpanRow
+	err := row.Scan(&i.DatedCount, &i.EarliestYear, &i.LatestYear)
+	return i, err
 }
 
 const userListStatusCounts = `-- name: UserListStatusCounts :many
@@ -171,6 +245,71 @@ func (q *Queries) UserListStatusCounts(ctx context.Context, userID int64) ([]Use
 	return items, nil
 }
 
+const userLongestCompleted = `-- name: UserLongestCompleted :many
+SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
+FROM list_entries le
+JOIN anime ON anime.id = le.anime_id
+WHERE le.user_id = $1 AND le.status = 'completed' AND anime.episodes_count IS NOT NULL
+ORDER BY anime.episodes_count DESC, anime.id
+LIMIT 1
+`
+
+type UserLongestCompletedRow struct {
+	Anime Anime
+}
+
+// :many with LIMIT 1 — an empty shelf is the common case, not an error.
+func (q *Queries) UserLongestCompleted(ctx context.Context, userID int64) ([]UserLongestCompletedRow, error) {
+	rows, err := q.db.Query(ctx, userLongestCompleted, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserLongestCompletedRow
+	for rows.Next() {
+		var i UserLongestCompletedRow
+		if err := rows.Scan(
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const userPublicList = `-- name: UserPublicList :many
 SELECT list_entries.id, list_entries.user_id, list_entries.anime_id, list_entries.status, list_entries.score, list_entries.progress, list_entries.started_on, list_entries.finished_on, list_entries.created_at, list_entries.updated_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id, COUNT(*) OVER ()::bigint AS total
 FROM list_entries
@@ -179,12 +318,14 @@ WHERE list_entries.user_id = $1
   AND ($2::list_status IS NULL OR list_entries.status = $2)
   AND ($3::smallint IS NULL OR list_entries.score = $3)
   AND ($4::text IS NULL OR $4::text = ANY(anime.genres))
+  AND ($5::int IS NULL OR anime.season_year = $5::int)
+  AND ($6::anime_format IS NULL OR anime.format = $6::anime_format)
 ORDER BY
-  CASE WHEN $5::text = 'title'
+  CASE WHEN $7::text = 'title'
        THEN lower(coalesce(anime.title_english, anime.title_romaji)) END ASC,
-  CASE WHEN $5::text = 'score' THEN list_entries.score END DESC NULLS LAST,
+  CASE WHEN $7::text = 'score' THEN list_entries.score END DESC NULLS LAST,
   list_entries.updated_at DESC
-LIMIT $7 OFFSET $6
+LIMIT $9 OFFSET $8
 `
 
 type UserPublicListParams struct {
@@ -192,6 +333,8 @@ type UserPublicListParams struct {
 	Status     *ListStatus
 	Score      *int16
 	Genre      *string
+	Year       *int32
+	Format     *AnimeFormat
 	Sort       string
 	PageOffset int32
 	PageLimit  int32
@@ -206,12 +349,16 @@ type UserPublicListRow struct {
 // The public library browse behind the profile tabs (M3.5): status tabs,
 // the histogram's exact-score filter, genre-bar filter, three sorts, offset
 // pages. COUNT(*) OVER() rides along so one query yields page + total.
+// M3.6 added year + format so the era strip and the format split are clicks
+// into this same list, filtered server-side like every other stat.
 func (q *Queries) UserPublicList(ctx context.Context, arg UserPublicListParams) ([]UserPublicListRow, error) {
 	rows, err := q.db.Query(ctx, userPublicList,
 		arg.UserID,
 		arg.Status,
 		arg.Score,
 		arg.Genre,
+		arg.Year,
+		arg.Format,
 		arg.Sort,
 		arg.PageOffset,
 		arg.PageLimit,
@@ -276,6 +423,32 @@ func (q *Queries) UserPublicList(ctx context.Context, arg UserPublicListParams) 
 	return items, nil
 }
 
+const userScoreBias = `-- name: UserScoreBias :one
+SELECT
+  COUNT(*)::bigint AS sample_size,
+  COALESCE(AVG(le.score), 0)::float8 AS user_mean,
+  COALESCE(AVG(a.average_score::float8 / 10), 0)::float8 AS community_mean
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+WHERE le.user_id = $1 AND le.score IS NOT NULL AND a.average_score IS NOT NULL
+`
+
+type UserScoreBiasRow struct {
+	SampleSize    int64
+	UserMean      float64
+	CommunityMean float64
+}
+
+// Harsh critic or soft touch: the owner's mean against AniList's, over only
+// the shows where both have an opinion. average_score is 0-100, so /10 lands
+// it on the same 1-10 scale as list_entries.score.
+func (q *Queries) UserScoreBias(ctx context.Context, userID int64) (UserScoreBiasRow, error) {
+	row := q.db.QueryRow(ctx, userScoreBias, userID)
+	var i UserScoreBiasRow
+	err := row.Scan(&i.SampleSize, &i.UserMean, &i.CommunityMean)
+	return i, err
+}
+
 const userScoreHistogram = `-- name: UserScoreHistogram :many
 SELECT score::smallint AS score, COUNT(*)::bigint AS count
 FROM list_entries
@@ -310,21 +483,104 @@ func (q *Queries) UserScoreHistogram(ctx context.Context, userID int64) ([]UserS
 }
 
 const userScoreStats = `-- name: UserScoreStats :one
-SELECT COALESCE(AVG(score), 0)::float8 AS mean_score, COUNT(score)::bigint AS rated_count
+SELECT
+  COALESCE(AVG(score), 0)::float8 AS mean_score,
+  COUNT(score)::bigint AS rated_count,
+  COALESCE(STDDEV_POP(score), 0)::float8 AS score_stddev
 FROM list_entries
 WHERE user_id = $1 AND score IS NOT NULL
 `
 
 type UserScoreStatsRow struct {
-	MeanScore  float64
-	RatedCount int64
+	MeanScore   float64
+	RatedCount  int64
+	ScoreStddev float64
 }
 
+// STDDEV_POP is 0 over a single row and NULL over none, so the COALESCE only
+// ever fires for an unrated list; callers gate the spread on rated_count >= 2.
 func (q *Queries) UserScoreStats(ctx context.Context, userID int64) (UserScoreStatsRow, error) {
 	row := q.db.QueryRow(ctx, userScoreStats, userID)
 	var i UserScoreStatsRow
-	err := row.Scan(&i.MeanScore, &i.RatedCount)
+	err := row.Scan(&i.MeanScore, &i.RatedCount, &i.ScoreStddev)
 	return i, err
+}
+
+const userSeasonSpread = `-- name: UserSeasonSpread :many
+SELECT a.season_year::int AS year, COUNT(*)::bigint AS count
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+WHERE le.user_id = $1 AND le.status = 'completed' AND a.season_year IS NOT NULL
+GROUP BY a.season_year
+ORDER BY a.season_year
+`
+
+type UserSeasonSpreadRow struct {
+	Year  int32
+	Count int64
+}
+
+// The owner's eras: only completed shows count, because a planning list is a
+// wish, not a history.
+func (q *Queries) UserSeasonSpread(ctx context.Context, userID int64) ([]UserSeasonSpreadRow, error) {
+	rows, err := q.db.Query(ctx, userSeasonSpread, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserSeasonSpreadRow
+	for rows.Next() {
+		var i UserSeasonSpreadRow
+		if err := rows.Scan(&i.Year, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const userTopStudios = `-- name: UserTopStudios :many
+SELECT COALESCE(s.value->>'name', '')::text AS name, COUNT(*)::bigint AS count
+FROM list_entries le
+JOIN anime a ON a.id = le.anime_id
+CROSS JOIN LATERAL jsonb_array_elements(a.studios) AS s(value)
+WHERE le.user_id = $1
+  AND (s.value->>'is_main')::boolean
+  AND COALESCE(s.value->>'name', '') <> ''
+GROUP BY COALESCE(s.value->>'name', '')
+ORDER BY count DESC, name
+LIMIT 3
+`
+
+type UserTopStudiosRow struct {
+	Name  string
+	Count int64
+}
+
+// studios is [{"name","is_main"}]; licensors and production committees ride in
+// the same array with is_main=false, and nobody's "most-watched studio" is
+// Aniplex.
+func (q *Queries) UserTopStudios(ctx context.Context, userID int64) ([]UserTopStudiosRow, error) {
+	rows, err := q.db.Query(ctx, userTopStudios, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserTopStudiosRow
+	for rows.Next() {
+		var i UserTopStudiosRow
+		if err := rows.Scan(&i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const userWatchMinutes = `-- name: UserWatchMinutes :one

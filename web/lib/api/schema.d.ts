@@ -306,7 +306,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Edit bio, avatar, favorite genres, and profile banner */
+        /** Edit bio, avatar, favorite genres, profile banner, and accent */
         patch: operations["updateMyProfile"];
         trace?: never;
     };
@@ -1028,6 +1028,8 @@ export interface components {
             created_at: string;
             /** @description The owner's chosen banner anime, resolved; null when unset */
             banner: components["schemas"]["ProfileBanner"] | null;
+            /** @description Owner-picked page accent (hex); null = derive from banner/favorites */
+            accent_color: string | null;
             stats: components["schemas"]["ProfileStats"];
             favorites: components["schemas"]["AnimeSummary"][];
             currently_watching: components["schemas"]["WatchingEntry"][];
@@ -1061,10 +1063,53 @@ export interface components {
                 score: number;
                 count: number;
             }[];
-            genres: {
-                genre: string;
-                count: number;
-            }[];
+            /** @description Population standard deviation of the 1-10 scores — how much of the scale the owner actually uses. Null with fewer than two ratings. */
+            score_stddev: number | null;
+            /** @description The owner's mean against the community's mean over the same shows. Null until enough of their rated shows carry a community score for the comparison to mean anything. */
+            score_bias: components["schemas"]["ScoreBias"] | null;
+            genres: components["schemas"]["GenreStat"][];
+            /** @description Completed shows bucketed by premiere year, ascending — the owner's eras */
+            season_counts: components["schemas"]["SeasonCount"][];
+            /** @description Library split by format, largest first */
+            format_counts: components["schemas"]["FormatCount"][];
+            /** @description Main studios behind the library, most-watched first (max 3) */
+            top_studios: components["schemas"]["StudioCount"][];
+            /** @description The longest series the owner has finished; null when nothing is completed */
+            longest_completed: components["schemas"]["AnimeSummary"] | null;
+            /** @description Premiere years of the oldest and newest show on the shelves */
+            library_span: components["schemas"]["LibrarySpan"] | null;
+        };
+        ScoreBias: {
+            /** @description Owner's mean over the compared shows */
+            user_mean: number;
+            /** @description AniList's mean over the same shows, rescaled to 1-10 */
+            community_mean: number;
+            /** @description Shows the owner rated that also carry a community score */
+            sample_size: number;
+        };
+        GenreStat: {
+            genre: string;
+            count: number;
+            /** @description Mean 1-10 score across the owner's rated entries in this genre */
+            mean_score: number | null;
+            /** @description How many of those entries carry a score — the mean's weight */
+            rated_count: number;
+        };
+        SeasonCount: {
+            year: number;
+            count: number;
+        };
+        FormatCount: {
+            format: components["schemas"]["Format"];
+            count: number;
+        };
+        StudioCount: {
+            name: string;
+            count: number;
+        };
+        LibrarySpan: {
+            earliest_year: number;
+            latest_year: number;
         };
         WatchingEntry: {
             anime: components["schemas"]["AnimeSummary"];
@@ -1080,6 +1125,8 @@ export interface components {
              * @description Anime whose banner art heads the profile; 0 clears it, omitted keeps it
              */
             banner_anime_id?: number;
+            /** @description Page accent as #rrggbb; empty string clears it, omitted keeps it */
+            accent_color?: string;
         };
         /** @enum {string} */
         ListStatus: "watching" | "completed" | "planning" | "paused" | "dropped";
@@ -1995,6 +2042,10 @@ export interface operations {
                 /** @description Only entries rated exactly this (the histogram filter) */
                 score?: number;
                 genre?: string;
+                /** @description Only shows that premiered this year (the era-strip filter) */
+                year?: number;
+                /** @description Only shows of this format (the format-split filter) */
+                format?: components["schemas"]["Format"];
                 sort?: "updated" | "score" | "title";
                 page?: number;
                 per_page?: number;

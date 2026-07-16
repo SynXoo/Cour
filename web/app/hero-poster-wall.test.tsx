@@ -60,4 +60,12 @@ describe("HeroPosterWall", () => {
     const { container } = render(<HeroPosterWall anime={mixed} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  // Readability over the copy belongs to the copy's own backdrop
+  // (landing-view.tsx) — the wall only melts its edges, so it renders the
+  // same whether or not the live panel split the hero.
+  it("melts its edges without tracking the copy", () => {
+    const { container } = render(<HeroPosterWall anime={covers(10)} />);
+    expect(container.firstElementChild).toHaveClass("hero-wall-mask");
+  });
 });
