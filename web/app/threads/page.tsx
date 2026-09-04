@@ -108,7 +108,7 @@ function RoomCard({ room }: { room: LiveRoom }) {
         <p className="truncate text-sm font-medium">{room.title}</p>
         <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
           {room.label} · {room.commentCount} comment{room.commentCount === 1 ? "" : "s"}
-          {room.presence > 0 && <span className="text-primary"> · {room.presence} in there</span>}
+          {room.presence > 0 && <span className="text-live"> · {room.presence} in there</span>}
         </p>
         <time className="mt-0.5 block font-mono text-xs text-muted-foreground">{room.ago}</time>
       </div>

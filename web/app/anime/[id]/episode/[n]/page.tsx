@@ -78,10 +78,10 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
             {episode.airing_at && (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs text-muted-foreground">
                 {live && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-primary">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-live/40 bg-live/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-live">
                     <span className="relative flex h-1.5 w-1.5" aria-hidden>
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-live" />
                     </span>
                     LIVE
                   </span>

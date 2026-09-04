@@ -90,10 +90,10 @@ function RoomScene() {
           <p className="truncate text-sm font-medium">Frieren: Beyond Journey&apos;s End</p>
           <p className="font-mono text-xs text-muted-foreground">Ep 7 room · airs Fridays</p>
         </div>
-        <span className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
+        <span className="flex items-center gap-1.5 rounded-full border border-live/30 bg-live/10 px-2 py-0.5 font-mono text-[11px] text-live">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-live" />
           </span>
           <span data-testid="room-presence">{present} here</span>
         </span>
@@ -124,7 +124,7 @@ function RoomScene() {
       </ul>
       <div
         className={cn(
-          "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground shadow-lg transition-opacity duration-300",
+          "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full bg-live px-2.5 py-0.5 font-mono text-[11px] font-semibold text-live-foreground shadow-lg transition-opacity duration-300",
           step >= 4 ? "opacity-100" : "opacity-0",
         )}
         aria-hidden={step < 4}
@@ -200,11 +200,11 @@ function ShieldScene() {
         <div
           aria-hidden={open}
           className={cn(
-            "absolute inset-x-2.5 bottom-2.5 flex items-center gap-2 rounded-md border border-border/60 bg-background/90 px-2.5 py-1.5 text-xs backdrop-blur-sm transition-opacity duration-300",
+            "absolute inset-x-2.5 bottom-2.5 flex items-center gap-2 rounded-md border border-lilac/40 bg-background/90 px-2.5 py-1.5 text-xs backdrop-blur-sm transition-opacity duration-300",
             open ? "pointer-events-none opacity-0" : "opacity-100",
           )}
         >
-          <span aria-hidden className="text-primary">
+          <span aria-hidden className="text-lilac">
             ◐
           </span>
           <span className="text-muted-foreground">
@@ -251,7 +251,7 @@ function TonightScene() {
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
           </svg>
           {shown > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-primary-foreground">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-live px-1 font-mono text-[10px] font-bold text-live-foreground">
               {shown}
             </span>
           )}
@@ -263,7 +263,7 @@ function TonightScene() {
             key={e.title}
             className={cn(
               "flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2",
-              e.live && "border-primary/40",
+              e.live && "border-gold/40",
             )}
           >
             <span
@@ -277,7 +277,7 @@ function TonightScene() {
             <span
               className={cn(
                 "font-mono text-xs",
-                e.live ? "text-primary" : "text-muted-foreground",
+                e.live ? "text-gold" : "text-muted-foreground",
               )}
             >
               {e.when}
@@ -312,6 +312,7 @@ const SCENES = [
   {
     id: "rooms",
     eyebrow: "Live rooms",
+    accent: "text-live",
     title: "Every episode gets a room",
     body: "The moment an episode airs, its thread is open — with the people watching it right now, not a week later.",
     Scene: RoomScene,
@@ -319,6 +320,7 @@ const SCENES = [
   {
     id: "shield",
     eyebrow: "Spoiler shield",
+    accent: "text-lilac",
     title: "Spoilers wait for you",
     body: "Comments from episodes past your progress stay blurred. Hit +1 as you watch and the room opens up with you.",
     Scene: ShieldScene,
@@ -326,6 +328,7 @@ const SCENES = [
   {
     id: "tonight",
     eyebrow: "Tonight",
+    accent: "text-gold",
     title: "Know what's on tonight",
     body: "Your list becomes an evening: countdowns for your shows, a nudge when one airs, a ping when someone replies.",
     Scene: TonightScene,
@@ -335,7 +338,7 @@ const SCENES = [
 export function ProductDemos() {
   return (
     <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-      {SCENES.map(({ id, eyebrow, title, body, Scene }) => (
+      {SCENES.map(({ id, eyebrow, accent, title, body, Scene }) => (
         <li
           key={id}
           className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/70 md:last:max-lg:col-span-2"
@@ -344,7 +347,7 @@ export function ProductDemos() {
             <Scene />
           </div>
           <div className="space-y-1.5 p-5">
-            <p className="font-mono text-xs text-primary">{eyebrow}</p>
+            <p className={cn("font-mono text-xs", accent)}>{eyebrow}</p>
             <h3 className="text-base font-semibold tracking-tight">{title}</h3>
             <p className="text-sm text-muted-foreground">{body}</p>
           </div>

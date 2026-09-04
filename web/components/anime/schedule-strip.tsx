@@ -20,7 +20,7 @@ export function ScheduleStrip({ entries }: { entries: ScheduleEntry[] }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{displayTitle(e.anime)}</p>
               <p className="font-mono text-xs text-muted-foreground">
-                Ep {e.episode} · <span className="text-primary">{untilLabel(e.airing_at)}</span>
+                Ep {e.episode} · <span className="text-gold">{untilLabel(e.airing_at)}</span>
               </p>
             </div>
           </Link>

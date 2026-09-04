@@ -102,7 +102,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
           <div className="flex flex-wrap items-center gap-2">
             {anime.average_score != null && (
-              <Badge variant="secondary" className="font-mono text-sm">
+              <Badge variant="secondary" className="font-mono text-sm text-gold">
                 ★ {anime.average_score}%
               </Badge>
             )}
@@ -115,7 +115,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
           {anime.next_airing_at && anime.next_airing_episode != null && (
             <p className="font-mono text-sm">
-              <span className="text-primary">
+              <span className="text-gold">
                 Episode {anime.next_airing_episode} {untilLabel(anime.next_airing_at)}
               </span>
             </p>

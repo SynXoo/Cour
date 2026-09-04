@@ -183,11 +183,13 @@ function Spotlight({
         </Link>
 
         <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-primary">
+          <p
+            className={`flex items-center gap-2 font-mono text-xs uppercase tracking-widest ${aired ? "text-live" : "text-primary"}`}
+          >
             {aired && (
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
               </span>
             )}
             {aired ? "Live — the room is open" : "Up next on your list"}
@@ -199,13 +201,13 @@ function Spotlight({
           </h3>
           <p className="font-mono text-base font-semibold tabular-nums sm:text-xl">
             Ep {entry.episode} ·{" "}
-            <Countdown iso={entry.airing_at} className="text-primary" />
+            <Countdown iso={entry.airing_at} className="text-gold" />
           </p>
           <p className="font-mono text-xs text-muted-foreground">
             {room && (room.presence > 0 || room.comments > 0) ? (
               <>
                 {room.presence > 0 && (
-                  <span className="text-primary">{room.presence} in the room now · </span>
+                  <span className="text-live">{room.presence} in the room now · </span>
                 )}
                 {room.comments} comment{room.comments === 1 ? "" : "s"} so far
               </>
@@ -256,10 +258,10 @@ function EveningTile({
           <p className="truncate text-sm font-medium">{displayTitle(a)}</p>
           <p className="font-mono text-xs text-muted-foreground">
             {day && `${day} · `}Ep {entry.episode} ·{" "}
-            <Countdown iso={entry.airing_at} className="text-primary" />
+            <Countdown iso={entry.airing_at} className="text-gold" />
           </p>
           {room && room.presence > 0 && (
-            <p className="font-mono text-xs text-primary">{room.presence} in there now</p>
+            <p className="font-mono text-xs text-live">{room.presence} in there now</p>
           )}
         </div>
       </Link>

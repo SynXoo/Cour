@@ -39,6 +39,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-live: var(--live);
+  --color-live-foreground: var(--live-foreground);
+  --color-gold: var(--gold);
+  --color-lilac: var(--lilac);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -72,6 +76,11 @@
   --chart-3: oklch(0.62 0.18 350);
   --chart-4: oklch(0.72 0.15 85);
   --chart-5: oklch(0.58 0.15 150);
+  /* Semantic accents beside the teal brand (see the .dark block). */
+  --live: oklch(0.62 0.19 30);
+  --live-foreground: oklch(0.99 0.01 30);
+  --gold: oklch(0.66 0.14 75);
+  --lilac: oklch(0.55 0.17 300);
   --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -111,6 +120,16 @@
   --chart-3: oklch(0.75 0.16 350);
   --chart-4: oklch(0.8 0.14 85);
   --chart-5: oklch(0.65 0.17 150);
+  /* Accents with jobs, so teal isn't the only color on the page:
+     --live   coral — anything happening *right now* (presence, pings,
+              LIVE badges, unread dots, "N new" pills)
+     --gold   amber — time and scores (countdowns, airing-soon, ★ ratings)
+     --lilac  violet — the spoiler shield and other "held back" states
+     Brand teal keeps links, CTAs, headings' key word and focus rings. */
+  --live: oklch(0.74 0.17 35);
+  --live-foreground: oklch(0.2 0.05 30);
+  --gold: oklch(0.83 0.14 85);
+  --lilac: oklch(0.76 0.13 300);
   --sidebar: oklch(0.175 0.008 200);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.78 0.13 190);
@@ -294,7 +313,8 @@
 
 /* Page-wide ambience for the logged-out landing: the teal wash the hero
    melts into holds through the hero's height, then hands off to faint
-   off-axis glows down the page — the scroll never lands on one flat color.
+   off-axis glows down the page in the *other* accents (coral, lilac, gold)
+   — the scroll never lands on one flat color, and never on one hue either.
    Everything derives from theme vars, so both themes stay coherent. */
 .landing-ambient {
   background:
@@ -306,17 +326,17 @@
     ),
     radial-gradient(
       56rem 38rem at 88% 70rem,
-      color-mix(in oklab, var(--primary) 8%, transparent),
+      color-mix(in oklab, var(--live) 8%, transparent),
       transparent 70%
     ),
     radial-gradient(
       64rem 44rem at -12% 125rem,
-      color-mix(in oklab, var(--primary) 7%, transparent),
+      color-mix(in oklab, var(--lilac) 8%, transparent),
       transparent 72%
     ),
     radial-gradient(
       56rem 40rem at 105% 100%,
-      color-mix(in oklab, var(--primary) 6%, transparent),
+      color-mix(in oklab, var(--gold) 6%, transparent),
       transparent 75%
     );
 }
@@ -336,12 +356,12 @@
     ),
     radial-gradient(
       48rem 32rem at 92% 60rem,
-      color-mix(in oklab, var(--primary) 6%, transparent),
+      color-mix(in oklab, var(--gold) 6%, transparent),
       transparent 72%
     ),
     radial-gradient(
       52rem 36rem at -8% 110rem,
-      color-mix(in oklab, var(--primary) 5%, transparent),
+      color-mix(in oklab, var(--lilac) 6%, transparent),
       transparent 72%
     );
 }
@@ -629,6 +649,11 @@ details[open] .picker-item {
     radial-gradient(
       40rem 20rem at 50% 120%,
       color-mix(in oklab, var(--primary) 26%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      30rem 16rem at 8% -10%,
+      color-mix(in oklab, var(--live) 14%, transparent),
       transparent 70%
     ),
     color-mix(in oklab, var(--card) 70%, transparent);

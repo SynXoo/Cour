@@ -91,8 +91,8 @@ export function EveningTimeline({
         <div aria-hidden style={{ left: `${nowPct}%` }} className="absolute bottom-9 top-1">
           <div className="absolute inset-y-0 w-px -translate-x-1/2 bg-primary/50" />
           <span className="absolute top-0 flex h-2 w-2 -translate-x-1/2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
           </span>
         </div>
         <span

@@ -206,7 +206,13 @@ Miguel + Fable walked the live site; diagnosis and specs in
   and emulate a tall viewport (`resize_window` 1280×2700) for a full-page
   shot once the pane is showing; the thread-log "black screenshot" is not a
   page bug. Light-mode tokens were updated but the app is still dark-only
-  (`enableSystem={false}`) — untested visually.
+  (`enableSystem={false}`) — untested visually. **Follow-up (same day):**
+  Miguel found teal too dominant → semantic accents `--live`/`--gold`/
+  `--lilac` (+ `--color-*` in `@theme inline`, so `text-live`, `bg-gold/10`
+  etc. are utilities). Scripted pass re-pointed every ping dot, presence
+  line, LIVE badge, unread marker, countdown and ★ score across app/ and
+  components/ (`text-primary` stays for links/CTAs); tour scenes carry one
+  accent each; ambience glows use the other hues. Spec §M3.7 "Accents".
 - 2026-07-09 · Hero readability refactor (supersedes M3.6's hero geometry; not
   a ledger task — the oval kept missing the copy as the window shrank). The
   wall mask no longer opens a hole and `splitLayout` is gone (prop, `-split`
@@ -1989,6 +1995,15 @@ became one snap-scrolling row of ten.
 
 **Signed-in home.** Inherits the tokens; nothing re-flowed. Its live panel
 matches the landing's `rounded-2xl`.
+
+**Accents (follow-up, same day).** Teal alone read flat, so three semantic
+accents sit beside it — each with one job, never decoration: `--live`
+(coral) for anything happening *now* (presence counts, ping dots, LIVE
+badges, unread dots, "N new" pills, the bell badge); `--gold` (amber) for
+time and scores (countdowns, airing-soon, ★ ratings); `--lilac` for the
+spoiler shield. Teal keeps links, CTAs, the headline word and focus rings.
+The landing/home ambience glows rotate through the other hues down the
+page. Rule for new UI: pick by meaning, not by mood.
 
 ## M4 — watch parties
 

@@ -235,8 +235,8 @@ export function ThreadView({
           {presence >= 2 && (
             <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
               <span className="relative flex h-2 w-2" aria-hidden>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live/60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
               </span>
               {presence} here now
             </span>
@@ -345,10 +345,10 @@ function EmptyRoom({
         </p>
       )}
       {presence >= 2 && (
-        <p className="flex items-center justify-center gap-1.5 font-mono text-xs text-primary">
+        <p className="flex items-center justify-center gap-1.5 font-mono text-xs text-live">
           <span className="relative flex h-2 w-2" aria-hidden>
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live/60 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
           </span>
           {presence} in the room right now
         </p>

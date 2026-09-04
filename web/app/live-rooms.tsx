@@ -60,7 +60,7 @@ export function LiveRooms({ rooms }: { rooms: LiveRoom[] }) {
                   {room.label} · {room.commentCount} comment
                   {room.commentCount === 1 ? "" : "s"}
                   {room.presence > 0 && (
-                    <span className="text-primary"> · {room.presence} in there</span>
+                    <span className="text-live"> · {room.presence} in there</span>
                   )}
                 </span>
                 <time className="ml-auto shrink-0">{room.ago}</time>

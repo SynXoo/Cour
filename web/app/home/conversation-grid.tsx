@@ -45,7 +45,7 @@ export function ConversationGrid({
                   </span>
                 )}
                 {talk.recent > 0 && talk.presence > 0 && " · "}
-                {talk.presence > 0 && <span className="text-primary">{talk.presence} in now</span>}
+                {talk.presence > 0 && <span className="text-live">{talk.presence} in now</span>}
                 <span className="block truncate text-primary/80 group-hover/talk:text-primary">
                   {talk.label} →
                 </span>

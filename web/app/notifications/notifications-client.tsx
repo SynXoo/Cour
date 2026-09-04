@@ -136,7 +136,7 @@ export function NotificationsClient() {
                         })}
                       </span>
                     </p>
-                    {!n.read && <span aria-label="unread" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                    {!n.read && <span aria-label="unread" className="h-2 w-2 shrink-0 rounded-full bg-live" />}
                   </Link>
                 </li>
               );

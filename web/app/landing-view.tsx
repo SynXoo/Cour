@@ -150,8 +150,8 @@ export async function LandingView() {
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
                     </span>
                     Live on Cour
                   </h2>
@@ -250,7 +250,7 @@ export async function LandingView() {
                         {t.episode ? `Ep ${t.episode.number} thread` : "Series talk"} ·{" "}
                         {t.thread.comment_count} comment{t.thread.comment_count === 1 ? "" : "s"}
                         {t.presence > 0 && (
-                          <span className="text-primary"> · {t.presence} in there now</span>
+                          <span className="text-live"> · {t.presence} in there now</span>
                         )}
                       </p>
                     </div>

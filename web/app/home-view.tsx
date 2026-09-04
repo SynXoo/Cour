@@ -92,8 +92,8 @@ export async function HomeView() {
           {(pulse.recent > 0 || pulse.presence > 0) && (
             <p className="flex items-center gap-2 pt-0.5 font-mono text-xs text-muted-foreground">
               <span className="relative flex h-2 w-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
               </span>
               <span>
                 {pulse.recent > 0 && (
@@ -104,7 +104,7 @@ export async function HomeView() {
                 )}
                 {pulse.recent > 0 && pulse.presence > 0 && " · "}
                 {pulse.presence > 0 && (
-                  <span className="text-primary">
+                  <span className="text-live">
                     {pulse.presence} in room{pulse.presence === 1 ? "" : "s"} right now
                   </span>
                 )}
@@ -133,8 +133,8 @@ export async function HomeView() {
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-live" />
                     </span>
                     Live now
                   </h2>

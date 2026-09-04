@@ -31,7 +31,7 @@ export function AnimeCard({ anime, priority = false }: { anime: AnimeSummary; pr
           </div>
         )}
         {anime.average_score != null && (
-          <span className="absolute right-1.5 top-1.5 rounded-md bg-background/85 px-1.5 py-0.5 font-mono text-xs font-semibold backdrop-blur-sm">
+          <span className="absolute right-1.5 top-1.5 rounded-md bg-background/85 px-1.5 py-0.5 font-mono text-xs font-semibold text-gold backdrop-blur-sm">
             {anime.average_score}%
           </span>
         )}

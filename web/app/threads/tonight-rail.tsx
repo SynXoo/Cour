@@ -37,23 +37,23 @@ export function TonightRail({ rooms }: { rooms: TonightRoom[] }) {
                 <p className="truncate text-sm font-medium">{room.title}</p>
                 <p className="mt-0.5 flex items-center gap-1.5 font-mono text-xs">
                   {aired ? (
-                    <span className="inline-flex items-center gap-1 text-primary">
+                    <span className="inline-flex items-center gap-1 text-live">
                       <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-live opacity-75 motion-reduce:animate-none" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-live" />
                       </span>
                       LIVE
                     </span>
                   ) : null}
                   <span className="text-muted-foreground">
-                    Ep {room.episode} · <Countdown iso={room.airingAt} className="text-primary" />
+                    Ep {room.episode} · <Countdown iso={room.airingAt} className="text-gold" />
                   </span>
                 </p>
                 <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                   {room.presence > 0 || room.comments > 0 ? (
                     <>
                       {room.presence > 0 && (
-                        <span className="text-primary">{room.presence} in there · </span>
+                        <span className="text-live">{room.presence} in there · </span>
                       )}
                       {room.comments} comment{room.comments === 1 ? "" : "s"}
                     </>

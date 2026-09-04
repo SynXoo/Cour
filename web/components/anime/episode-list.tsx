@@ -83,7 +83,7 @@ function EpisodeGrid({ animeId, episodes }: { animeId: number; episodes: Episode
               </span>
               {e.airing_at && (
                 <span
-                  className={`shrink-0 font-mono text-xs ${upcoming ? "text-primary" : "text-muted-foreground"}`}
+                  className={`shrink-0 font-mono text-xs ${upcoming ? "text-gold" : "text-muted-foreground"}`}
                   title={airDateLabel(e.airing_at)}
                 >
                   {upcoming ? untilLabel(e.airing_at) : airDateLabel(e.airing_at)}
