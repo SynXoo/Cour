@@ -8,6 +8,8 @@ import { currentSeason, displayTitle, seasonLabel } from "@/lib/anime";
 import { cn } from "@/lib/utils";
 import { buildRooms, heroCovers, threadHref, tonightEntries } from "@/lib/landing";
 import { HeroPosterWall } from "./hero-poster-wall";
+import { HowItWorks } from "./landing/how-it-works";
+import { ProductDemos } from "./landing/product-demos";
 import { LiveRooms } from "./live-rooms";
 import { SeasonalCarousel } from "./seasonal-carousel";
 
@@ -35,7 +37,9 @@ export async function LandingView() {
   const seasonal = seasonRes?.data?.data ?? [];
   const schedule = scheduleRes?.data?.data ?? [];
   const threads = threadsRes?.data?.data ?? [];
-  const covers = heroCovers(trendingRes?.data?.data ?? [], seasonal);
+  // 26 distinct covers: the wall repeats each row only twice now, so it
+  // needs more faces to stay wide enough for the seamless loop.
+  const covers = heroCovers(trendingRes?.data?.data ?? [], seasonal, 26);
 
   const now = new Date();
   // Rooms, not quotes: the live panel never puts a stranger's hot take on
@@ -52,7 +56,7 @@ export async function LandingView() {
 
   return (
     <div className="relative isolate">
-      {/* Page-length violet ambience the hero melts into — the background
+      {/* Page-length teal ambience the hero melts into — the background
           never collapses to one flat color as you scroll. */}
       <div aria-hidden className="landing-ambient absolute inset-0 -z-10" />
 
@@ -91,7 +95,7 @@ export async function LandingView() {
             )}
           >
             {/* Readability lives with the words: this one element is both
-                the plate that quiets the posters and the violet bloom,
+                the plate that quiets the posters and the teal bloom,
                 inset-anchored to the shrink-wrapped column so it re-centers
                 and re-proportions as the text reflows at any width. (The
                 wall's mask used to open a hole here instead, aimed from the
@@ -128,10 +132,10 @@ export async function LandingView() {
               or AniList in minutes.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button asChild className="h-11 px-6 text-sm md:h-9">
-                <Link href="/register">Join Cour</Link>
+              <Button asChild className="h-11 rounded-full px-6 text-sm md:h-10">
+                <Link href="/register">Join Cour — it&apos;s free</Link>
               </Button>
-              <Button asChild variant="outline" className="h-11 px-6 text-sm md:h-9">
+              <Button asChild variant="outline" className="h-11 rounded-full px-6 text-sm md:h-10">
                 <Link href={peekHref}>Peek at tonight&apos;s threads</Link>
               </Button>
             </div>
@@ -142,7 +146,7 @@ export async function LandingView() {
               aria-label="Live on Cour"
               className="mx-auto w-full min-w-0 max-w-md lg:max-w-none"
             >
-              <div className="rounded-xl border border-border/60 bg-background/60 p-3 backdrop-blur-md md:p-4">
+              <div className="rounded-2xl border border-border/60 bg-background/60 p-3 backdrop-blur-md md:p-4">
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                     <span className="relative flex h-2 w-2">
@@ -180,10 +184,30 @@ export async function LandingView() {
               </Link>
             </div>
             <ScheduleStrip
-              entries={(tonight.length > 0 ? tonight : schedule).slice(0, 12)}
+              entries={(tonight.length > 0 ? tonight : schedule).slice(0, 8)}
             />
           </section>
         )}
+
+        {/* ── The tour ───────────────────────────────────────────────────
+            What the product does, shown rather than told: three looping
+            mock scenes (no data behind them) and the three-step loop. This
+            is the newcomer's on-ramp — the live sections above prove it's
+            real, this explains what they're looking at. */}
+        <section aria-labelledby="tour" className="space-y-5">
+          <div className="max-w-2xl space-y-1.5">
+            <p className="font-mono text-xs text-primary">How Cour works</p>
+            <h2 id="tour" className="text-2xl font-bold tracking-tight sm:text-3xl">
+              A tracker that turns into a conversation
+            </h2>
+            <p className="text-muted-foreground">
+              Track what you watch like you already do. The difference is what
+              happens the minute an episode airs.
+            </p>
+          </div>
+          <ProductDemos />
+          <HowItWorks />
+        </section>
 
         {/* ── Busiest threads ────────────────────────────────────────────── */}
         {threads.length > 0 && (
@@ -251,20 +275,38 @@ export async function LandingView() {
                 Full chart →
               </Link>
             </div>
-            <SeasonalCarousel anime={seasonal.slice(0, 14)} />
+            <SeasonalCarousel anime={seasonal.slice(0, 10)} />
           </section>
         )}
 
-        {/* ── The deal ───────────────────────────────────────────────────── */}
+        {/* ── Closing CTA ────────────────────────────────────────────────
+            The last thing a scroller sees: the ask, and the promise that
+            sets Cour apart from a streaming site. */}
         <section
-          aria-label="What Cour is"
-          className="mx-auto w-full max-w-3xl rounded-lg border border-border/60 bg-card p-6 text-center"
+          aria-labelledby="join"
+          className="relative isolate overflow-hidden rounded-3xl border border-primary/25 px-6 py-10 text-center sm:py-14"
         >
-          <p className="font-medium">
-            Cour never hosts or links to streams — bring your own legal source.
+          <div aria-hidden className="cta-ambient absolute inset-0 -z-10" />
+          <h2
+            id="join"
+            className="mx-auto max-w-lg text-balance text-2xl font-bold tracking-tight sm:text-3xl"
+          >
+            Ready for tonight&apos;s episode?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-balance text-muted-foreground">
+            Free to join. Cour never hosts or links to streams — bring your own
+            legal source; we&apos;re where you talk about it.
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            We&apos;re where you talk about it. Anime metadata provided by{" "}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild className="h-11 rounded-full px-6 text-sm md:h-10">
+              <Link href="/register">Join Cour</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-11 rounded-full px-6 text-sm md:h-10">
+              <Link href={`/seasonal/${year}/${season.toLowerCase()}`}>Browse this season</Link>
+            </Button>
+          </div>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Anime metadata provided by{" "}
             <a
               href="https://anilist.co"
               target="_blank"

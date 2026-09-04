@@ -50,29 +50,29 @@
 
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.15 0.01 200);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.15 0.01 200);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.22 293);
-  --primary-foreground: oklch(0.985 0.005 293);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.15 0.01 200);
+  --primary: oklch(0.52 0.11 190);
+  --primary-foreground: oklch(0.985 0.01 190);
+  --secondary: oklch(0.965 0.005 200);
+  --secondary-foreground: oklch(0.2 0.01 200);
+  --muted: oklch(0.965 0.005 200);
+  --muted-foreground: oklch(0.5 0.015 200);
+  --accent: oklch(0.955 0.02 190);
+  --accent-foreground: oklch(0.2 0.02 190);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --border: oklch(0.91 0.008 200);
+  --input: oklch(0.91 0.008 200);
+  --ring: oklch(0.52 0.11 190);
+  --chart-1: oklch(0.52 0.11 190);
+  --chart-2: oklch(0.55 0.2 293);
+  --chart-3: oklch(0.62 0.18 350);
+  --chart-4: oklch(0.72 0.15 85);
+  --chart-5: oklch(0.58 0.15 150);
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -84,36 +84,38 @@
 }
 
 .dark {
-  /* Night-violet dark theme: near-black surfaces with a faint violet cast,
-     vivid violet primary. Dark is the default look of the app. */
-  --background: oklch(0.16 0.012 290);
-  --foreground: oklch(0.96 0.005 290);
-  --card: oklch(0.205 0.015 290);
-  --card-foreground: oklch(0.96 0.005 290);
-  --popover: oklch(0.205 0.015 290);
-  --popover-foreground: oklch(0.96 0.005 290);
-  --primary: oklch(0.67 0.19 293);
-  --primary-foreground: oklch(0.145 0.02 293);
-  --secondary: oklch(0.27 0.02 290);
-  --secondary-foreground: oklch(0.96 0.005 290);
-  --muted: oklch(0.27 0.02 290);
-  --muted-foreground: oklch(0.71 0.015 290);
-  --accent: oklch(0.27 0.02 290);
-  --accent-foreground: oklch(0.96 0.005 290);
+  /* Ink & teal dark theme: near-black surfaces with the faintest cool cast,
+     a vivid teal primary. Dark is the default look of the app. The old
+     night-violet lives on only as chart-2, so multi-series data keeps a
+     second brand-adjacent hue. */
+  --background: oklch(0.13 0.006 200);
+  --foreground: oklch(0.96 0.005 200);
+  --card: oklch(0.175 0.008 200);
+  --card-foreground: oklch(0.96 0.005 200);
+  --popover: oklch(0.175 0.008 200);
+  --popover-foreground: oklch(0.96 0.005 200);
+  --primary: oklch(0.78 0.13 190);
+  --primary-foreground: oklch(0.15 0.03 195);
+  --secondary: oklch(0.24 0.01 200);
+  --secondary-foreground: oklch(0.96 0.005 200);
+  --muted: oklch(0.24 0.01 200);
+  --muted-foreground: oklch(0.7 0.012 200);
+  --accent: oklch(0.24 0.012 200);
+  --accent-foreground: oklch(0.96 0.005 200);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.96 0.01 290 / 10%);
-  --input: oklch(0.96 0.01 290 / 15%);
-  --ring: oklch(0.67 0.19 293);
-  --chart-1: oklch(0.67 0.19 293);
-  --chart-2: oklch(0.7 0.15 200);
+  --border: oklch(0.96 0.01 200 / 10%);
+  --input: oklch(0.96 0.01 200 / 15%);
+  --ring: oklch(0.78 0.13 190);
+  --chart-1: oklch(0.78 0.13 190);
+  --chart-2: oklch(0.67 0.19 293);
   --chart-3: oklch(0.75 0.16 350);
   --chart-4: oklch(0.8 0.14 85);
   --chart-5: oklch(0.65 0.17 150);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.175 0.008 200);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-primary: oklch(0.78 0.13 190);
+  --sidebar-primary-foreground: oklch(0.15 0.03 195);
+  --sidebar-accent: oklch(0.24 0.01 200);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
@@ -256,7 +258,7 @@
   mask-composite: intersect;
 }
 
-/* The hero copy's backdrop: readability plate + violet bloom in one
+/* The hero copy's backdrop: readability plate + teal bloom in one
    element. landing-view.tsx insets it around the shrink-wrapped copy column
    (and isolates the column, so -z-10 rides above the poster wall yet under
    the words) — its box IS the copy stack, so both layers re-center and
@@ -268,7 +270,7 @@
    outer 4rem/3rem by the mask — fixed-rem fades read the same at any box
    size, and the melt finishes before the box edge, where a radial that
    cleared the text's corners would still be mid-fade.
-   The gradient is the violet bloom, riding at 45% height because the
+   The gradient is the teal bloom, riding at 45% height because the
    headline — the brightest thing it backs — sits in the upper half.
    --hero-copy-focus is its x-center: 50% (the var() fallback — declaring a
    default here would win over the utility that sets it, since this file is
@@ -290,7 +292,7 @@
   mask-composite: intersect;
 }
 
-/* Page-wide ambience for the logged-out landing: the violet wash the hero
+/* Page-wide ambience for the logged-out landing: the teal wash the hero
    melts into holds through the hero's height, then hands off to faint
    off-axis glows down the page — the scroll never lands on one flat color.
    Everything derives from theme vars, so both themes stay coherent. */
@@ -320,7 +322,7 @@
 }
 
 /* ── Tonight on Cour (signed-in home) ───────────────────────────────────────
-   A quieter cousin of the landing ambience: one violet wash behind the
+   A quieter cousin of the landing ambience: one teal wash behind the
    header/evening block that fades out by ~48rem, plus a faint off-axis glow
    further down. The home is a nightly tool, not a pitch — the tint should
    read as stage lighting, never wallpaper. */
@@ -400,7 +402,7 @@
   mask-composite: intersect;
 }
 
-/* Zero-media profiles still get a dressed hero: the ambient violet, tinted
+/* Zero-media profiles still get a dressed hero: the ambient teal, tinted
    if a favorite ever supplies a color. */
 .profile-ambient {
   background:
@@ -584,4 +586,50 @@ details[open] .picker-item {
     /* Without its animation the burst would sit at full opacity forever. */
     opacity: 0;
   }
+}
+/* ── Landing product tour ───────────────────────────────────────────────────
+   The stage each demo scene plays on: a faint teal spotlight from the top
+   corner, so the mock UI reads as "lit" rather than a card inside a card. */
+.tour-stage {
+  background:
+    radial-gradient(
+      28rem 14rem at 0% 0%,
+      color-mix(in oklab, var(--primary) 14%, transparent),
+      transparent 70%
+    ),
+    color-mix(in oklab, var(--background) 55%, transparent);
+}
+
+/* The +1 chip in the spoiler-shield scene "presses" itself: a quick dip and
+   spring back, the same feel as the real progress button. */
+@keyframes demo-press {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.86);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.demo-press {
+  animation: demo-press 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-press {
+    animation: none;
+  }
+}
+
+/* The closing CTA band: a contained teal glow, brighter than the page
+   ambience so the ask stands out from the sections above it. */
+.cta-ambient {
+  background:
+    radial-gradient(
+      40rem 20rem at 50% 120%,
+      color-mix(in oklab, var(--primary) 26%, transparent),
+      transparent 70%
+    ),
+    color-mix(in oklab, var(--card) 70%, transparent);
 }

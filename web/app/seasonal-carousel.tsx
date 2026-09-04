@@ -1,44 +1,28 @@
 import { AnimeCard } from "@/components/anime/anime-card";
 import type { AnimeSummary } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
-
-// Loop copies: two identical halves of two repetitions each (see the
-// hero wall for the -50% seam math — ~12 cards × 2 reps ≈ 4200px a half).
-const COPIES = 4;
 
 /**
- * The seasonal chart as a slow-drifting rail instead of a static grid: one
- * row, bigger art, and the motion the hero starts carries down the page.
- * Unlike the poster wall this one is real content — cards are links — so
- * hover/focus pauses the drift (CSS), only the first copy is interactive
- * (the rest are `inert` loop filler), and reduced motion turns the whole
- * thing into an ordinary scrollable strip with the filler hidden.
+ * The seasonal chart as one browsable rail: a single row of bigger art that
+ * scrolls (and snaps) sideways. It used to be a looping marquee of four
+ * copies — the hero already carries the motion, and a landing that shows the
+ * same fourteen posters four times over reads as wallpaper, not a chart.
+ * Every card here is real content: one copy, all of them links.
  */
 export function SeasonalCarousel({ anime }: { anime: AnimeSummary[] }) {
   const items = anime.filter((a) => a.cover_image);
   if (items.length === 0) return null;
 
   return (
-    <div className="overflow-hidden motion-reduce:overflow-x-auto">
-      <div
-        className="landing-marquee flex w-max"
-        style={{ "--marquee-duration": "180s" } as React.CSSProperties}
-      >
-        {Array.from({ length: COPIES }, (_, copy) => (
-          <ul
-            key={copy}
-            aria-hidden={copy > 0 || undefined}
-            inert={copy > 0 || undefined}
-            className={cn("flex gap-4 pr-4", copy > 0 && "motion-reduce:hidden")}
-          >
-            {items.map((a) => (
-              <li key={a.id} className="w-40 shrink-0 md:w-48">
-                <AnimeCard anime={a} />
-              </li>
-            ))}
-          </ul>
+    // -mx-4/px-4: the rail bleeds to the viewport edge so a half-visible card
+    // hints there's more, while the first card still aligns with the heading.
+    <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:thin]">
+      <ul className="flex w-max snap-x snap-mandatory gap-4 pr-4">
+        {items.map((a) => (
+          <li key={a.id} className="w-36 shrink-0 snap-start md:w-44">
+            <AnimeCard anime={a} />
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

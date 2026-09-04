@@ -45,8 +45,8 @@ describe("HeroPosterWall", () => {
     const { container } = render(<HeroPosterWall anime={covers(10)} />);
     expect(container.firstElementChild).toHaveAttribute("aria-hidden");
     expect(container.querySelectorAll("a")).toHaveLength(0);
-    // 10 covers split across 2 rows; each row = 2 halves × 3 reps of 5.
-    expect(container.querySelectorAll("img")).toHaveLength(60);
+    // 10 covers split across 2 rows; each row = 2 halves × 2 reps of 5.
+    expect(container.querySelectorAll("img")).toHaveLength(40);
     const rows = container.querySelectorAll(".landing-marquee");
     expect(rows).toHaveLength(2);
     expect(rows[1].className).toContain("landing-marquee-reverse");

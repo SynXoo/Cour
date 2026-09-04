@@ -144,6 +144,15 @@ Miguel + Fable walked the live site; diagnosis and specs in
   in place, count-up on the headline numbers; hero-glow and profile-banner
   alignment fixes; favoriting given a label and a second home in the list
   dialog. Spec in §M3.6.
+- [x] **M3.7** (F) Visual refresh — teal + ink palette replaces night-violet
+  (all theme tokens, both modes), rounded primitives (`--radius` 0.75rem,
+  every shadcn `rounded-none` → md/lg/xl/full), calmer hero wall (55 %
+  opacity, ~2× slower, 26 distinct covers × 2 reps instead of 18 × 3),
+  seasonal rail is one scrollable row (no 4-copy marquee), and the
+  landing gains a self-running **product tour** (live room · spoiler
+  shield · tonight + notifications), a three-step "how it works" strip
+  and a closing CTA band. Spec in §M3.7. Resolves the Parking-lot
+  "Palette / brand pass".
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -156,6 +165,48 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-04 · M3.7 · Visual refresh, landing first then the signed-in home
+  (Miguel's ask: teal instead of violet, darker/blacker surfaces, rounder
+  buttons, a calmer/slower/less repetitive poster wall, and something that
+  *shows* how the site works to capture newcomers). **Palette:** `globals.css`
+  tokens only — dark bg `oklch(0.13 0.006 200)`, card `0.175`, primary
+  `oklch(0.78 0.13 190)` (light: `0.52 0.11 190`); the old violet survives as
+  `--chart-2` so multi-series charts keep a second brand-adjacent hue. Every
+  `color-mix(var(--primary))` ambience/tint/bloom rule re-tinted itself, so
+  home, profile and thread surfaces switched with zero per-page edits.
+  **Radius:** `--radius` 0.625→0.75rem; a scripted pass over 20 shadcn
+  primitives mapped `rounded-none` → button/alert/tabs-list `lg`, inputs/
+  menu items/tooltip `md`, card/dialog `xl`, badge/progress/slider `full`,
+  checkbox `[4px]`; the three survivors are deliberate (borderless inner
+  input-group controls, line-variant tabs, tooltip arrow). Hero + CTA
+  buttons are `rounded-full` pills on top. **Hero wall:** opacity 85→55 %,
+  durations 110/150 s → 200/260 s, `REPS` 3→2 with `heroCovers` cap 18→26 so
+  a half still outruns 2560 px (test updated 60→40 imgs). **Seasonal rail:**
+  `SeasonalCarousel` rewritten as one snap-scrolling `<ul>` (no `inert`
+  filler, test rewritten) and the landing shows 10 not 14; tonight strip
+  12→8. **Tour:** new `app/landing/product-demos.tsx` (client) — three looping
+  mock scenes driven by a `useStep(count, ms)` counter (`useSyncExternalStore`
+  on the reduced-motion query freezes each scene on its finished frame — the
+  `react-hooks/set-state-in-effect` rule rejects the naive
+  setState-in-effect; interval idles on `document.hidden`). Fixtures are
+  invented handles/quotes, never real members (the live panel's editorial
+  rule holds), no links inside. Room scene is chat-style (`justify-end` +
+  `overflow-hidden`, oldest clip off the top); toasts get their own tray
+  under two evening rows rather than overlaying the list — both were overlap
+  bugs in the first cut. `how-it-works.tsx` (server) is the three-step
+  strip; closing CTA band with `.cta-ambient` replaces the old "deal" card
+  (AniList credit moved into it; footer unchanged). 4 new vitest cases (copy,
+  playback with fake timers, loop, reduced-motion hold). **Signed-in home:**
+  inherits everything; only its live panel went `rounded-2xl` to match.
+  Verified in the preview at 375 (no h-overflow, tour stacks 1-col) and
+  1280×2700 tall viewport; 256 vitest / tsc / eslint green; Go untouched.
+  **Preview gotcha (new):** while the Browser pane is *hidden* Chrome stops
+  rAF, so CSS transitions/animations freeze mid-frame and any screenshot
+  below the fold comes back solid black — verify state via DOM/data attrs
+  and emulate a tall viewport (`resize_window` 1280×2700) for a full-page
+  shot once the pane is showing; the thread-log "black screenshot" is not a
+  page bug. Light-mode tokens were updated but the app is still dark-only
+  (`enableSystem={false}`) — untested visually.
 - 2026-07-09 · Hero readability refactor (supersedes M3.6's hero geometry; not
   a ledger task — the oval kept missing the copy as the window shrank). The
   wall mask no longer opens a hole and `splitLayout` is gone (prop, `-split`
@@ -1080,7 +1131,8 @@ Miguel + Fable walked the live site; diagnosis and specs in
   progress-aware spoiler shield or they undercut it. Coverage would be partial
   (streamingEpisodes is spotty for older/niche shows). Miguel parked it 2026-07-08.
 
-- **Palette / brand pass** (from the 2026-07-07 review) — the
+- **Palette / brand pass** — _resolved 2026-09-04 by M3.7 (teal + ink, see
+  §M3.7)._ Original note (from the 2026-07-07 review): the
   violet-on-near-black theme is clean but trend-adjacent (the fashionable
   dark-purple of the Linear era). Deliberately deferred: it's all CSS
   variables in `globals.css` (an afternoon to swap), and M3.1's landing
@@ -1897,6 +1949,46 @@ in place. A zero-list profile shows no stat sections at all. Reduced motion
 leaves every number truthful and every bar still.
 
 ---
+
+### Visual refresh (M3.7)
+
+*(From Miguel's 2026-09-04 ask — landing first, then the signed-in home.
+Deliberately out of the M4 order: a brand pass is cheap while the surfaces
+are few, and the landing's job is to capture newcomers.)*
+
+**Palette — teal + ink.** Violet was trend-adjacent (the Parking-lot note);
+teal reads as "live" without the Linear-era look, and near-black surfaces
+let cover art carry the color. All in `globals.css` tokens; nothing
+page-level references a hue. The one place a second accent is needed
+(multi-series charts) keeps violet as `--chart-2`.
+
+**Shape.** `--radius` 0.75rem and no `rounded-none` primitives: buttons,
+inputs and menus `md`/`lg`, cards and dialogs `xl`, badges and bars `full`.
+Marketing CTAs (hero, closing band) are pills. Square corners survive only
+where they are structural (borderless controls inside an input group, the
+line-variant tab list, the tooltip arrow).
+
+**Hero wall.** Backdrop, not poster grid: 55 % opacity, ~2× slower drift,
+and 26 *distinct* covers repeated twice per row instead of 18 repeated
+three times — the same face should not come round three times per screen.
+
+**The tour.** Newcomers must see what "live threads" and "spoiler-safe by
+your progress" mean without an account. Three self-running scenes, ~10 s
+loops, no network: a room filling with comments and a presence badge; the
+spoiler shield lifting as +1 walks progress from Ep 7 to Ep 9; tonight's
+line-up with notification toasts landing. Rules: fixtures are invented
+(no real member is ever quoted on the front door), nothing inside links
+anywhere, reduced motion shows each scene's finished frame, loops idle
+while the tab is hidden. Below it, three plain steps (bring your list →
+watch, then +1 → talk in the room) and a closing CTA band that carries the
+no-streams promise + AniList credit.
+
+**Poster budget.** The landing still shows real art (tonight strip, busiest
+threads, seasonal rail) — but each once: the seasonal marquee's four copies
+became one snap-scrolling row of ten.
+
+**Signed-in home.** Inherits the tokens; nothing re-flowed. Its live panel
+matches the landing's `rounded-2xl`.
 
 ## M4 — watch parties
 

@@ -78,7 +78,7 @@ export async function HomeView() {
 
   return (
     <div className="relative isolate">
-      {/* Stage lighting: a violet wash behind the evening block that fades
+      {/* Stage lighting: a teal wash behind the evening block that fades
           as the page settles into browsing. */}
       <div aria-hidden className="home-ambient absolute inset-0 -z-10" />
 
@@ -129,7 +129,7 @@ export async function HomeView() {
 
           {rooms.length > 0 && (
             <aside aria-label="Live now" className="min-w-0">
-              <div className="rounded-xl border border-border/60 bg-background/60 p-3 backdrop-blur-md md:p-4">
+              <div className="rounded-2xl border border-border/60 bg-background/60 p-3 backdrop-blur-md md:p-4">
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                     <span className="relative flex h-2 w-2">

@@ -38,26 +38,20 @@ describe("SeasonalCarousel", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("only the first copy is real; loop filler is inert and hidden from a11y", () => {
+  it("is one browsable row: every card real, nothing duplicated for a loop", () => {
     const items = [anime(1), anime(2), anime(3)];
     const { container } = render(<SeasonalCarousel anime={items} />);
 
-    const lists = container.querySelectorAll("ul");
-    expect(lists).toHaveLength(4); // 2 halves × 2 reps
-    expect(lists[0]).not.toHaveAttribute("aria-hidden");
-    expect(lists[0]).not.toHaveAttribute("inert");
-    for (const filler of [...lists].slice(1)) {
-      expect(filler).toHaveAttribute("aria-hidden", "true");
-      expect(filler).toHaveAttribute("inert");
-      expect(filler.className).toContain("motion-reduce:hidden");
-    }
-    // Every copy carries the full set of card links.
-    expect(container.querySelectorAll("a")).toHaveLength(12);
-    expect(lists[0].querySelectorAll("a")[0]).toHaveAttribute("href", "/anime/1/anime-1");
+    expect(container.querySelectorAll("ul")).toHaveLength(1);
+    expect(container.querySelector(".landing-marquee")).toBeNull();
+    expect(container.querySelector("[inert]")).toBeNull();
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(3);
+    expect(links[0]).toHaveAttribute("href", "/anime/1/anime-1");
   });
 
-  it("drifts on the shared marquee track", () => {
-    const { container } = render(<SeasonalCarousel anime={[anime(1)]} />);
-    expect(container.querySelector(".landing-marquee")).not.toBeNull();
+  it("drops coverless titles", () => {
+    const { container } = render(<SeasonalCarousel anime={[anime(1), anime(2, null)]} />);
+    expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 });
