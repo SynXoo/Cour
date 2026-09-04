@@ -469,6 +469,10 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: type
+          in: query
+          description: Only this kind of notification; omit for every kind.
+          schema: { $ref: "#/components/schemas/NotificationType" }
       responses:
         "200":
           description: Notification page

@@ -2393,6 +2393,8 @@ export interface operations {
             query?: {
                 cursor?: number;
                 limit?: number;
+                /** @description Only this kind of notification; omit for every kind. */
+                type?: components["schemas"]["NotificationType"];
             };
             header?: never;
             path?: never;

@@ -7,6 +7,7 @@ SELECT sqlc.embed(notifications), actor.username AS actor_username, actor.avatar
 FROM notifications
 LEFT JOIN users actor ON actor.id = notifications.actor_id
 WHERE notifications.user_id = $1 AND notifications.id < $2
+  AND (sqlc.narg('type')::notification_type IS NULL OR notifications.type = sqlc.narg('type'))
 ORDER BY notifications.id DESC
 LIMIT $3;
 

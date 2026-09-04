@@ -127,6 +127,7 @@ SELECT notifications.id, notifications.user_id, notifications.type, notification
 FROM notifications
 LEFT JOIN users actor ON actor.id = notifications.actor_id
 WHERE notifications.user_id = $1 AND notifications.id < $2
+  AND ($4::notification_type IS NULL OR notifications.type = $4)
 ORDER BY notifications.id DESC
 LIMIT $3
 `
@@ -135,6 +136,7 @@ type ListNotificationsParams struct {
 	UserID int64
 	ID     int64
 	Limit  int32
+	Type   *NotificationType
 }
 
 type ListNotificationsRow struct {
@@ -144,7 +146,12 @@ type ListNotificationsRow struct {
 }
 
 func (q *Queries) ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]ListNotificationsRow, error) {
-	rows, err := q.db.Query(ctx, listNotifications, arg.UserID, arg.ID, arg.Limit)
+	rows, err := q.db.Query(ctx, listNotifications,
+		arg.UserID,
+		arg.ID,
+		arg.Limit,
+		arg.Type,
+	)
 	if err != nil {
 		return nil, err
 	}

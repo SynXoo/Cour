@@ -1439,6 +1439,9 @@ type GetMyListParams struct {
 type GetMyNotificationsParams struct {
 	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Type Only this kind of notification; omit for every kind.
+	Type *NotificationType `form:"type,omitempty" json:"type,omitempty"`
 }
 
 // GetMyPulseParams defines parameters for GetMyPulse.
@@ -3259,6 +3262,19 @@ func (siw *ServerInterfaceWrapper) GetMyNotifications(w http.ResponseWriter, r *
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
 		}
 		return
 	}

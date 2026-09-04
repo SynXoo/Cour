@@ -15,6 +15,13 @@ type notificationHandlers struct {
 	log *slog.Logger
 }
 
+// Bare apigen constant names, same reason as validListStatuses in lists.go.
+var validNotificationTypes = map[apigen.NotificationType]sqlcgen.NotificationType{
+	apigen.CommentReply: sqlcgen.NotificationTypeCommentReply,
+	apigen.NewFollower:  sqlcgen.NotificationTypeNewFollower,
+	apigen.EpisodeAired: sqlcgen.NotificationTypeEpisodeAired,
+}
+
 func (h notificationHandlers) GetMyNotifications(w http.ResponseWriter, r *http.Request, params apigen.GetMyNotificationsParams) {
 	id, ok := mustIdentity(w, r)
 	if !ok {
@@ -28,11 +35,21 @@ func (h notificationHandlers) GetMyNotifications(w http.ResponseWriter, r *http.
 	if params.Limit != nil && *params.Limit > 0 && *params.Limit <= 50 {
 		limit = *params.Limit
 	}
+	var kind *sqlcgen.NotificationType
+	if params.Type != nil {
+		t, valid := validNotificationTypes[*params.Type]
+		if !valid {
+			writeError(w, http.StatusBadRequest, CodeBadRequest, "unknown notification type")
+			return
+		}
+		kind = &t
+	}
 
 	rows, err := h.q.ListNotifications(r.Context(), sqlcgen.ListNotificationsParams{
 		UserID: id.UserID,
 		ID:     cursor,
 		Limit:  int32(limit) + 1,
+		Type:   kind,
 	})
 	if err != nil {
 		writeInternal(w, h.log, err)
