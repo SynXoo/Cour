@@ -275,9 +275,25 @@ func (s *Service) RecomputeHiddenGems(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("hidden gems query: %w", err)
 	}
-	ids := make([]int64, len(rows))
-	for i, a := range rows {
-		ids[i] = a.ID
+	// A gem is by definition not what everyone is already talking about:
+	// drop anything in the current trending top — the two rails used to
+	// overlap (§M3.8). Trending is recomputed first in the same job, so the
+	// ZSET is fresh here; a missing ZSET just means nothing to exclude.
+	exclude := map[int64]bool{}
+	if members, err := s.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
+		Key: trendingZSet, Start: 0, Stop: gemsExcludeTrendingTop - 1, Rev: true,
+	}).Result(); err == nil {
+		for _, m := range members {
+			if id, err := strconv.ParseInt(m, 10, 64); err == nil {
+				exclude[id] = true
+			}
+		}
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, a := range rows {
+		if !exclude[a.ID] {
+			ids = append(ids, a.ID)
+		}
 	}
 	if err := s.cache.SetJSON(ctx, hiddenGemsKey, ids, 0); err != nil {
 		return 0, err

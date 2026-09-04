@@ -77,6 +77,10 @@ export function agoLabel(iso: string, from = new Date()): string {
 
 export type LiveRoom = {
   threadId: number;
+  animeId: number;
+  kind: "episode" | "series";
+  /** Episode number for episode rooms. */
+  episode: number | null;
   title: string;
   cover: string | null;
   /** "Ep 10 room" | "Series room" */
@@ -86,6 +90,8 @@ export type LiveRoom = {
   recent: number;
   presence: number;
   ago: string;
+  /** ISO timestamp of the thread's last comment — sortable, unlike `ago`. */
+  lastActivityAt: string;
   href: string;
 };
 
@@ -102,6 +108,9 @@ export function buildRooms(threads: TrendingThread[], now = new Date()): LiveRoo
     .filter((t) => t.thread.comment_count > 0 || t.presence > 0)
     .map((t) => ({
       threadId: t.thread.id,
+      animeId: t.anime.id,
+      kind: t.episode ? ("episode" as const) : ("series" as const),
+      episode: t.episode?.number ?? null,
       title: displayTitle(t.anime),
       cover: t.anime.cover_image,
       label: t.episode ? `Ep ${t.episode.number} room` : "Series room",
@@ -109,6 +118,7 @@ export function buildRooms(threads: TrendingThread[], now = new Date()): LiveRoo
       recent: t.recent_comments,
       presence: t.presence,
       ago: agoLabel(t.thread.last_activity_at, now),
+      lastActivityAt: t.thread.last_activity_at,
       href: threadHref(t),
     }));
 }

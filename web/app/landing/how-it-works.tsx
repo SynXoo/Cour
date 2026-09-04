@@ -22,7 +22,7 @@ const STEPS = [
 /** Three plain steps under the tour — the whole loop, in one glance. */
 export function HowItWorks() {
   return (
-    <ol className="grid gap-4 md:grid-cols-3">
+    <ol className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {STEPS.map((s) => (
         <li key={s.n} className="relative rounded-2xl border border-border/60 bg-card/50 p-5 pt-6">
           <span

@@ -121,6 +121,40 @@ constant — "under-watched" stays meaningful as the catalog grows. The
 `popularity >= 100` floor discards titles whose scores rest on a handful of
 votes. Recomputed with the trending job; served from Redis.
 
+**De-noising (M3.8).** Music videos never qualify. The ranking docks
+short-form formats before sorting — `score − {TV, MOVIE: 0; ONA: 3; OVA,
+SPECIAL, TV_SHORT: 6}` — so a 12-episode show outranks a 5-minute special
+with the same score without excluding specials outright. And anything in
+the current **trending top-50** is dropped at recompute (trending runs
+first in the same job, so the ZSET is fresh): a gem is by definition not
+what everyone is already talking about. The gems cache key has no TTL —
+after changing the query, `DEL` it or wait for the next recompute.
+
+### 2b. Explained trending
+
+`GET /trending/explained` serves the same ranking, capped at 30, with the
+per-title activity counts inside the window (comments, list adds,
+completions, favorites, reviews, scores — one grouped query over the
+ranked ids) and, for a signed-in caller, the viewer-relative reasons:
+followees with the title on their list (watching/completed), the viewer's
+own list status, and the genres it shares with their top-five genres
+(capped at two). No new ranking math — it is the argument for the existing
+rank, computed at serve time.
+
+### 2c. Pulse (streak + badges)
+
+Not a discovery algorithm, but it lives on the same "recency" thesis.
+`GET /me/pulse?tz=` — **streak** = consecutive calendar days (in the
+viewer's zone) with *any* `activities` row; the current run survives a
+not-yet-active today (active yesterday ⇒ still alive), best = longest run
+in the last 400 days. **Badges** are thresholds on lifetime counters
+(comments, shows discussed, completed, favorites, reviews, comments after
+midnight, comments within an hour of airing, reactions received, best
+streak); the "next" badge is the unearned one with the highest
+progress/target ratio, ties to the smaller target. Catalog and thresholds
+in `backend/internal/pulse/pulse.go`; IDs are stable keys the client keys
+on.
+
 ---
 
 ## 3. Taste-based recommendations

@@ -967,6 +967,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/pulse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The viewer's pulse — streak, badges, replies to them, kudos
+         * @description The signed-in home's incentive block (§M3.8). Streak = consecutive days with any activity, computed on the viewer's calendar (pass tz). Badges are thresholds on lifetime counters; next_badge is the closest unearned one. Replies are other members' replies to the viewer's comments; kudos is the reactions their comments drew this week.
+         */
+        get: operations["getMyPulse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trending/explained": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trending Now with the why — per-title signal breakdown, plus the viewer's angle
+         * @description The same ranking as /trending, capped short, with the activity that earned each rank (comments, list adds, completions, favorites, reviews, scores inside the trending window). When the caller is signed in, `you` carries their list status for the title, which people they follow have it on their list, and the genres it shares with their own library — the reasons relative to *them*.
+         */
+        get: operations["getTrendingExplained"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1333,6 +1373,101 @@ export interface components {
         };
         DiscoveryList: {
             data: components["schemas"]["AnimeSummary"][];
+        };
+        /** @description Activity counts inside the trending window that earned the rank */
+        TrendingSignals: {
+            comments: number;
+            list_adds: number;
+            completed: number;
+            favorites: number;
+            reviews: number;
+            scored: number;
+        };
+        /** @description Why this title matters to the signed-in viewer */
+        TrendingYou: {
+            /** @description The viewer's list status for the title, if it's on their list */
+            status: components["schemas"]["ListStatus"] | null;
+            /** @description Up to three usernames the viewer follows who are watching/completed it */
+            followees: string[];
+            followees_count: number;
+            /** @description Genres this title shares with the viewer's most-watched genres (max 2) */
+            shared_genres: string[];
+        };
+        ExplainedTrending: {
+            anime: components["schemas"]["AnimeSummary"];
+            rank: number;
+            signals: components["schemas"]["TrendingSignals"];
+            /** @description Null for anonymous callers */
+            you: components["schemas"]["TrendingYou"] | null;
+        };
+        ExplainedTrendingList: {
+            data: components["schemas"]["ExplainedTrending"][];
+            /** Format: date-time */
+            computed_at: string | null;
+        };
+        /** @enum {string} */
+        RoomKind: "series" | "episode";
+        /** @enum {string} */
+        BadgeTier: "bronze" | "silver" | "gold";
+        Badge: {
+            /** @description Stable key; never renamed */
+            id: string;
+            label: string;
+            description: string;
+            tier: components["schemas"]["BadgeTier"];
+        };
+        /** @description The closest unearned badge and how far along the viewer is */
+        BadgeProgress: {
+            id: string;
+            label: string;
+            description: string;
+            tier: components["schemas"]["BadgeTier"];
+            progress: number;
+            target: number;
+        };
+        Streak: {
+            /** @description Consecutive active days ending today or yesterday */
+            current: number;
+            best: number;
+            active_today: boolean;
+            /** @description The last seven days, oldest first; the last entry is today */
+            week: boolean[];
+        };
+        ReplyToMe: {
+            /** Format: int64 */
+            comment_id: number;
+            actor: components["schemas"]["ReviewAuthor"];
+            anime: components["schemas"]["AnimeSummary"];
+            /** @description Episode number for episode rooms */
+            episode: number | null;
+            kind: components["schemas"]["RoomKind"];
+            /** @description The reply */
+            snippet: string;
+            /** @description The viewer's own comment it answers */
+            parent_snippet: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        KudosComment: {
+            /** Format: int64 */
+            comment_id: number;
+            anime: components["schemas"]["AnimeSummary"];
+            episode: number | null;
+            kind: components["schemas"]["RoomKind"];
+            snippet: string;
+            reactions: number;
+        };
+        Kudos: {
+            /** @description Reactions the viewer's comments drew in the last 7 days */
+            reactions_week: number;
+            top: components["schemas"]["KudosComment"] | null;
+        };
+        Pulse: {
+            streak: components["schemas"]["Streak"];
+            badges: components["schemas"]["Badge"][];
+            next_badge: components["schemas"]["BadgeProgress"] | null;
+            replies: components["schemas"]["ReplyToMe"][];
+            kudos: components["schemas"]["Kudos"];
         };
         RecommendationItem: {
             anime: components["schemas"]["AnimeSummary"];
@@ -3086,6 +3221,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduleList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyPulse: {
+        parameters: {
+            query?: {
+                /** @description IANA time zone for day boundaries (unknown zones fall back to UTC) */
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The viewer's pulse */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pulse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTrendingExplained: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked, explained titles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplainedTrendingList"];
                 };
             };
             default: components["responses"]["Error"];

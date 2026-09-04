@@ -337,7 +337,7 @@ const SCENES = [
 
 export function ProductDemos() {
   return (
-    <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
       {SCENES.map(({ id, eyebrow, accent, title, body, Scene }) => (
         <li
           key={id}

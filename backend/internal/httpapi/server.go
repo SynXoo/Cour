@@ -26,6 +26,7 @@ import (
 	"cour/internal/moderation"
 	"cour/internal/notify"
 	"cour/internal/profiles"
+	"cour/internal/pulse"
 	"cour/internal/realtime"
 	"cour/internal/reviews"
 	"cour/internal/social"
@@ -51,6 +52,7 @@ type apiServer struct {
 	socialHandlers
 	notificationHandlers
 	discoveryHandlers
+	pulseHandlers
 	moderationHandlers
 	importHandlers
 }
@@ -134,6 +136,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		},
 		discoveryHandlers: discoveryHandlers{
 			svc: discovery.New(d.Pool, appCache, discovery.DefaultTrendingConfig(), d.Log),
+			log: d.Log,
+		},
+		pulseHandlers: pulseHandlers{
+			svc: pulse.New(d.Pool, d.Log),
 			log: d.Log,
 		},
 		moderationHandlers: moderationHandlers{

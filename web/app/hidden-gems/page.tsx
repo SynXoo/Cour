@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { AnimeGrid } from "@/components/anime/anime-grid";
 import { PageShell } from "@/components/page-shell";
 import { serverApi } from "@/lib/api/client";
+import { GemsClient } from "./gems-client";
 
 export const metadata: Metadata = {
   title: "Hidden Gems",
   description:
-    "Recent anime with great ratings and small audiences — the shows the popularity charts bury.",
+    "Recent anime with great ratings and small audiences — the shows the popularity charts bury, minus the noise.",
 };
 
+/**
+ * Hidden gems (§M3.8): the same inversion of the popularity bias, now with
+ * the noise trimmed — no music videos, shorts and specials ranked below
+ * full shows, and nothing that's currently trending. Each card says why
+ * it qualifies.
+ */
 export default async function HiddenGemsPage() {
   const res = await serverApi()
     .GET("/hidden-gems", {
@@ -23,18 +29,17 @@ export default async function HiddenGemsPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Hidden Gems</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Recent seasons, high ratings, low popularity — a deliberate inversion
-          of the big-list bias. Somebody has to watch these first; may as well
-          be you.
+          Recent seasons, high ratings, small audiences — and nothing that&apos;s already
+          trending. Somebody has to watch these first; may as well be you.
         </p>
       </header>
 
       {anime.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-16 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border px-4 py-16 text-center text-sm text-muted-foreground">
           No gems surfaced yet — the discovery job runs every 15 minutes.
         </p>
       ) : (
-        <AnimeGrid anime={anime} priorityCount={6} />
+        <GemsClient anime={anime} />
       )}
     </PageShell>
   );

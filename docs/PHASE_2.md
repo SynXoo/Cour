@@ -153,6 +153,18 @@ Miguel + Fable walked the live site; diagnosis and specs in
   shield · tonight + notifications), a three-step "how it works" strip
   and a closing CTA band. Spec in §M3.7. Resolves the Parking-lot
   "Palette / brand pass".
+- [x] **M3.8** (F) Come-back loop + discovery restructure — (a) **Your
+  pulse** on the signed-in home: `GET /me/pulse` (streak on the viewer's
+  calendar, badge catalog + next-badge progress, replies to your comments,
+  reactions your comments drew); (b) **Rooms hub** rebuilt: ranked hot list
+  with podium + heat bars, sort, title filter, and a "My shows" view (every
+  room for your list, hot or quiet) that only exists there; (c) **Schedule**
+  as a day strip + lens (My shows / Popular / Everything) instead of a
+  seven-day wall; (d) **Trending** = 12 explained cards via
+  `GET /trending/explained` (signal chips + "why for you": followees, your
+  status, shared genres) with an "also rising" tail; **Hidden gems** drop
+  music, dock shorts/OVAs/specials, exclude the trending top-50, and get
+  format chips + a per-card reason. Spec in §M3.8.
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -165,6 +177,50 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-04 · M3.8 · Come-back loop + discovery restructure (Miguel's four
+  asks: the signed-in home needs a reason to return, threads is a bulletin
+  board, schedule is too much about too many shows, trending/gems overlap).
+  **Backend (spec-first, `task gen` clean):** `queries/pulse.sql`
+  (active days in the viewer's zone via `AT TIME ZONE @tz::text`, one
+  badge-counters query of scalar subqueries, replies-to-user join through
+  `comments.parent_id`, top-reacted comments this week), new package
+  `internal/pulse` (pure `computeStreak` — current run survives an
+  unfinished today, best = longest run ever; `evaluateBadges` — 14-entry
+  catalog, next = highest progress ratio, ties to the cheaper target;
+  `_ "time/tzdata"` embedded because the API image is Alpine-thin), handler
+  `GET /me/pulse?tz=`. `discovery/explain.go` + `GET /trending/explained`
+  (optional auth via `identity(r)`; `ActivitySignals` grouped counts in the
+  window; `FolloweesOnList`, `UserListStatusFor`, reuse of
+  `UserGenreBreakdown` top-5 for shared genres, capped 2). `HiddenGems` SQL:
+  `format <> 'MUSIC'`, `ORDER BY score - CASE format (TV/MOVIE 0, ONA 3,
+  else 6)`; `RecomputeHiddenGems` excludes the trending ZSET top-50
+  (`ZRangeArgs{Rev}` — `ZRevRange` is deprecated per staticcheck). Go unit
+  tests for streak/badges/snippet/sharedGenres/addSignal; golangci clean.
+  **Demo data:** inserted 3 replies to sakuga_sam + 20 reactions on their
+  comments via SQL (not the seeder) so the pulse has texture; the gems
+  cache had to be `DEL`ed once — its key has no TTL and the old order was
+  served until the recompute. **Web:** `lib/pulse.ts`, `lib/schedule.ts`,
+  `lib/trending.ts`, `lib/gems.ts` + `threads-hub.ts` view helpers
+  (`sortRooms`/`filterRooms`/`hubStats`/`myRooms`), all unit-tested (277
+  vitest). `LiveRoom` gained `animeId/kind/episode/lastActivityAt`.
+  `app/home/pulse.tsx` (client island, `["pulse"]` query keyed off the
+  session; streak card with `.pulse-glow`, badges + next-badge bar, replies
+  + kudos line); `app/threads/threads-hub.tsx` (views Hot/Tonight/My
+  shows/Series talk, sort select, filter input, podium of 3 + ranked rows,
+  heat bar = recent/max); `app/schedule/schedule-view.tsx` rewritten (day
+  strip with per-day counts, lens defaults to My shows when the viewer's
+  week is non-empty else Popular = top third of distinct shows;
+  `components/anime/schedule-days.tsx` deleted); `app/trending/trending-
+  client.tsx` (query keyed by session status so `you` fills after auth
+  resolves; top 12 explained cards, ranks 13–30 as a compact grid);
+  `app/hidden-gems/gems-client.tsx` (format chips + "★ 84 · only 1.2k on
+  lists"). Shared `components/ui/chip.tsx` extracted from the seasonal
+  view's local Chip (that file keeps its own). Verified in the preview at
+  1280 and 375 for home/rooms/schedule/trending/gems as sakuga_sam (10-day
+  streak, 6 badges, next Finisher 3/5, 3 replies, 20 reactions). **Next:**
+  M4.1, or the M3.8 follow-ups in the Parking lot (episode_aired
+  notifications → a "tonight" push; badge toasts on earn; the schedule's
+  "Popular" lens could use trending rank instead of raw popularity).
 - 2026-09-04 · M3.7 · Visual refresh, landing first then the signed-in home
   (Miguel's ask: teal instead of violet, darker/blacker surfaces, rounder
   buttons, a calmer/slower/less repetitive poster wall, and something that
@@ -1094,6 +1150,13 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- Mid-session ideas land here instead of in the diff. -->
 
+- **M3.8 follow-ups (2026-09-04):** badge-earned toast at the moment of
+  earning (needs a client-side diff of `/me/pulse` badges between visits,
+  or a server-side `earned_at`); the schedule's Popular lens could rank by
+  trending score rather than raw popularity once the worker exposes it;
+  `episode_aired` notifications already exist — a "tonight" push/digest
+  would close the come-back loop from outside the site.
+
 - **The owner's own profile edits look like they vanish for 60 s** (found
   2026-07-09 while verifying M3.6). `users/[username]/page.tsx` fetches the
   profile with `next: { revalidate: 60 }`, so after saving a bio/accent/banner
@@ -2004,6 +2067,52 @@ time and scores (countdowns, airing-soon, ★ ratings); `--lilac` for the
 spoiler shield. Teal keeps links, CTAs, the headline word and focus rings.
 The landing/home ambience glows rotate through the other hues down the
 page. Rule for new UI: pick by meaning, not by mood.
+
+### Come-back loop + discovery restructure (M3.8)
+
+*(From Miguel's 2026-09-04 ask, after M3.7: "when we are logged in there's a
+lack of movement and incentive"; threads "is just a giant bulletin board";
+schedule "gives too little information about too many things"; trending
+and hidden gems "have quite the level of overlap".)*
+
+**Your pulse.** The home's first block once signed in. Three cards:
+*Streak* — consecutive days with any activity (a +1 counts; the point is
+showing up), seven-day dots, and a sentence that always says what to do
+next; the run survives an unfinished today so the home is exactly where
+you'd extend it. *Badges* — thresholds on lifetime counters (first word,
+regular, seven nights, finisher, first in the room, night owl, crowd
+pleaser, …) plus the single closest unearned one with a progress bar: the
+nudge must feel reachable. *Replies to you* — other members' replies to
+your comments, and the reactions your comments drew this week. Rule: the
+block shows what *moved since last time*; it never manufactures urgency
+from nothing (empty states say what would fill them).
+
+**Rooms hub.** The reason the tab exists, stated: a show page can't rank
+rooms *across* shows, and nothing else lists every room for *your* list.
+Views: Hot (trending order, podium of three, heat bar = recent comments
+relative to the hottest, presence in coral), Tonight (schedule-anchored,
+unchanged), My shows (signed-in: one row per list entry joined with the hot
+list and tonight's openings — live first, then opening tonight, then quiet
+by list status; dropped excluded), Series talk. Sort (hottest / most
+comments / latest) and a title filter work inside any view.
+
+**Schedule.** A day strip (seven days, count per day) and a lens instead of
+a seven-day wall. Lenses: My shows (default when the viewer's week is
+non-empty), Popular (the top third of the week's distinct shows — relative,
+so a thin week still has a list), Everything. Rows are compact: time,
+cover, title, "yours" pill, countdown or "aired · room open". The home's
+"this week" strip stays as the merged summary; the tab is for choosing a
+day.
+
+**Trending, argued.** Twelve cards, each with its signal chips (strongest
+first, in the ranking's own weight order) and — signed in — the reasons
+relative to the viewer: followees who have it on their list (names, then
++N), the viewer's own status, genres shared with their top five. Ranks
+13–30 follow as a compact "also rising" grid. **Hidden gems, de-noised:**
+no music videos; shorts/OVAs/specials docked 3–6 points so a full show
+outranks a 5-minute special at the same score; anything in the trending
+top-50 excluded (a gem is by definition not what everyone's talking
+about); format chips and a per-card "★ 84 · only 1.2k on lists" reason.
 
 ## M4 — watch parties
 

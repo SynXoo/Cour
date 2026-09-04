@@ -10,6 +10,47 @@ import (
 	"time"
 )
 
+const activitySignals = `-- name: ActivitySignals :many
+SELECT activities.anime_id, activities.type, COUNT(*)::bigint AS count
+FROM activities
+WHERE activities.anime_id = ANY($1::bigint[])
+  AND activities.created_at > $2
+GROUP BY activities.anime_id, activities.type
+`
+
+type ActivitySignalsParams struct {
+	AnimeIds []int64
+	Since    time.Time
+}
+
+type ActivitySignalsRow struct {
+	AnimeID *int64
+	Type    ActivityType
+	Count   int64
+}
+
+// Per-title, per-type activity counts inside the trending window — the
+// "why" behind a rank (§M3.8 explained trending).
+func (q *Queries) ActivitySignals(ctx context.Context, arg ActivitySignalsParams) ([]ActivitySignalsRow, error) {
+	rows, err := q.db.Query(ctx, activitySignals, arg.AnimeIds, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ActivitySignalsRow
+	for rows.Next() {
+		var i ActivitySignalsRow
+		if err := rows.Scan(&i.AnimeID, &i.Type, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const favoriteNeighborIDs = `-- name: FavoriteNeighborIDs :many
 
 SELECT DISTINCT favorites.user_id FROM favorites
@@ -75,10 +116,55 @@ func (q *Queries) FavoriteRowsForUsers(ctx context.Context, dollar_1 []int64) ([
 	return items, nil
 }
 
+const followeesOnList = `-- name: FolloweesOnList :many
+SELECT le.anime_id, u.username, le.status
+FROM list_entries le
+JOIN follows f ON f.followee_id = le.user_id
+JOIN users u ON u.id = le.user_id
+WHERE f.follower_id = $1
+  AND le.anime_id = ANY($2::bigint[])
+  AND le.status IN ('watching', 'completed')
+ORDER BY le.updated_at DESC
+`
+
+type FolloweesOnListParams struct {
+	UserID   int64
+	AnimeIds []int64
+}
+
+type FolloweesOnListRow struct {
+	AnimeID  int64
+	Username string
+	Status   ListStatus
+}
+
+// Which of the viewer's followees have these titles on their list — the
+// social half of "why is this trending, for me".
+func (q *Queries) FolloweesOnList(ctx context.Context, arg FolloweesOnListParams) ([]FolloweesOnListRow, error) {
+	rows, err := q.db.Query(ctx, followeesOnList, arg.UserID, arg.AnimeIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FolloweesOnListRow
+	for rows.Next() {
+		var i FolloweesOnListRow
+		if err := rows.Scan(&i.AnimeID, &i.Username, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hiddenGems = `-- name: HiddenGems :many
 SELECT anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id FROM anime
 WHERE anime.season_year >= $1
   AND anime.is_adult = FALSE
+  AND anime.format <> 'MUSIC'
   AND anime.average_score IS NOT NULL
   AND anime.popularity >= 100 -- floor: below this, scores are noise
   AND anime.average_score >= $2
@@ -90,7 +176,15 @@ WHERE anime.season_year >= $1
       AND pool.average_score IS NOT NULL
       AND pool.popularity >= 100
   )
-ORDER BY anime.average_score DESC, anime.popularity ASC
+ORDER BY
+  anime.average_score
+    - CASE anime.format
+        WHEN 'TV' THEN 0
+        WHEN 'MOVIE' THEN 0
+        WHEN 'ONA' THEN 3
+        ELSE 6
+      END DESC,
+  anime.popularity ASC
 LIMIT $3
 `
 
@@ -102,7 +196,10 @@ type HiddenGemsParams struct {
 
 // Recent, well-rated, under-watched: the deliberate inversion of the
 // popularity bias. The percentile subquery keeps "low popularity" relative
-// to the current catalog rather than a magic constant.
+// to the current catalog rather than a magic constant. Music videos never
+// qualify, and the ranking docks shorts/OVAs/specials a few points so a
+// 12-episode TV gem outranks a 5-minute special with the same score
+// (§M3.8: the rail used to be half specials).
 func (q *Queries) HiddenGems(ctx context.Context, arg HiddenGemsParams) ([]Anime, error) {
 	rows, err := q.db.Query(ctx, hiddenGems, arg.SeasonYear, arg.AverageScore, arg.Limit)
 	if err != nil {
@@ -383,6 +480,41 @@ func (q *Queries) UpstreamTrendingSignal(ctx context.Context) ([]UpstreamTrendin
 	for rows.Next() {
 		var i UpstreamTrendingSignalRow
 		if err := rows.Scan(&i.AnimeID, &i.AnilistTrending); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const userListStatusFor = `-- name: UserListStatusFor :many
+SELECT anime_id, status FROM list_entries
+WHERE user_id = $1 AND anime_id = ANY($2::bigint[])
+`
+
+type UserListStatusForParams struct {
+	UserID   int64
+	AnimeIds []int64
+}
+
+type UserListStatusForRow struct {
+	AnimeID int64
+	Status  ListStatus
+}
+
+func (q *Queries) UserListStatusFor(ctx context.Context, arg UserListStatusForParams) ([]UserListStatusForRow, error) {
+	rows, err := q.db.Query(ctx, userListStatusFor, arg.UserID, arg.AnimeIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserListStatusForRow
+	for rows.Next() {
+		var i UserListStatusForRow
+		if err := rows.Scan(&i.AnimeID, &i.Status); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

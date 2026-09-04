@@ -20,10 +20,14 @@ VALUES ($1, $2, $3, $4);
 -- name: HiddenGems :many
 -- Recent, well-rated, under-watched: the deliberate inversion of the
 -- popularity bias. The percentile subquery keeps "low popularity" relative
--- to the current catalog rather than a magic constant.
+-- to the current catalog rather than a magic constant. Music videos never
+-- qualify, and the ranking docks shorts/OVAs/specials a few points so a
+-- 12-episode TV gem outranks a 5-minute special with the same score
+-- (§M3.8: the rail used to be half specials).
 SELECT anime.* FROM anime
 WHERE anime.season_year >= $1
   AND anime.is_adult = FALSE
+  AND anime.format <> 'MUSIC'
   AND anime.average_score IS NOT NULL
   AND anime.popularity >= 100 -- floor: below this, scores are noise
   AND anime.average_score >= $2
@@ -35,8 +39,41 @@ WHERE anime.season_year >= $1
       AND pool.average_score IS NOT NULL
       AND pool.popularity >= 100
   )
-ORDER BY anime.average_score DESC, anime.popularity ASC
+ORDER BY
+  anime.average_score
+    - CASE anime.format
+        WHEN 'TV' THEN 0
+        WHEN 'MOVIE' THEN 0
+        WHEN 'ONA' THEN 3
+        ELSE 6
+      END DESC,
+  anime.popularity ASC
 LIMIT $3;
+
+-- name: ActivitySignals :many
+-- Per-title, per-type activity counts inside the trending window — the
+-- "why" behind a rank (§M3.8 explained trending).
+SELECT activities.anime_id, activities.type, COUNT(*)::bigint AS count
+FROM activities
+WHERE activities.anime_id = ANY(@anime_ids::bigint[])
+  AND activities.created_at > @since
+GROUP BY activities.anime_id, activities.type;
+
+-- name: FolloweesOnList :many
+-- Which of the viewer's followees have these titles on their list — the
+-- social half of "why is this trending, for me".
+SELECT le.anime_id, u.username, le.status
+FROM list_entries le
+JOIN follows f ON f.followee_id = le.user_id
+JOIN users u ON u.id = le.user_id
+WHERE f.follower_id = @user_id
+  AND le.anime_id = ANY(@anime_ids::bigint[])
+  AND le.status IN ('watching', 'completed')
+ORDER BY le.updated_at DESC;
+
+-- name: UserListStatusFor :many
+SELECT anime_id, status FROM list_entries
+WHERE user_id = @user_id AND anime_id = ANY(@anime_ids::bigint[]);
 
 -- name: TasteSet :many
 -- A user's taste = favorites plus anything they scored 8+.

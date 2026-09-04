@@ -14,6 +14,9 @@ vi.mock("next/image", () => ({
 function room(id: number, over: Partial<LiveRoom> = {}): LiveRoom {
   return {
     threadId: id,
+    animeId: id,
+    kind: "episode",
+    episode: id,
     title: `Show ${id}`,
     cover: `cover-${id}.jpg`,
     label: `Ep ${id} room`,
@@ -21,6 +24,7 @@ function room(id: number, over: Partial<LiveRoom> = {}): LiveRoom {
     recent: 2,
     presence: 0,
     ago: "2m ago",
+    lastActivityAt: "2026-07-08T20:00:00Z",
     href: `/anime/${id}/episode/${id}`,
     ...over,
   };

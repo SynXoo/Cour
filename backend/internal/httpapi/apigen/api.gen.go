@@ -85,6 +85,27 @@ func (e AiringStatus) Valid() bool {
 	}
 }
 
+// Defines values for BadgeTier.
+const (
+	Bronze BadgeTier = "bronze"
+	Gold   BadgeTier = "gold"
+	Silver BadgeTier = "silver"
+)
+
+// Valid indicates whether the value is a known member of the BadgeTier enum.
+func (e BadgeTier) Valid() bool {
+	switch e {
+	case Bronze:
+		return true
+	case Gold:
+		return true
+	case Silver:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CommitImportRequestMode.
 const (
 	Merge     CommitImportRequestMode = "merge"
@@ -346,6 +367,24 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Defines values for RoomKind.
+const (
+	RoomKindEpisode RoomKind = "episode"
+	RoomKindSeries  RoomKind = "series"
+)
+
+// Valid indicates whether the value is a known member of the RoomKind enum.
+func (e RoomKind) Valid() bool {
+	switch e {
+	case RoomKindEpisode:
+		return true
+	case RoomKindSeries:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Season.
 const (
 	FALL   Season = "FALL"
@@ -503,6 +542,29 @@ type AnimeSummary struct {
 	TitleEnglish *string `json:"title_english"`
 }
 
+// Badge defines model for Badge.
+type Badge struct {
+	Description string `json:"description"`
+
+	// Id Stable key; never renamed
+	Id    string    `json:"id"`
+	Label string    `json:"label"`
+	Tier  BadgeTier `json:"tier"`
+}
+
+// BadgeProgress The closest unearned badge and how far along the viewer is
+type BadgeProgress struct {
+	Description string    `json:"description"`
+	Id          string    `json:"id"`
+	Label       string    `json:"label"`
+	Progress    int       `json:"progress"`
+	Target      int       `json:"target"`
+	Tier        BadgeTier `json:"tier"`
+}
+
+// BadgeTier defines model for BadgeTier.
+type BadgeTier string
+
 // Comment defines model for Comment.
 type Comment struct {
 	Author ReviewAuthor `json:"author"`
@@ -569,6 +631,24 @@ type ErrorEnvelope struct {
 		Details interface{} `json:"details,omitempty"`
 		Message string      `json:"message"`
 	} `json:"error"`
+}
+
+// ExplainedTrending defines model for ExplainedTrending.
+type ExplainedTrending struct {
+	Anime AnimeSummary `json:"anime"`
+	Rank  int          `json:"rank"`
+
+	// Signals Activity counts inside the trending window that earned the rank
+	Signals TrendingSignals `json:"signals"`
+
+	// You Null for anonymous callers
+	You *TrendingYou `json:"you"`
+}
+
+// ExplainedTrendingList defines model for ExplainedTrendingList.
+type ExplainedTrendingList struct {
+	ComputedAt *time.Time          `json:"computed_at"`
+	Data       []ExplainedTrending `json:"data"`
 }
 
 // FavoriteState defines model for FavoriteState.
@@ -729,6 +809,23 @@ type ImportSource string
 // ImportStatus pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
 type ImportStatus string
 
+// Kudos defines model for Kudos.
+type Kudos struct {
+	// ReactionsWeek Reactions the viewer's comments drew in the last 7 days
+	ReactionsWeek int           `json:"reactions_week"`
+	Top           *KudosComment `json:"top"`
+}
+
+// KudosComment defines model for KudosComment.
+type KudosComment struct {
+	Anime     AnimeSummary `json:"anime"`
+	CommentId int64        `json:"comment_id"`
+	Episode   *int         `json:"episode"`
+	Kind      RoomKind     `json:"kind"`
+	Reactions int          `json:"reactions"`
+	Snippet   string       `json:"snippet"`
+}
+
 // LibrarySpan defines model for LibrarySpan.
 type LibrarySpan struct {
 	EarliestYear int `json:"earliest_year"`
@@ -883,6 +980,15 @@ type ProfileStats struct {
 	WatchMinutes int64 `json:"watch_minutes"`
 }
 
+// Pulse defines model for Pulse.
+type Pulse struct {
+	Badges    []Badge        `json:"badges"`
+	Kudos     Kudos          `json:"kudos"`
+	NextBadge *BadgeProgress `json:"next_badge"`
+	Replies   []ReplyToMe    `json:"replies"`
+	Streak    Streak         `json:"streak"`
+}
+
 // ReactionCount defines model for ReactionCount.
 type ReactionCount struct {
 	Count int   `json:"count"`
@@ -919,6 +1025,24 @@ type RelationState struct {
 
 	// IsFollowing Always false for anonymous callers
 	IsFollowing bool `json:"is_following"`
+}
+
+// ReplyToMe defines model for ReplyToMe.
+type ReplyToMe struct {
+	Actor     ReviewAuthor `json:"actor"`
+	Anime     AnimeSummary `json:"anime"`
+	CommentId int64        `json:"comment_id"`
+	CreatedAt time.Time    `json:"created_at"`
+
+	// Episode Episode number for episode rooms
+	Episode *int     `json:"episode"`
+	Kind    RoomKind `json:"kind"`
+
+	// ParentSnippet The viewer's own comment it answers
+	ParentSnippet string `json:"parent_snippet"`
+
+	// Snippet The reply
+	Snippet string `json:"snippet"`
 }
 
 // Report defines model for Report.
@@ -1000,6 +1124,9 @@ type ReviewList struct {
 // Role defines model for Role.
 type Role string
 
+// RoomKind defines model for RoomKind.
+type RoomKind string
+
 // ScheduleEntry defines model for ScheduleEntry.
 type ScheduleEntry struct {
 	AiringAt time.Time    `json:"airing_at"`
@@ -1060,6 +1187,18 @@ type StartAniListImportRequest struct {
 	Username string `json:"username"`
 }
 
+// Streak defines model for Streak.
+type Streak struct {
+	ActiveToday bool `json:"active_today"`
+	Best        int  `json:"best"`
+
+	// Current Consecutive active days ending today or yesterday
+	Current int `json:"current"`
+
+	// Week The last seven days, oldest first; the last entry is today
+	Week []bool `json:"week"`
+}
+
 // Studio defines model for Studio.
 type Studio struct {
 	IsMain bool   `json:"is_main"`
@@ -1112,6 +1251,16 @@ type TrendingList struct {
 	Data       []AnimeSummary `json:"data"`
 }
 
+// TrendingSignals Activity counts inside the trending window that earned the rank
+type TrendingSignals struct {
+	Comments  int `json:"comments"`
+	Completed int `json:"completed"`
+	Favorites int `json:"favorites"`
+	ListAdds  int `json:"list_adds"`
+	Reviews   int `json:"reviews"`
+	Scored    int `json:"scored"`
+}
+
 // TrendingThread defines model for TrendingThread.
 type TrendingThread struct {
 	Anime AnimeSummary `json:"anime"`
@@ -1130,6 +1279,19 @@ type TrendingThread struct {
 // TrendingThreadList defines model for TrendingThreadList.
 type TrendingThreadList struct {
 	Data []TrendingThread `json:"data"`
+}
+
+// TrendingYou Why this title matters to the signed-in viewer
+type TrendingYou struct {
+	// Followees Up to three usernames the viewer follows who are watching/completed it
+	Followees      []string `json:"followees"`
+	FolloweesCount int      `json:"followees_count"`
+
+	// SharedGenres Genres this title shares with the viewer's most-watched genres (max 2)
+	SharedGenres []string `json:"shared_genres"`
+
+	// Status The viewer's list status for the title, if it's on their list
+	Status *ListStatus `json:"status"`
 }
 
 // UnreadCount defines model for UnreadCount.
@@ -1279,6 +1441,12 @@ type GetMyNotificationsParams struct {
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetMyPulseParams defines parameters for GetMyPulse.
+type GetMyPulseParams struct {
+	// Tz IANA time zone for day boundaries (unknown zones fall back to UTC)
+	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
+}
+
 // ListOpenReportsParams defines parameters for ListOpenReports.
 type ListOpenReportsParams struct {
 	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -1305,6 +1473,11 @@ type ListCommentsParams struct {
 
 // GetTrendingParams defines parameters for GetTrending.
 type GetTrendingParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetTrendingExplainedParams defines parameters for GetTrendingExplained.
+type GetTrendingExplainedParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
@@ -1502,6 +1675,9 @@ type ServerInterface interface {
 	// Edit bio, avatar, favorite genres, profile banner, and accent
 	// (PATCH /me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
+	// The viewer's pulse — streak, badges, replies to them, kudos
+	// (GET /me/pulse)
+	GetMyPulse(w http.ResponseWriter, r *http.Request, params GetMyPulseParams)
 	// Taste-based suggestions with explanations
 	// (GET /me/recommendations)
 	GetMyRecommendations(w http.ResponseWriter, r *http.Request)
@@ -1544,6 +1720,9 @@ type ServerInterface interface {
 	// Trending Now — recency-weighted, time-decayed
 	// (GET /trending)
 	GetTrending(w http.ResponseWriter, r *http.Request, params GetTrendingParams)
+	// Trending Now with the why — per-title signal breakdown, plus the viewer's angle
+	// (GET /trending/explained)
+	GetTrendingExplained(w http.ResponseWriter, r *http.Request, params GetTrendingExplainedParams)
 	// Public profile with stats and showcases
 	// (GET /users/{username})
 	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
@@ -1814,6 +1993,12 @@ func (_ Unimplemented) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The viewer's pulse — streak, badges, replies to them, kudos
+// (GET /me/pulse)
+func (_ Unimplemented) GetMyPulse(w http.ResponseWriter, r *http.Request, params GetMyPulseParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Taste-based suggestions with explanations
 // (GET /me/recommendations)
 func (_ Unimplemented) GetMyRecommendations(w http.ResponseWriter, r *http.Request) {
@@ -1895,6 +2080,12 @@ func (_ Unimplemented) PostComment(w http.ResponseWriter, r *http.Request, threa
 // Trending Now — recency-weighted, time-decayed
 // (GET /trending)
 func (_ Unimplemented) GetTrending(w http.ResponseWriter, r *http.Request, params GetTrendingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Trending Now with the why — per-title signal breakdown, plus the viewer's angle
+// (GET /trending/explained)
+func (_ Unimplemented) GetTrendingExplained(w http.ResponseWriter, r *http.Request, params GetTrendingExplainedParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3143,6 +3334,45 @@ func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetMyPulse operation middleware
+func (siw *ServerInterfaceWrapper) GetMyPulse(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMyPulseParams
+
+	// ------------- Optional query parameter "tz" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tz", r.URL.Query(), &params.Tz, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tz"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tz", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyPulse(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyRecommendations operation middleware
 func (siw *ServerInterfaceWrapper) GetMyRecommendations(w http.ResponseWriter, r *http.Request) {
 
@@ -3614,6 +3844,39 @@ func (siw *ServerInterfaceWrapper) GetTrending(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTrending(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTrendingExplained operation middleware
+func (siw *ServerInterfaceWrapper) GetTrendingExplained(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTrendingExplainedParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTrendingExplained(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4213,6 +4476,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/me/profile", wrapper.UpdateMyProfile)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/pulse", wrapper.GetMyPulse)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/recommendations", wrapper.GetMyRecommendations)
 	})
 	r.Group(func(r chi.Router) {
@@ -4253,6 +4519,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/trending", wrapper.GetTrending)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/trending/explained", wrapper.GetTrendingExplained)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)

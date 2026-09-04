@@ -1173,6 +1173,55 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /me/pulse:
+    get:
+      operationId: getMyPulse
+      summary: The viewer's pulse — streak, badges, replies to them, kudos
+      description: >
+        The signed-in home's incentive block (§M3.8). Streak = consecutive
+        days with any activity, computed on the viewer's calendar (pass tz).
+        Badges are thresholds on lifetime counters; next_badge is the closest
+        unearned one. Replies are other members' replies to the viewer's
+        comments; kudos is the reactions their comments drew this week.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tz
+          in: query
+          description: IANA time zone for day boundaries (unknown zones fall back to UTC)
+          schema: { type: string, maxLength: 64 }
+      responses:
+        "200":
+          description: The viewer's pulse
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pulse" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /trending/explained:
+    get:
+      operationId: getTrendingExplained
+      summary: Trending Now with the why — per-title signal breakdown, plus the viewer's angle
+      description: >
+        The same ranking as /trending, capped short, with the activity that
+        earned each rank (comments, list adds, completions, favorites,
+        reviews, scores inside the trending window). When the caller is
+        signed in, `you` carries their list status for the title, which
+        people they follow have it on their list, and the genres it shares
+        with their own library — the reasons relative to *them*.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 30, default: 12 }
+      responses:
+        "200":
+          description: Ranked, explained titles
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExplainedTrendingList" }
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1759,6 +1808,150 @@ components:
         data:
           type: array
           items: { $ref: "#/components/schemas/AnimeSummary" }
+
+    TrendingSignals:
+      type: object
+      description: Activity counts inside the trending window that earned the rank
+      required: [comments, list_adds, completed, favorites, reviews, scored]
+      properties:
+        comments: { type: integer }
+        list_adds: { type: integer }
+        completed: { type: integer }
+        favorites: { type: integer }
+        reviews: { type: integer }
+        scored: { type: integer }
+
+    TrendingYou:
+      type: object
+      description: Why this title matters to the signed-in viewer
+      required: [status, followees, followees_count, shared_genres]
+      properties:
+        status:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/ListStatus" }]
+          description: The viewer's list status for the title, if it's on their list
+        followees:
+          type: array
+          items: { type: string }
+          description: Up to three usernames the viewer follows who are watching/completed it
+        followees_count: { type: integer }
+        shared_genres:
+          type: array
+          items: { type: string }
+          description: Genres this title shares with the viewer's most-watched genres (max 2)
+
+    ExplainedTrending:
+      type: object
+      required: [anime, rank, signals, you]
+      properties:
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        rank: { type: integer }
+        signals: { $ref: "#/components/schemas/TrendingSignals" }
+        you:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/TrendingYou" }]
+          description: Null for anonymous callers
+
+    ExplainedTrendingList:
+      type: object
+      required: [data, computed_at]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/ExplainedTrending" }
+        computed_at: { type: string, format: date-time, nullable: true }
+
+    RoomKind:
+      type: string
+      enum: [series, episode]
+
+    BadgeTier:
+      type: string
+      enum: [bronze, silver, gold]
+
+    Badge:
+      type: object
+      required: [id, label, description, tier]
+      properties:
+        id: { type: string, description: Stable key; never renamed }
+        label: { type: string }
+        description: { type: string }
+        tier: { $ref: "#/components/schemas/BadgeTier" }
+
+    BadgeProgress:
+      type: object
+      description: The closest unearned badge and how far along the viewer is
+      required: [id, label, description, tier, progress, target]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        description: { type: string }
+        tier: { $ref: "#/components/schemas/BadgeTier" }
+        progress: { type: integer }
+        target: { type: integer }
+
+    Streak:
+      type: object
+      required: [current, best, active_today, week]
+      properties:
+        current: { type: integer, description: Consecutive active days ending today or yesterday }
+        best: { type: integer }
+        active_today: { type: boolean }
+        week:
+          type: array
+          items: { type: boolean }
+          minItems: 7
+          maxItems: 7
+          description: The last seven days, oldest first; the last entry is today
+
+    ReplyToMe:
+      type: object
+      required: [comment_id, actor, anime, episode, kind, snippet, parent_snippet, created_at]
+      properties:
+        comment_id: { type: integer, format: int64 }
+        actor: { $ref: "#/components/schemas/ReviewAuthor" }
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        episode: { type: integer, nullable: true, description: Episode number for episode rooms }
+        kind: { $ref: "#/components/schemas/RoomKind" }
+        snippet: { type: string, description: The reply, truncated }
+        parent_snippet: { type: string, description: The viewer's own comment it answers, truncated }
+        created_at: { type: string, format: date-time }
+
+    KudosComment:
+      type: object
+      required: [comment_id, anime, episode, kind, snippet, reactions]
+      properties:
+        comment_id: { type: integer, format: int64 }
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        episode: { type: integer, nullable: true }
+        kind: { $ref: "#/components/schemas/RoomKind" }
+        snippet: { type: string }
+        reactions: { type: integer }
+
+    Kudos:
+      type: object
+      required: [reactions_week, top]
+      properties:
+        reactions_week: { type: integer, description: Reactions the viewer's comments drew in the last 7 days }
+        top:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/KudosComment" }]
+
+    Pulse:
+      type: object
+      required: [streak, badges, next_badge, replies, kudos]
+      properties:
+        streak: { $ref: "#/components/schemas/Streak" }
+        badges:
+          type: array
+          items: { $ref: "#/components/schemas/Badge" }
+        next_badge:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/BadgeProgress" }]
+        replies:
+          type: array
+          items: { $ref: "#/components/schemas/ReplyToMe" }
+        kudos: { $ref: "#/components/schemas/Kudos" }
 
     RecommendationItem:
       type: object

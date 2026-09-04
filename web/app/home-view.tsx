@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { ContinueWatching } from "./home/continue-watching";
 import { ConversationGrid } from "./home/conversation-grid";
 import { Greeting } from "./home/greeting";
+import { PulseBlock } from "./home/pulse";
 import { YourEvening } from "./home/your-evening";
 import { LiveRooms } from "./live-rooms";
 
@@ -112,6 +113,9 @@ export async function HomeView() {
             </p>
           )}
         </header>
+
+        {/* ── Your pulse (streak, badges, replies to you) ─────────────── */}
+        <PulseBlock />
 
         {/* ── Your evening + Live now ─────────────────────────────────── */}
         <div

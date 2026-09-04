@@ -658,3 +658,13 @@ details[open] .picker-item {
     ),
     color-mix(in oklab, var(--card) 70%, transparent);
 }
+
+/* The streak card, while a streak is alive: a warm coral glow from the
+   corner — the one place on the home that should feel like a flame. */
+.pulse-glow {
+  background: radial-gradient(
+    18rem 10rem at 0% 0%,
+    color-mix(in oklab, var(--live) 18%, transparent),
+    transparent 70%
+  );
+}
