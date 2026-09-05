@@ -10,3 +10,5 @@ output-options:
   # spec for docs + the typed TS client, but no chi-server stub is generated.
   exclude-operation-ids:
     - streamThreadEvents
+    # partySocket is the WebSocket gateway — same treatment (docs/WATCH_PARTIES.md).
+    - partySocket

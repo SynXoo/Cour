@@ -346,6 +346,27 @@ func (e NotificationType) Valid() bool {
 	}
 }
 
+// Defines values for PartyVisibility.
+const (
+	Followers PartyVisibility = "followers"
+	Invite    PartyVisibility = "invite"
+	Public    PartyVisibility = "public"
+)
+
+// Valid indicates whether the value is a known member of the PartyVisibility enum.
+func (e PartyVisibility) Valid() bool {
+	switch e {
+	case Followers:
+		return true
+	case Invite:
+		return true
+	case Public:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReportSubject.
 const (
 	ReportSubjectComment ReportSubject = "comment"
@@ -665,6 +686,17 @@ type CommitImportRequest struct {
 // CommitImportRequestMode merge skips titles already on the list; overwrite lets the import win
 type CommitImportRequestMode string
 
+// CreatePartyRequest defines model for CreatePartyRequest.
+type CreatePartyRequest struct {
+	AnimeId int64 `json:"anime_id"`
+
+	// Episode Episode number within the anime
+	Episode int `json:"episode"`
+
+	// Visibility Defaults to `followers`
+	Visibility *PartyVisibility `json:"visibility,omitempty"`
+}
+
 // DirectMessage defines model for DirectMessage.
 type DirectMessage struct {
 	Body      string    `json:"body"`
@@ -734,6 +766,12 @@ type FavoriteState struct {
 // FavoritesList defines model for FavoritesList.
 type FavoritesList struct {
 	Data []AnimeSummary `json:"data"`
+}
+
+// Features defines model for Features.
+type Features struct {
+	// WatchParties FEATURE_WATCH_PARTIES — rooms
+	WatchParties bool `json:"watch_parties"`
 }
 
 // Feed defines model for Feed.
@@ -1067,6 +1105,9 @@ type PageInfo struct {
 	Page    int  `json:"page"`
 	PerPage int  `json:"per_page"`
 }
+
+// PartyVisibility defines model for PartyVisibility.
+type PartyVisibility string
 
 // PasswordResetConfirm defines model for PasswordResetConfirm.
 type PasswordResetConfirm struct {
@@ -1565,6 +1606,17 @@ type UserReviewList struct {
 	Page PageInfo       `json:"page"`
 }
 
+// WatchParty defines model for WatchParty.
+type WatchParty struct {
+	Anime      AnimeSummary    `json:"anime"`
+	ClosedAt   *time.Time      `json:"closed_at"`
+	CreatedAt  time.Time       `json:"created_at"`
+	Episode    Episode         `json:"episode"`
+	Host       ReviewAuthor    `json:"host"`
+	Id         int64           `json:"id"`
+	Visibility PartyVisibility `json:"visibility"`
+}
+
 // WatchingEntry defines model for WatchingEntry.
 type WatchingEntry struct {
 	Anime    AnimeSummary `json:"anime"`
@@ -1760,6 +1812,9 @@ type UpdateMyProfileJSONRequestBody = UpdateProfileRequest
 // ResolveReportJSONRequestBody defines body for ResolveReport for application/json ContentType.
 type ResolveReportJSONRequestBody = ResolveReportRequest
 
+// CreatePartyJSONRequestBody defines body for CreateParty for application/json ContentType.
+type CreatePartyJSONRequestBody = CreatePartyRequest
+
 // FileReportJSONRequestBody defines body for FileReport for application/json ContentType.
 type FileReportJSONRequestBody = FileReportRequest
 
@@ -1843,6 +1898,9 @@ type ServerInterface interface {
 	// React to a comment
 	// (PUT /comments/{commentId}/reactions/{emoji})
 	AddReaction(w http.ResponseWriter, r *http.Request, commentId int64, emoji Emoji)
+	// Which optional features this deployment has switched on
+	// (GET /features)
+	GetFeatures(w http.ResponseWriter, r *http.Request)
 	// Recent, highly-rated, under-watched titles
 	// (GET /hidden-gems)
 	GetHiddenGems(w http.ResponseWriter, r *http.Request)
@@ -1930,6 +1988,12 @@ type ServerInterface interface {
 	// Close a report as resolved or dismissed (moderators only)
 	// (POST /mod/reports/{reportId})
 	ResolveReport(w http.ResponseWriter, r *http.Request, reportId int64)
+	// Start a watch party on an episode
+	// (POST /parties)
+	CreateParty(w http.ResponseWriter, r *http.Request)
+	// A watch party's shell (episode, host, visibility, open/closed)
+	// (GET /parties/{partyId})
+	GetParty(w http.ResponseWriter, r *http.Request, partyId int64)
 	// Report content or a user to the moderators
 	// (POST /reports)
 	FileReport(w http.ResponseWriter, r *http.Request)
@@ -2152,6 +2216,12 @@ func (_ Unimplemented) AddReaction(w http.ResponseWriter, r *http.Request, comme
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Which optional features this deployment has switched on
+// (GET /features)
+func (_ Unimplemented) GetFeatures(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Recent, highly-rated, under-watched titles
 // (GET /hidden-gems)
 func (_ Unimplemented) GetHiddenGems(w http.ResponseWriter, r *http.Request) {
@@ -2323,6 +2393,18 @@ func (_ Unimplemented) ListOpenReports(w http.ResponseWriter, r *http.Request, p
 // Close a report as resolved or dismissed (moderators only)
 // (POST /mod/reports/{reportId})
 func (_ Unimplemented) ResolveReport(w http.ResponseWriter, r *http.Request, reportId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Start a watch party on an episode
+// (POST /parties)
+func (_ Unimplemented) CreateParty(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A watch party's shell (episode, host, visibility, open/closed)
+// (GET /parties/{partyId})
+func (_ Unimplemented) GetParty(w http.ResponseWriter, r *http.Request, partyId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3189,6 +3271,20 @@ func (siw *ServerInterfaceWrapper) AddReaction(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddReaction(w, r, commentId, emoji)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFeatures operation middleware
+func (siw *ServerInterfaceWrapper) GetFeatures(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFeatures(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4115,6 +4211,58 @@ func (siw *ServerInterfaceWrapper) ResolveReport(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResolveReport(w, r, reportId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateParty operation middleware
+func (siw *ServerInterfaceWrapper) CreateParty(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateParty(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetParty operation middleware
+func (siw *ServerInterfaceWrapper) GetParty(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "partyId" -------------
+	var partyId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "partyId", chi.URLParam(r, "partyId"), &partyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "partyId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetParty(w, r, partyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5198,6 +5346,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/comments/{commentId}/reactions/{emoji}", wrapper.AddReaction)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/features", wrapper.GetFeatures)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hidden-gems", wrapper.GetHiddenGems)
 	})
 	r.Group(func(r chi.Router) {
@@ -5283,6 +5434,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/mod/reports/{reportId}", wrapper.ResolveReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/parties", wrapper.CreateParty)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/parties/{partyId}", wrapper.GetParty)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/reports", wrapper.FileReport)

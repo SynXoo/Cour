@@ -189,7 +189,7 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
-- [ ] **M4.1** (F) WS gateway + presence, flag-gated
+- [x] **M4.1** (F) WS gateway + presence, flag-gated
 - [ ] **M4.2** (F) Shared clock — host controls, drift correction
 - [ ] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
 - [ ] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
@@ -198,6 +198,75 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-05 · M4.1 · Watch parties begin: the WebSocket gateway + presence,
+  flag-gated. **Transport spike first:** Next's router server proxies
+  `Upgrade` requests for external rewrites (`router-server.js` →
+  `proxyRequest`), verified live — the socket rides the same `/api/*`
+  rewrite as SSE in dev and standalone, no second origin. **Auth on the
+  handshake:** a bearer header when a client can set one (tests, servers);
+  browsers can't, so the first frame is `{op:"auth", data:{token}}` within
+  5 s (never in the URL); `getAccessToken()` exposes the in-memory token
+  for exactly this. **Backend:** `FEATURE_WATCH_PARTIES` (default off; the
+  compose stack defaults it on; `.env.example` + DEPLOY.md documented) —
+  off, `/parties*` 404 and `/ws` is not mounted; `GET /features` always
+  reports the flag so the client can hide entry points. Migration
+  `000020_watch_parties` (`party_visibility` enum, `watch_parties`, partial
+  unique **one open room per host** — creating the next closes the
+  previous in-tx). `internal/parties`: create/get/joinable + the visibility
+  rule (public → any signed-in; followers → followers ∪ friends; invite →
+  friends until M4.4's explicit invites; host always; a room you can't see
+  is 403, not 404). `internal/realtime`: the M2 `Hub` generalised into a
+  prefix-scoped bus (`NewBus`, presence events optional — thread hub
+  unchanged) and `party.go`, the gateway: `{op,data}` frames both ways,
+  join/leave/heartbeat, presence in a Redis ZSET (`party:{id}:members`,
+  score = last heartbeat, 45 s sweep on the next touch, 60 s silent-socket
+  close, 30 s server pings, 24 h key TTL as a leak backstop), events fan
+  out over `party:{id}` pub/sub so any instance serves any room. A member's
+  own `member.joined`/`left` echo is filtered (the joiner has itself in the
+  `state` snapshot; a second tab's leave must not evict the first). Lib:
+  `github.com/coder/websocket` (pure Go, ctx-based). **Naming decision
+  (edited into WATCH_PARTIES.md):** `watch_parties`/`/parties`/`internal/parties`
+  rather than `rooms` — "rooms" already means live episode threads in the
+  UI. **Origin gotcha:** the compose API is `COUR_ENV=prod` with
+  `WEB_ORIGIN` localhost:3000, so the preview's random port was refused at
+  the upgrade (403) — `socketOrigins` now admits any localhost port when
+  the web origin itself is localhost (a local stack), unit-tested; prod
+  stays exact-host. **Web:** `lib/parties.ts` (pure: frame codec, room
+  reducer — state/joined/left/error, dedupe by id, host-first sort — backoff,
+  copy) + `lib/hooks/use-party.ts` (auth→join→15 s heartbeat, backoff
+  reconnect that re-joins and resets on success, session refresh before a
+  retry after `unauthorized`, fatal join errors stop the loop; state is a
+  party-keyed snapshot because `react-hooks/set-state-in-effect` rejects
+  the naive reset) + `use-features.ts`; page `/parties/[id]` (client-only:
+  reading a party needs the session) with cover/title/episode/host header,
+  a Connecting/Live/Reconnecting/Ended pill, a host-first roster with avatar
+  chips + HOST badge, the no-streams line verbatim, and explained states
+  (feature off, anon, not found/forbidden/ended). **Tests:** Go unit (hub
+  bus isolation + no-presence, origins), **3 integration tests over real
+  sockets + Redis** (`TestWatchPartyPresence`: header + first-frame auth,
+  state snapshot is the cross-instance set, joined/left on leave *and* on
+  drop, not_found/bad op on the socket, second party closes the first +
+  join refused with `conflict`, followers-only 403/`forbidden` until a
+  follow, create validation; `TestWatchPartySocketAuth`; a dark-router test
+  for the flag), vitest **+17** (reducer/codec/copy + a scripted
+  FakeSocket hook suite: auth/join/heartbeat cadence, presence folding,
+  backoff 1→2→4 s and reset, refresh-then-retry, fatal stop, unmount) —
+  **337** web tests, golangci **0 issues**, tsc/eslint clean, `task gen`
+  drift-free. **Verified live** (compose api rebuilt twice — migration 20
+  applied; dev web via another session's server): party 1 created over
+  REST as sakuga_sam, page LIVE with the host chip; a Node script joined as
+  seasonal_sue through the gateway → roster "2 here" without a reload, its
+  scripted leave → "Just you so far"; a page reload showed as left+joined on
+  the other socket; 375 px no horizontal overflow, 44 px chips. **Not in
+  M4.1 (by design):** no entry point yet — a party is reachable by URL /
+  REST only until M4.4 puts "Start a party" on episode pages; no close
+  endpoint (creating the next party closes the last; M4.4 adds explicit
+  close + idle auto-close); `invite` = friends until M4.4. **Next (M4.2):**
+  the shared clock — `{episode_id, position_seconds, playing, updated_at,
+  host_id}` in a Redis hash, host-only play/pause/seek ops, `clock` on
+  change + a 30 s `sync`, client interpolation `anchor + (now − updated_at)`;
+  the `state` frame grows a `clock` field, and non-hosts get a read-only
+  transport. Ops names are already reserved in WATCH_PARTIES.md.
 - 2026-09-05 · M3.11 · Getting to an episode. **Root cause of "One Piece
   shows one episode":** `UpsertMedia` only called `EnsureEpisodes` when
   AniList reported a total, and open-ended runs report `episodes: null` —

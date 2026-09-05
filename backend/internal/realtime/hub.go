@@ -43,7 +43,7 @@ const (
 )
 
 const (
-	channelPrefix = "thread:"
+	threadPrefix = "thread:"
 	// Per-subscriber buffer. A reader that falls this far behind is dropped
 	// event-by-event (the client's refetch degrade path reconciles), so one
 	// slow SSE consumer can't stall fan-out to everyone else.
@@ -70,24 +70,42 @@ type room struct {
 	subs map[*subscriber]struct{}
 }
 
-// Hub is the per-instance fan-out registry.
+// Hub is the per-instance fan-out registry for one channel prefix.
 type Hub struct {
 	log    *slog.Logger
 	rdb    *redis.Client
 	pubsub *redis.PubSub
+	// prefix namespaces the Redis channels (thread:, party:); presence turns
+	// the count-on-subscribe/unsubscribe events on (threads) or off (parties,
+	// whose presence is a member list managed by the gateway).
+	prefix   string
+	presence bool
 
 	mu    sync.Mutex
 	rooms map[int64]*room
 }
 
-// NewHub subscribes to the thread:* pattern and starts routing events to local
-// subscribers. Call Close to release the subscription.
+// NewHub is the live thread layer: it subscribes to the thread:* pattern and
+// starts routing events to local subscribers, with presence counts. Call
+// Close to release the subscription.
 func NewHub(rdb *redis.Client, log *slog.Logger) *Hub {
+	return newHub(rdb, log, threadPrefix, true)
+}
+
+// NewBus is a Hub without presence events, namespaced under prefix (e.g.
+// "party:") — pure fan-out for a gateway that manages presence itself.
+func NewBus(rdb *redis.Client, log *slog.Logger, prefix string) *Hub {
+	return newHub(rdb, log, prefix, false)
+}
+
+func newHub(rdb *redis.Client, log *slog.Logger, prefix string, presence bool) *Hub {
 	h := &Hub{
-		log:    log,
-		rdb:    rdb,
-		pubsub: rdb.PSubscribe(context.Background(), channelPrefix+"*"),
-		rooms:  make(map[int64]*room),
+		log:      log,
+		rdb:      rdb,
+		pubsub:   rdb.PSubscribe(context.Background(), prefix+"*"),
+		prefix:   prefix,
+		presence: presence,
+		rooms:    make(map[int64]*room),
 	}
 	go h.receive()
 	return h
@@ -97,7 +115,7 @@ func NewHub(rdb *redis.Client, log *slog.Logger) *Hub {
 // subscribers. It runs until Close closes the pub/sub channel.
 func (h *Hub) receive() {
 	for msg := range h.pubsub.Channel() {
-		threadID, err := threadIDFromChannel(msg.Channel)
+		threadID, err := h.idFromChannel(msg.Channel)
 		if err != nil {
 			h.log.Warn("realtime: undecodable channel", "channel", msg.Channel, "err", err)
 			continue
@@ -123,7 +141,7 @@ func (h *Hub) Publish(ctx context.Context, threadID int64, ev Event) {
 		h.log.Error("realtime: marshal event", "err", err)
 		return
 	}
-	if err := h.rdb.Publish(ctx, channel(threadID), raw).Err(); err != nil {
+	if err := h.rdb.Publish(ctx, h.channel(threadID), raw).Err(); err != nil {
 		h.log.Warn("realtime: publish", "thread_id", threadID, "err", err)
 	}
 }
@@ -142,7 +160,9 @@ func (h *Hub) Subscribe(threadID int64) (<-chan Event, func()) {
 		h.rooms[threadID] = rm
 	}
 	rm.subs[s] = struct{}{}
-	h.dispatchLocked(rm, presenceEvent(len(rm.subs)))
+	if h.presence {
+		h.dispatchLocked(rm, presenceEvent(len(rm.subs)))
+	}
 	h.mu.Unlock()
 
 	var once sync.Once
@@ -154,7 +174,7 @@ func (h *Hub) Subscribe(threadID int64) (<-chan Event, func()) {
 				delete(rm.subs, s)
 				if len(rm.subs) == 0 {
 					delete(h.rooms, threadID)
-				} else {
+				} else if h.presence {
 					h.dispatchLocked(rm, presenceEvent(len(rm.subs)))
 				}
 			}
@@ -215,14 +235,14 @@ func presenceEvent(count int) Event {
 	return Encode(EventPresence, presencePayload{Count: count})
 }
 
-func channel(threadID int64) string {
-	return channelPrefix + strconv.FormatInt(threadID, 10)
+func (h *Hub) channel(id int64) string {
+	return h.prefix + strconv.FormatInt(id, 10)
 }
 
-func threadIDFromChannel(name string) (int64, error) {
-	rest, ok := strings.CutPrefix(name, channelPrefix)
+func (h *Hub) idFromChannel(name string) (int64, error) {
+	rest, ok := strings.CutPrefix(name, h.prefix)
 	if !ok {
-		return 0, fmt.Errorf("missing %q prefix", channelPrefix)
+		return 0, fmt.Errorf("missing %q prefix", h.prefix)
 	}
 	return strconv.ParseInt(rest, 10, 64)
 }

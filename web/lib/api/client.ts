@@ -21,6 +21,16 @@ export function setAccessToken(token: string | null) {
 }
 
 /**
+ * The live access token, for the one transport that can't use the fetch
+ * interceptor: the watch-party WebSocket authenticates with a first frame
+ * (browsers can't set headers on a socket handshake; the token never rides
+ * the URL).
+ */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+/**
  * Exchange the httpOnly refresh cookie for a fresh session. Returns the user
  * or null when there is no live session. Concurrent callers share one flight.
  */

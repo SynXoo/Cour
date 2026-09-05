@@ -116,6 +116,7 @@ func run(ctx context.Context, m *testing.M) (int, error) {
 		RefreshTokenTTL: 720 * time.Hour,
 		WebOrigin:       "http://localhost:3000",
 		EmailMode:       "log",
+		WatchParties:    true,
 	}
 	handler, err := httpapi.NewRouter(httpapi.Deps{Cfg: cfg, Log: log, Pool: testPool, Redis: testRedis})
 	if err != nil {

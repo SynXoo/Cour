@@ -27,6 +27,8 @@ erDiagram
     users ||--o{ dm_threads : "converses in (ordered pair)"
     dm_threads ||--o{ dm_messages : contains
     anime ||--o{ anime_recommendations : "is recommended in"
+    users ||--o{ watch_parties : hosts
+    episodes ||--o{ watch_parties : "is watched together in"
 
     anime ||--o{ episodes : has
     anime ||--o{ list_entries : "is tracked in"
@@ -103,6 +105,13 @@ erDiagram
   (`UNIQUE (user_a, user_b)`), each side's read pointer on the thread
   (`last_read_a` / `last_read_b` = message id), messages keyset-paged on
   `(thread_id, id DESC)`, body CHECK 1–2000 chars. Friends only.
+- **watch_parties** — the durable shell of a room (M4, [WATCH_PARTIES.md](WATCH_PARTIES.md)):
+  `episode_id`, `host_id`, `visibility` enum (`public|followers|invite`),
+  `closed_at`. A partial unique index on `(host_id) WHERE closed_at IS NULL`
+  means one open room per host; the service closes the previous one in
+  the same transaction as creating the next. Live state — the member set
+  (a Redis ZSET of `user_id → last heartbeat`) and, from M4.2, the shared
+  clock — never touches Postgres.
 
 ### Event spine
 - **activities** — append-only: `(user_id, type, anime_id, ref_id,

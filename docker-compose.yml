@@ -53,6 +53,8 @@ services:
       REDIS_ADDR: redis:6379
       AUTO_MIGRATE: "true"
       DEMO_MODE: ${DEMO_MODE:-false}
+      # Watch parties ship dark; the local stack turns them on for the demo.
+      FEATURE_WATCH_PARTIES: ${FEATURE_WATCH_PARTIES:-true}
       WEB_ORIGIN: http://localhost:3000
       # base64("dev-only-seed-do-not-use-in-prod") — override for any real deployment
       AUTH_TOKEN_SEED: ${AUTH_TOKEN_SEED:-ZGV2LW9ubHktc2VlZC1kby1ub3QtdXNlLWluLXByb2Q=}

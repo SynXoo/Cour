@@ -5,6 +5,7 @@ package httpapi
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,6 +26,7 @@ import (
 	"cour/internal/mail"
 	"cour/internal/moderation"
 	"cour/internal/notify"
+	"cour/internal/parties"
 	"cour/internal/profiles"
 	"cour/internal/pulse"
 	"cour/internal/realtime"
@@ -55,6 +57,7 @@ type apiServer struct {
 	pulseHandlers
 	moderationHandlers
 	importHandlers
+	partyHandlers
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -78,6 +81,15 @@ func NewRouter(d Deps) (http.Handler, error) {
 
 	// Live thread layer: SSE fan-out bridged across instances by Redis pub/sub.
 	realtimeHub := realtime.NewHub(d.Redis, d.Log)
+
+	// Watch parties (M4): the WebSocket gateway rides the same pub/sub
+	// plumbing under its own prefix. Built regardless of the flag (cheap: one
+	// pattern subscription); the routes are what the flag gates.
+	partySvc := parties.New(d.Pool, d.Log)
+	partyGateway := realtime.NewPartyGateway(d.Redis, partySvc, socketAuthenticator(issuer), toPartyAny, socketOrigins(d.Cfg), d.Log)
+	if d.Cfg.WatchParties {
+		d.Log.Info("watch parties enabled")
+	}
 	if filter := moderation.FilterFromEnv(); filter != nil {
 		discussionSvc.SetTextFilter(filter)
 		d.Log.Info("profanity filter enabled")
@@ -156,6 +168,12 @@ func NewRouter(d Deps) (http.Handler, error) {
 			demoMode: d.Cfg.DemoMode,
 			log:      d.Log,
 		},
+		partyHandlers: partyHandlers{
+			enabled: d.Cfg.WatchParties,
+			svc:     partySvc,
+			gateway: partyGateway,
+			log:     d.Log,
+		},
 	}
 
 	r := chi.NewRouter()
@@ -188,6 +206,11 @@ func NewRouter(d Deps) (http.Handler, error) {
 		// and deliberately outside the request timeout so it owns its own
 		// lifecycle, closing only when the client disconnects.
 		r.Get("/threads/{threadId}/events", server.StreamThreadEvents)
+		// The watch-party socket: same treatment, and only mounted when the
+		// feature is on so it is a plain 404 dark.
+		if d.Cfg.WatchParties {
+			r.Get("/ws", server.PartySocket)
+		}
 
 		// Everything else keeps the 30s safety timeout.
 		r.Group(func(r chi.Router) {
@@ -204,4 +227,41 @@ func NewRouter(d Deps) (http.Handler, error) {
 
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeNotFound(w) })
 	return r, nil
+}
+
+// socketAuthenticator adapts the token issuer for the party gateway's
+// first-frame auth (a browser can't set headers on a WebSocket handshake).
+func socketAuthenticator(issuer *auth.TokenIssuer) realtime.Authenticator {
+	return func(token string) (realtime.PartyUser, bool) {
+		claims, err := issuer.ParseAccess(token)
+		if err != nil {
+			return realtime.PartyUser{}, false
+		}
+		userID, err := claims.UserID()
+		if err != nil {
+			return realtime.PartyUser{}, false
+		}
+		return realtime.PartyUser{ID: userID, Username: claims.Username}, true
+	}
+}
+
+// socketOrigins is the WebSocket Origin allow-list: the configured web
+// origin's host (the browser reaches the API through the Next rewrite, so the
+// Origin header is the web app's, not the API's). A local stack — dev env, or
+// a WEB_ORIGIN that is itself localhost, like the compose demo — also admits
+// any localhost port, so a preview server on a random port can connect; a
+// stack that is not internet-facing has nothing to defend there.
+func socketOrigins(cfg config.Config) []string {
+	origins := []string{}
+	local := cfg.Dev()
+	if u, err := url.Parse(cfg.WebOrigin); err == nil && u.Host != "" {
+		origins = append(origins, u.Host)
+		if h := u.Hostname(); h == "localhost" || h == "127.0.0.1" {
+			local = true
+		}
+	}
+	if local {
+		origins = append(origins, "localhost:*", "127.0.0.1:*")
+	}
+	return origins
 }

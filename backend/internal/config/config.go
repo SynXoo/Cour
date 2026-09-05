@@ -22,6 +22,9 @@ type Config struct {
 	DemoMode    bool // never call AniList; serve committed fixtures only
 	WebOrigin   string
 
+	// Feature flags — ship dark, enable per environment.
+	WatchParties bool // FEATURE_WATCH_PARTIES: party rooms + the /ws gateway (docs/WATCH_PARTIES.md)
+
 	// Auth
 	AuthTokenSeed   string // base64 ed25519 seed; empty in dev = ephemeral key
 	AccessTokenTTL  time.Duration
@@ -65,6 +68,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	watchParties, err := boolean("FEATURE_WATCH_PARTIES", false)
+	if err != nil {
+		return Config{}, err
+	}
 
 	accessTTL, err := duration("ACCESS_TOKEN_TTL", 15*time.Minute)
 	if err != nil {
@@ -89,6 +96,8 @@ func Load() (Config, error) {
 		AutoMigrate: autoMigrate,
 		DemoMode:    demoMode,
 		WebOrigin:   strings.TrimRight(str("WEB_ORIGIN", "http://localhost:3000"), "/"),
+
+		WatchParties: watchParties,
 
 		AuthTokenSeed:   str("AUTH_TOKEN_SEED", ""),
 		AccessTokenTTL:  accessTTL,

@@ -420,6 +420,49 @@ func (ns NullNotificationType) Value() (driver.Value, error) {
 	return string(ns.NotificationType), nil
 }
 
+type PartyVisibility string
+
+const (
+	PartyVisibilityPublic    PartyVisibility = "public"
+	PartyVisibilityFollowers PartyVisibility = "followers"
+	PartyVisibilityInvite    PartyVisibility = "invite"
+)
+
+func (e *PartyVisibility) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PartyVisibility(s)
+	case string:
+		*e = PartyVisibility(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PartyVisibility: %T", src)
+	}
+	return nil
+}
+
+type NullPartyVisibility struct {
+	PartyVisibility PartyVisibility
+	Valid           bool // Valid is true if PartyVisibility is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPartyVisibility) Scan(value interface{}) error {
+	if value == nil {
+		ns.PartyVisibility, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PartyVisibility.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPartyVisibility) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PartyVisibility), nil
+}
+
 type ReportStatus string
 
 const (
@@ -843,4 +886,13 @@ type User struct {
 	UpdatedAt       time.Time
 	BannerAnimeID   *int64
 	AccentColor     *string
+}
+
+type WatchParty struct {
+	ID         int64
+	EpisodeID  int64
+	HostID     int64
+	Visibility PartyVisibility
+	CreatedAt  time.Time
+	ClosedAt   *time.Time
 }

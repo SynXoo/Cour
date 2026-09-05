@@ -137,7 +137,8 @@ backend/
     anilist/                               upstream client + sync + fixtures
     jobs/                                  asynq registration + schedule
     store/ (sqlcgen/) cache/ config/ logging/
-    realtime/                              Phase-2 stub
+    realtime/                              live layer: SSE thread hub + party WebSocket gateway (Redis pub/sub bridged)
+    parties/                               watch-party rooms (M4)
   migrations/  queries/                    schema + sqlc sources
 web/
   app/          App Router routes (SSR public, client authed)

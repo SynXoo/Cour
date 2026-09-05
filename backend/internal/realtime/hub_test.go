@@ -13,7 +13,7 @@ import (
 // pub/sub bridge (Publish/receive/Close) is exercisable this way; the Redis
 // round-trip is covered by the integration suite.
 func newTestHub() *Hub {
-	return &Hub{log: slog.New(slog.DiscardHandler), rooms: make(map[int64]*room)}
+	return &Hub{log: slog.New(slog.DiscardHandler), rooms: make(map[int64]*room), prefix: threadPrefix, presence: true}
 }
 
 func presenceCount(t *testing.T, ev Event) int {
@@ -110,12 +110,40 @@ func TestCleanupIsIdempotent(t *testing.T) {
 }
 
 func TestChannelRoundTrip(t *testing.T) {
-	id, err := threadIDFromChannel(channel(4242))
+	h := newTestHub()
+	id, err := h.idFromChannel(h.channel(4242))
 	require.NoError(t, err)
 	assert.Equal(t, int64(4242), id)
 
-	_, err = threadIDFromChannel("notathread:1")
+	_, err = h.idFromChannel("notathread:1")
 	assert.Error(t, err)
-	_, err = threadIDFromChannel("thread:abc")
+	_, err = h.idFromChannel("thread:abc")
 	assert.Error(t, err)
+
+	// A bus under another prefix is isolated from thread channels.
+	bus := &Hub{log: h.log, rooms: make(map[int64]*room), prefix: "party:"}
+	assert.Equal(t, "party:9", bus.channel(9))
+	_, err = bus.idFromChannel("thread:9")
+	assert.Error(t, err)
+}
+
+func TestBusSkipsPresenceEvents(t *testing.T) {
+	bus := &Hub{log: slog.New(slog.DiscardHandler), rooms: make(map[int64]*room), prefix: "party:"}
+	ch, cleanup := bus.Subscribe(1)
+	select {
+	case ev := <-ch:
+		t.Fatalf("bus must not emit presence on subscribe, got %q", ev.Name)
+	default:
+	}
+	ch2, cleanup2 := bus.Subscribe(1)
+	bus.dispatch(1, Encode("member.joined", map[string]int{"id": 1}))
+	assert.Equal(t, "member.joined", recv(t, ch).Name)
+	assert.Equal(t, "member.joined", recv(t, ch2).Name)
+	cleanup2()
+	select {
+	case ev := <-ch:
+		t.Fatalf("bus must not emit presence on unsubscribe, got %q", ev.Name)
+	default:
+	}
+	cleanup()
 }

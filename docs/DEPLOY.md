@@ -17,6 +17,7 @@ Next).
 | `WEB_ORIGIN` | ✓ | — | — | public site URL (email links, OAuth redirects) |
 | `DISCORD_CLIENT_ID/SECRET` | ✓ | — | — | optional; button hides when absent |
 | `DEMO_MODE` | opt | opt | — | `true` = no AniList calls |
+| `FEATURE_WATCH_PARTIES` | opt | — | — | `true` mounts `/parties` + the `/ws` gateway (off by default; the local compose stack turns it on) |
 | `API_INTERNAL_URL` | — | — | ✓ | private URL of the api service |
 | `TRENDING_*` | — | opt | — | algorithm tuning (see `.env.example`) |
 

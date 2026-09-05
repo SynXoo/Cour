@@ -1020,6 +1020,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which optional features this deployment has switched on */
+        get: operations["getFeatures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a watch party on an episode
+         * @description Opens a room bound to one episode; the caller becomes its host. A host runs one room at a time — starting a new party closes the caller's previous open one. Cour never hosts, proxies, or links to video: a party synchronizes people (presence, a shared clock, chat), and every participant brings their own legal source.
+         */
+        post: operations["createParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A watch party's shell (episode, host, visibility, open/closed)
+         * @description Visibility gates who may see and join: `public` — any signed-in user; `followers` — the host's followers and friends; `invite` — the host's friends (explicit invites arrive with room lifecycle, M4.4). The live member list is not here — it arrives over the socket (`/ws`).
+         */
+        get: operations["getParty"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ws": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The watch-party WebSocket gateway
+         * @description One WebSocket per client; frames are JSON objects `{op, data}` in both directions. Hand-routed (excluded from the generated server) like the SSE stream, outside the request timeout. Authenticate either with a bearer header on the upgrade request or, from a browser, with a first frame `{op:"auth", data:{token}}` within 5 s.
+         *
+         *     Client → server ops:
+         *     - `auth` — `{token}`; required first frame when no bearer header.
+         *     - `join` — `{party}` (the party id). One party per socket; joining
+         *       another leaves the first. Replies `state`, or `error`.
+         *
+         *     - `leave` — `{}`.
+         *     - `heartbeat` — `{}`; send every 15 s. A socket silent for 60 s is
+         *       closed; a member unseen for 45 s is swept from presence.
+         *
+         *
+         *     Server → client ops:
+         *     - `hello` — `{user_id, username}` once authenticated.
+         *     - `state` — a `PartyState` (the party + everyone present) on join.
+         *     - `member.joined` — a `PartyMember`; `member.left` — a
+         *       `PartyMemberLeft`. Broadcast to the room across instances.
+         *
+         *     - `error` — `{code, message}` with the REST error codes
+         *       (`unauthorized`, `not_found`, `forbidden`, `bad_request`).
+         */
+        get: operations["partySocket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/trending": {
         parameters: {
             query?: never;
@@ -1914,6 +2010,58 @@ export interface components {
         PresenceUpdate: {
             /** @description Live readers currently connected */
             count: number;
+        };
+        Features: {
+            /** @description FEATURE_WATCH_PARTIES — rooms */
+            watch_parties: boolean;
+        };
+        /** @enum {string} */
+        PartyVisibility: "public" | "followers" | "invite";
+        CreatePartyRequest: {
+            /** Format: int64 */
+            anime_id: number;
+            /** @description Episode number within the anime */
+            episode: number;
+            /** @description Defaults to `followers` */
+            visibility?: components["schemas"]["PartyVisibility"];
+        };
+        WatchParty: {
+            /** Format: int64 */
+            id: number;
+            anime: components["schemas"]["AnimeSummary"];
+            episode: components["schemas"]["Episode"];
+            host: components["schemas"]["ReviewAuthor"];
+            visibility: components["schemas"]["PartyVisibility"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            closed_at: string | null;
+        };
+        PartyMember: {
+            /** Format: int64 */
+            id: number;
+            username: string;
+            avatar_url: string | null;
+        };
+        PartyMemberLeft: {
+            /**
+             * Format: int64
+             * @description The user who left
+             */
+            id: number;
+        };
+        PartyState: {
+            party: components["schemas"]["WatchParty"];
+            members: components["schemas"]["PartyMember"][];
+        };
+        PartyHello: {
+            /** Format: int64 */
+            user_id: number;
+            username: string;
+        };
+        PartyError: {
+            code: string;
+            message: string;
         };
         TrendingThread: {
             thread: components["schemas"]["Thread"];
@@ -3629,6 +3777,94 @@ export interface operations {
                 content: {
                     "text/event-stream": string;
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Feature flags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Features"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartyRequest"];
+            };
+        };
+        responses: {
+            /** @description Party created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchParty"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The party */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchParty"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    partySocket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
