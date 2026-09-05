@@ -101,6 +101,17 @@ describe("applyFrame", () => {
     expect(joined.error).toBeNull();
   });
 
+  it("keeps send-level errors out of the page-level error", () => {
+    const bounced = applyFrame(EMPTY_ROOM, { op: "error", data: { code: "rate_limited", message: "slow" } });
+    expect(bounced.error).toBeNull();
+    expect(bounced.notice).toEqual({ code: "rate_limited", message: "slow" });
+    const ok = applyFrame(bounced, {
+      op: "chat",
+      data: { id: 1, kind: "chat", from: { id: 1, username: "me", avatar_url: null }, body: "x", emoji: null, position: null, at: "", comment_id: null },
+    });
+    expect(ok.notice).toBeNull();
+  });
+
   it("ignores hello, unknown ops and malformed payloads without re-rendering", () => {
     expect(applyFrame(EMPTY_ROOM, { op: "hello", data: { user_id: 1 } })).toBe(EMPTY_ROOM);
     expect(applyFrame(EMPTY_ROOM, { op: "clock", data: {} })).toBe(EMPTY_ROOM);
@@ -178,5 +189,43 @@ describe("clock", async () => {
     expect(parseClockInput("12:70")).toBeNull();
     expect(parseClockInput("a:b")).toBeNull();
     expect(parseClockInput("")).toBeNull();
+  });
+});
+
+describe("chat", () => {
+  const msg = (id: number, kind: "chat" | "react" = "chat") => ({
+    id,
+    kind,
+    from: { id: 9, username: "amy", avatar_url: null },
+    body: kind === "chat" ? `line ${id}` : null,
+    emoji: kind === "react" ? "fire" : null,
+    position: kind === "react" ? 12 : null,
+    at: "2026-09-05T20:00:00Z",
+    comment_id: null,
+  });
+
+  it("seeds from the state backlog and appends live lines and reactions once", () => {
+    const seeded = applyFrame(EMPTY_ROOM, {
+      op: "state",
+      data: { party, members: [], chat: [msg(1), msg(2, "react")] },
+    });
+    expect(seeded.chat.map((m) => m.id)).toEqual([1, 2]);
+    const live = applyFrame(seeded, { op: "chat", data: msg(3) });
+    expect(live.chat.map((m) => m.id)).toEqual([1, 2, 3]);
+    // The sender's own echo arrives with the same id: no duplicate.
+    expect(applyFrame(live, { op: "chat", data: msg(3) })).toBe(live);
+    const reacted = applyFrame(live, { op: "react", data: msg(4, "react") });
+    expect(reacted.chat.at(-1)?.emoji).toBe("fire");
+    // Malformed payloads are ignored.
+    expect(applyFrame(reacted, { op: "chat", data: { id: 5 } })).toBe(reacted);
+  });
+
+  it("caps the in-memory chat and keeps the newest", async () => {
+    const { CHAT_CAP } = await import("./parties");
+    let room = applyFrame(EMPTY_ROOM, { op: "state", data: { party, members: [], chat: [] } });
+    for (let i = 1; i <= CHAT_CAP + 5; i++) room = applyFrame(room, { op: "chat", data: msg(i) });
+    expect(room.chat).toHaveLength(CHAT_CAP);
+    expect(room.chat[0].id).toBe(6);
+    expect(room.chat.at(-1)?.id).toBe(CHAT_CAP + 5);
   });
 });

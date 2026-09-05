@@ -475,3 +475,154 @@ func TestWatchPartyClock(t *testing.T) {
 	assert.True(t, c.Playing)
 	assert.Equal(t, 100.0, c.Position)
 }
+
+type wsMessage struct {
+	ID        int64    `json:"id"`
+	Kind      string   `json:"kind"`
+	From      wsMember `json:"from"`
+	Body      *string  `json:"body"`
+	Emoji     *string  `json:"emoji"`
+	Position  *float64 `json:"position"`
+	CommentID *int64   `json:"comment_id"`
+}
+
+func decodeMessage(t *testing.T, f wsFrame) wsMessage {
+	t.Helper()
+	var m wsMessage
+	require.NoError(t, json.Unmarshal(f.Data, &m))
+	return m
+}
+
+// TestWatchPartyChat covers M4.3: chat and reactions reach the room, the
+// backlog seeds a late joiner, validation and the rate limit answer on the
+// socket, and an opted-in message lands in the episode thread as a
+// timestamped comment that the thread's REST read returns.
+func TestWatchPartyChat(t *testing.T) {
+	animeID := seedAnime(t, 900032, "Chat Show", "Chat Show", 12)
+
+	alice := newClient(t)
+	aliceSession := alice.register("chat_alice")
+	bob := newClient(t)
+	bobSession := bob.register("chat_bob")
+
+	var party partyResponse
+	require.Equal(t, http.StatusCreated, alice.do(http.MethodPost, "/api/v1/parties",
+		map[string]any{"anime_id": animeID, "episode": 2, "visibility": "public"}, &party))
+
+	host := dialParty(t, aliceSession.AccessToken, true)
+	defer host.close()
+	host.waitFor("hello", 3*time.Second)
+	host.send("join", map[string]any{"party": party.ID})
+	host.waitFor("state", 3*time.Second)
+
+	guest := dialParty(t, bobSession.AccessToken, false)
+	defer guest.close()
+	guest.waitFor("hello", 3*time.Second)
+	guest.send("join", map[string]any{"party": party.ID})
+	guest.waitFor("state", 3*time.Second)
+	host.waitFor("member.joined", 3*time.Second)
+
+	// A chat line reaches both sockets, sender included, with the same id.
+	guest.send("chat", map[string]any{"body": "  here we go  "})
+	m := decodeMessage(t, host.waitFor("chat", 3*time.Second))
+	assert.Equal(t, "chat", m.Kind)
+	assert.Equal(t, "chat_bob", m.From.Username)
+	assert.Equal(t, "here we go", *m.Body, "trimmed")
+	assert.Nil(t, m.CommentID, "not persisted without opt-in")
+	own := decodeMessage(t, guest.waitFor("chat", 3*time.Second))
+	assert.Equal(t, m.ID, own.ID, "the sender sees its own line with the room's id")
+
+	// Validation answers on the socket.
+	guest.send("chat", map[string]any{"body": "   "})
+	assert.Equal(t, "validation_failed", errorCode(t, guest.waitFor("error", 3*time.Second)))
+	guest.send("react", map[string]any{"emoji": "sparkles"})
+	assert.Equal(t, "validation_failed", errorCode(t, guest.waitFor("error", 3*time.Second)))
+
+	// The host starts the clock; a reaction without a position anchors to
+	// the clock, one with a position keeps it.
+	host.send("seek", map[string]any{"position": 300})
+	host.waitFor("clock", 3*time.Second)
+	guest.waitFor("clock", 3*time.Second)
+	guest.send("react", map[string]any{"emoji": "fire"})
+	r := decodeMessage(t, host.waitFor("react", 3*time.Second))
+	assert.Equal(t, "react", r.Kind)
+	assert.Equal(t, "fire", *r.Emoji)
+	require.NotNil(t, r.Position)
+	assert.InDelta(t, 300.0, *r.Position, 5)
+	guest.waitFor("react", 3*time.Second)
+
+	// Opt-in persistence: the reaction becomes a timestamped comment in the
+	// episode thread, and the broadcast carries the comment id.
+	guest.send("react", map[string]any{"emoji": "heart", "position": 754, "persist": true})
+	r = decodeMessage(t, host.waitFor("react", 3*time.Second))
+	require.NotNil(t, r.CommentID)
+	assert.Equal(t, 754.0, *r.Position)
+	guest.waitFor("react", 3*time.Second)
+
+	guest.send("chat", map[string]any{"body": "that cut!", "persist": true})
+	c := decodeMessage(t, host.waitFor("chat", 3*time.Second))
+	require.NotNil(t, c.CommentID)
+	require.NotNil(t, c.Position, "a chat line persisted after the clock moved is anchored")
+	guest.waitFor("chat", 3*time.Second)
+
+	var thread struct {
+		Thread struct {
+			Id           int64 `json:"id"`
+			CommentCount int   `json:"comment_count"`
+		} `json:"thread"`
+	}
+	require.Equal(t, http.StatusOK,
+		alice.do(http.MethodGet, "/api/v1/anime/"+itoa(animeID)+"/episodes/2/thread", nil, &thread))
+	assert.Equal(t, 2, thread.Thread.CommentCount)
+	var comments struct {
+		Data []struct {
+			Id               int64  `json:"id"`
+			Body             string `json:"body"`
+			TimestampSeconds *int   `json:"timestamp_seconds"`
+			Author           struct {
+				Username string `json:"username"`
+			} `json:"author"`
+		} `json:"data"`
+	}
+	require.Equal(t, http.StatusOK,
+		alice.do(http.MethodGet, "/api/v1/threads/"+itoa(thread.Thread.Id)+"/comments", nil, &comments))
+	require.Len(t, comments.Data, 2)
+	byID := map[int64]string{}
+	for _, cm := range comments.Data {
+		byID[cm.Id] = cm.Body
+		assert.Equal(t, "chat_bob", cm.Author.Username)
+		require.NotNil(t, cm.TimestampSeconds)
+	}
+	assert.Equal(t, "❤️", byID[*r.CommentID])
+	assert.Equal(t, "that cut!", byID[*c.CommentID])
+
+	// A late joiner gets the backlog, oldest first, ids intact.
+	carol := newClient(t)
+	carolSession := carol.register("chat_carol")
+	late := dialParty(t, carolSession.AccessToken, true)
+	defer late.close()
+	late.waitFor("hello", 3*time.Second)
+	late.send("join", map[string]any{"party": party.ID})
+	var st struct {
+		Chat []wsMessage `json:"chat"`
+	}
+	require.NoError(t, json.Unmarshal(late.waitFor("state", 3*time.Second).Data, &st))
+	require.Len(t, st.Chat, 4)
+	assert.Equal(t, m.ID, st.Chat[0].ID)
+	assert.Equal(t, "chat", st.Chat[0].Kind)
+	assert.Equal(t, c.ID, st.Chat[3].ID)
+	assert.True(t, st.Chat[0].ID < st.Chat[1].ID && st.Chat[1].ID < st.Chat[2].ID && st.Chat[2].ID < st.Chat[3].ID, "monotonic ids")
+
+	// The per-user limiter: a burst of ten, then rate_limited.
+	for i := 0; i < 12; i++ {
+		late.send("chat", map[string]any{"body": "spam"})
+	}
+	assert.Equal(t, "rate_limited", errorCode(t, late.waitFor("error", 3*time.Second)))
+
+	// Chatting before joining is refused.
+	solo := dialParty(t, carolSession.AccessToken, true)
+	defer solo.close()
+	solo.waitFor("hello", 3*time.Second)
+	solo.send("chat", map[string]any{"body": "hello?"})
+	assert.Equal(t, "bad_request", errorCode(t, solo.waitFor("error", 3*time.Second)))
+}

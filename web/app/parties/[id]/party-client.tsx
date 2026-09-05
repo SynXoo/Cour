@@ -23,6 +23,7 @@ import {
   type WatchParty,
 } from "@/lib/parties";
 import { cn } from "@/lib/utils";
+import { LiveChat } from "./live-chat";
 
 /**
  * The room (M4.1): who is here, live. The header names the episode, the
@@ -57,7 +58,7 @@ export function PartyClient({ partyId }: { partyId: number }) {
     );
   }
 
-  const { party, members, clock, error } = room;
+  const { party, members, clock, chat, error, notice } = room;
 
   if (error && !party) {
     return <Empty title="Can’t join this party">{errorCopy(error, null)}</Empty>;
@@ -144,9 +145,22 @@ export function PartyClient({ partyId }: { partyId: number }) {
 
       <Roster party={party} members={members} includesViewer={includesViewer} />
 
+      {!ended && (
+        <LiveChat
+          messages={chat}
+          anchor={clock}
+          controls={controls}
+          live={connection === "live"}
+          viewer={user?.username ?? null}
+          episodeHref={episodeHref}
+          error={notice}
+        />
+      )}
+
       <p className="text-xs text-muted-foreground">
         Bring your own legal stream — Cour never hosts or links to video. A party syncs
-        people: who&rsquo;s here now, and one clock everyone lines their own player up with.
+        people: who&rsquo;s here, one clock everyone lines their own player up with, and a
+        chat that can leave its best lines on the episode thread.
       </p>
     </div>
   );

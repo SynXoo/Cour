@@ -141,7 +141,19 @@ TS client sees them.
    `duration_min` when known. The page shows a stopwatch readout, a
    progress bar when the length is known, and the host's transport
    (play/pause, ±10 s, jump to `m:ss`). Cour never touches a player.
-3. Live chat + reactions; persistence into episode threads.
+3. Live chat + reactions; persistence into episode threads. **Shipped
+   (M4.3)** — `chat {body, persist?}` / `react {emoji, position?, persist?}`
+   broadcast a `PartyMessage` (monotonic per-room id from `INCR`, the
+   client's dedupe key); a 50-line backlog in a Redis list rides the
+   `state` snapshot; per-user limiter (burst 10, then 1/s) and the same
+   language filter discussions use. Persistence goes through
+   `discussions.Service.Post` (never a direct insert) so the thread's SSE
+   `comment.created`, the activity row and notifications fire exactly as
+   for a REST comment; a reaction persists as its glyph, a chat line as
+   itself, both stamped with the clock position (a chat line only once the
+   clock has moved). The page's chat column: reaction bar stamping the
+   current position, Enter-to-send composer, and an "Also post to the
+   episode thread" switch remembered per browser (off by default).
 4. Room lifecycle: creation from any episode page, discovery of public
    rooms on the schedule page ("3 rooms watching tonight"), idle auto-close
    via asynq.

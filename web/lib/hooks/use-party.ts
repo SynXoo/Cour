@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, refreshSession } from "@/lib/api/client";
+import type { Emoji } from "@/lib/emoji";
 import {
   EMPTY_ROOM,
   FATAL_CODES,
@@ -24,11 +25,18 @@ export type PartyConnection =
   /** Closed for good — the caller unmounted, or a fatal join error. */
   | "closed";
 
-/** Host transport (docs/WATCH_PARTIES.md §clock). No-ops while disconnected. */
+/**
+ * What a member can send: the host's transport (play/pause/seek) and
+ * everyone's chat + reactions. All no-ops while disconnected.
+ */
 export type ClockControls = {
   play: (position?: number) => void;
   pause: (position?: number) => void;
   seek: (position: number) => void;
+  /** A chat line; `persist` also posts it to the episode thread. */
+  chat: (body: string, persist?: boolean) => void;
+  /** A reaction at a clock position (defaults to the clock's current one server-side). */
+  react: (emoji: Emoji, position?: number, persist?: boolean) => void;
 };
 
 export type PartyHandle = {
@@ -167,6 +175,13 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
       play: (position) => send("play", position == null ? {} : { position }),
       pause: (position) => send("pause", position == null ? {} : { position }),
       seek: (position) => send("seek", { position }),
+      chat: (body, persist = false) => send("chat", persist ? { body, persist } : { body }),
+      react: (emoji, position, persist = false) =>
+        send("react", {
+          emoji,
+          ...(position == null ? {} : { position }),
+          ...(persist ? { persist } : {}),
+        }),
     }),
     [send],
   );

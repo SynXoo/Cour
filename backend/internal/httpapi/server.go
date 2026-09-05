@@ -87,11 +87,16 @@ func NewRouter(d Deps) (http.Handler, error) {
 	// pattern subscription); the routes are what the flag gates.
 	partySvc := parties.New(d.Pool, d.Log)
 	partyGateway := realtime.NewPartyGateway(d.Redis, partySvc, socketAuthenticator(issuer), toPartyAny, socketOrigins(d.Cfg), d.Log)
+	// Opted-in party messages become episode-thread comments through the
+	// discussions service, so the thread's SSE + notifications fire as for
+	// a REST post.
+	partyGateway.SetPersister(partyPersister{svc: discussionSvc, hub: realtimeHub, q: queries, log: d.Log})
 	if d.Cfg.WatchParties {
 		d.Log.Info("watch parties enabled")
 	}
 	if filter := moderation.FilterFromEnv(); filter != nil {
 		discussionSvc.SetTextFilter(filter)
+		partyGateway.SetTextFilter(filter)
 		d.Log.Info("profanity filter enabled")
 	}
 

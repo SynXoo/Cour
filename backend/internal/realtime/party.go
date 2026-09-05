@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 
 	"cour/internal/parties"
@@ -47,6 +48,8 @@ const (
 	ErrCodeForbidden    = "forbidden"
 	ErrCodeBadRequest   = "bad_request"
 	ErrCodeConflict     = "conflict"
+	ErrCodeRateLimited  = "rate_limited"
+	ErrCodeValidation   = "validation_failed"
 )
 
 const (
@@ -89,6 +92,10 @@ type PartyGateway struct {
 	toParty func(parties.View) any
 	origins []string
 	now     func() time.Time
+
+	limiter   *redis_rate.Limiter
+	persister Persister  // optional: opt-in persistence into episode threads
+	filter    TextFilter // optional: the language policy
 }
 
 func NewPartyGateway(rdb *redis.Client, svc *parties.Service, auth Authenticator, toParty func(parties.View) any, origins []string, log *slog.Logger) *PartyGateway {
@@ -101,6 +108,7 @@ func NewPartyGateway(rdb *redis.Client, svc *parties.Service, auth Authenticator
 		toParty: toParty,
 		origins: origins,
 		now:     time.Now,
+		limiter: redis_rate.NewLimiter(rdb),
 	}
 }
 
@@ -177,10 +185,12 @@ type session struct {
 	mu      sync.Mutex
 	partyID int64
 	cleanup func()
-	// Set on join, read by the clock ops and the sync loop.
+	// Set on join, read by the clock ops, chat, and the sync loop.
 	isHost   bool
 	duration *int
 	stopSync chan struct{}
+	view     parties.View
+	avatar   *string
 }
 
 // authenticate waits for the first frame, which must be an auth op carrying a
@@ -251,6 +261,20 @@ func (s *session) handle(ctx context.Context, f Frame) {
 			return
 		}
 		s.clockOp(ctx, f.Op, req.Position)
+	case OpChat:
+		var req chatRequest
+		if json.Unmarshal(f.Data, &req) != nil {
+			s.send(ctx, OpError, errorPayload{Code: ErrCodeBadRequest, Message: "chat needs a body"})
+			return
+		}
+		s.chat(ctx, req)
+	case OpReact:
+		var req reactRequest
+		if json.Unmarshal(f.Data, &req) != nil {
+			s.send(ctx, OpError, errorPayload{Code: ErrCodeBadRequest, Message: "react needs an emoji"})
+			return
+		}
+		s.react(ctx, req)
 	case OpAuth:
 		// Already authenticated; a stray auth frame is harmless.
 	default:
@@ -276,6 +300,7 @@ func (s *session) join(ctx context.Context, partyID int64) {
 	s.cleanup = cleanup
 	s.isHost = v.Party.HostID == s.user.ID
 	s.duration = durationSeconds(v.Anime.DurationMin)
+	s.view = v
 	s.stopSync = make(chan struct{})
 	stopSync := s.stopSync
 	s.mu.Unlock()
@@ -294,15 +319,26 @@ func (s *session) join(ctx context.Context, partyID int64) {
 	wire := make([]partyMember, 0, len(members))
 	for _, m := range members {
 		wire = append(wire, partyMember{ID: m.ID, Username: m.Username, AvatarURL: m.AvatarURL})
+		if m.ID == s.user.ID {
+			s.mu.Lock()
+			s.avatar = m.AvatarURL
+			s.mu.Unlock()
+		}
 	}
 	clock, err := s.g.loadClock(ctx, partyID, s.duration)
 	if err != nil {
 		s.g.log.Warn("party ws: clock", "party_id", partyID, "err", err)
 	}
+	chat, err := s.g.backlog(ctx, partyID)
+	if err != nil {
+		s.g.log.Warn("party ws: backlog", "party_id", partyID, "err", err)
+		chat = []Message{}
+	}
 	s.send(ctx, OpState, map[string]any{
 		"party":   s.g.toParty(v),
 		"members": wire,
 		"clock":   clock.synced(s.g.now()),
+		"chat":    chat,
 	})
 
 	if added {
@@ -341,7 +377,7 @@ func (s *session) leave(ctx context.Context) {
 	cleanup := s.cleanup
 	stopSync := s.stopSync
 	s.partyID, s.cleanup, s.stopSync = 0, nil, nil
-	s.isHost, s.duration = false, nil
+	s.isHost, s.duration, s.view, s.avatar = false, nil, parties.View{}, nil
 	s.mu.Unlock()
 	if partyID == 0 {
 		return
@@ -510,6 +546,111 @@ func (s *session) syncLoop(ctx context.Context, partyID int64, stop <-chan struc
 			s.send(ctx, OpSync, c.synced(s.g.now()))
 		}
 	}
+}
+
+// ── Live chat + reactions ──────────────────────────────────────────────────
+
+// chat validates, rate-limits and broadcasts a message; with persist it also
+// becomes a comment in the episode thread, anchored to the clock when the
+// clock has moved.
+func (s *session) chat(ctx context.Context, req chatRequest) {
+	body, ok := validateChat(req.Body)
+	if !ok {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeValidation, Message: fmt.Sprintf("chat must be 1-%d characters", maxChatBody)})
+		return
+	}
+	if s.g.filter != nil && s.g.filter.Flagged(body) {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeValidation, Message: "violates the language policy"})
+		return
+	}
+	m := Message{Kind: KindChat, Body: &body}
+	if req.Persist {
+		// A chat line is anchored only once the clock has moved; before the
+		// party starts it is a plain comment.
+		if pos := s.clockPosition(ctx); pos > 0 {
+			m.Position = &pos
+		}
+	}
+	s.publishMessage(ctx, m, req.Persist, body)
+}
+
+// react broadcasts a timestamped reaction; persisted, it is the emoji glyph
+// as a timestamped comment.
+func (s *session) react(ctx context.Context, req reactRequest) {
+	g, ok := validEmojis[req.Emoji]
+	if !ok {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeValidation, Message: "unknown emoji"})
+		return
+	}
+	pos := s.clockPosition(ctx)
+	if req.Position != nil && *req.Position >= 0 {
+		pos = *req.Position
+	}
+	emoji := req.Emoji
+	m := Message{Kind: KindReact, Emoji: &emoji, Position: &pos}
+	s.publishMessage(ctx, m, req.Persist, g)
+}
+
+// publishMessage is the shared tail: room membership, rate limit, optional
+// persistence, id, backlog, broadcast.
+func (s *session) publishMessage(ctx context.Context, m Message, persist bool, persistedBody string) {
+	s.mu.Lock()
+	partyID, view, avatar := s.partyID, s.view, s.avatar
+	s.mu.Unlock()
+	if partyID == 0 {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeBadRequest, Message: "join a party first"})
+		return
+	}
+	allowed, err := s.g.allowChat(ctx, s.user.ID)
+	if err != nil {
+		s.g.log.Warn("party ws: chat limiter", "err", err)
+	} else if !allowed {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeRateLimited, Message: "slow down a little"})
+		return
+	}
+
+	m.From = partyMember{ID: s.user.ID, Username: s.user.Username, AvatarURL: avatar}
+	m.At = s.g.now()
+
+	if persist && s.g.persister != nil {
+		id, err := s.g.persister.PersistComment(ctx, s.user.ID, view.Anime.ID, view.Episode.Number, persistedBody, m.Position)
+		switch {
+		case err == nil:
+			m.CommentID = &id
+		case errors.Is(err, ErrFlagged):
+			s.send(ctx, OpError, errorPayload{Code: ErrCodeValidation, Message: "violates the language policy"})
+			return
+		default:
+			// The live message still goes out; only the thread copy failed.
+			s.g.log.Warn("party ws: persist", "party_id", partyID, "err", err)
+		}
+	}
+
+	id, err := s.g.nextID(ctx, partyID)
+	if err != nil {
+		s.g.log.Warn("party ws: message id", "party_id", partyID, "err", err)
+		id = m.At.UnixNano()
+	}
+	m.ID = id
+	if err := s.g.appendBacklog(ctx, partyID, m); err != nil {
+		s.g.log.Warn("party ws: backlog append", "party_id", partyID, "err", err)
+	}
+	s.g.bus.Publish(ctx, partyID, Encode(m.Kind, m))
+}
+
+// clockPosition is where the shared clock is right now (0 when unset).
+func (s *session) clockPosition(ctx context.Context) float64 {
+	s.mu.Lock()
+	partyID, duration := s.partyID, s.duration
+	s.mu.Unlock()
+	if partyID == 0 {
+		return 0
+	}
+	c, err := s.g.loadClock(ctx, partyID, duration)
+	if err != nil {
+		return 0
+	}
+	return c.positionAt(s.g.now())
 }
 
 // ── Presence (Redis ZSET: member → last heartbeat, unix seconds) ────────────

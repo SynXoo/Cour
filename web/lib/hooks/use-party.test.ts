@@ -225,6 +225,24 @@ describe("useParty", () => {
     expect(ws.sent).toHaveLength(6);
   });
 
+  it("sends chat and reactions with the opt-in flag only when set", () => {
+    const { result } = renderHook(() => useParty(7));
+    const ws = latest();
+    act(() => ws.open());
+    act(() => {
+      result.current.controls.chat("hi");
+      result.current.controls.chat("keep this", true);
+      result.current.controls.react("fire");
+      result.current.controls.react("heart", 754, true);
+    });
+    expect(ws.sent.slice(2).map((s) => JSON.parse(s))).toEqual([
+      { op: "chat", data: { body: "hi" } },
+      { op: "chat", data: { body: "keep this", persist: true } },
+      { op: "react", data: { emoji: "fire" } },
+      { op: "react", data: { emoji: "heart", position: 754, persist: true } },
+    ]);
+  });
+
   it("folds clock and sync anchors into the room", () => {
     const { result } = renderHook(() => useParty(7));
     const ws = latest();

@@ -191,13 +191,73 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 - [x] **M4.1** (F) WS gateway + presence, flag-gated
 - [x] **M4.2** (F) Shared clock — host controls, drift correction
-- [ ] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
+- [x] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
 - [ ] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
 
 ### Session log
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-05 · M4.3 · Live chat + reactions + opt-in persistence.
+  **Backend** (`realtime/chat.go` + session handlers): `chat {body,
+  persist?}` (trimmed, 1–500 runes) and `react {emoji, position?,
+  persist?}` (the comment `Emoji` vocabulary; position defaults to the
+  clock's current interpolated position) both go through one tail — room
+  check, per-user `redis_rate` limiter (`rl:party:chat:{user}`, burst 10
+  then 1/s → `error rate_limited`), optional language filter (the same
+  moderation instance discussions uses → `validation_failed`), optional
+  persistence, monotonic id from `INCR party:{id}:seq`, 50-entry backlog
+  (`RPUSH`+`LTRIM` on `party:{id}:chat`, 24 h TTL), then `Encode(kind, m)`
+  on the party bus — sender included, so the sender's own line arrives
+  with the room's id and the client never fabricates one. `state` carries
+  the backlog as `chat`. **Persistence is the important design point:**
+  `realtime.Persister` is implemented in httpapi (`party_persist.go`) over
+  `discussions.Service.EpisodeThread` + `Post`, then the thread hub
+  publishes `comment.created` with the REST DTO — so the thread's SSE, the
+  activity row and notifications fire exactly as for a comment typed on
+  the thread page (a party enriches the async record; it never bypasses
+  it). A reaction persists as its glyph ("❤️"), a chat line as itself, both
+  with `timestamp_seconds` = clock position (a chat line only once the
+  clock has moved; before that it's a plain comment); the broadcast then
+  carries `comment_id`. `ErrProfanity` from the service maps to
+  `ErrFlagged` → `validation_failed` on the socket. **Web:** `lib/emoji.ts`
+  now owns `EMOJI_ORDER` + `EMOJI_GLYPHS` (comment-item and
+  use-thread-events import it — one vocabulary, three consumers);
+  `PartyRoom.chat` (cap 200, dedupe by id) + a new `notice` slot so a
+  bounced send (rate limit / policy / bad payload) shows under the composer
+  instead of hijacking the page-level join error (`FATAL_CODES` +
+  `unauthorized` stay page-level); `controls.chat/react`; new
+  `app/parties/[id]/live-chat.tsx`: one stream oldest-first that stays
+  pinned to the bottom only while the reader is there, reaction bar
+  stamping the current clock position into the `aria-label`, Enter-to-send
+  (Shift+Enter newline), an "Also post to the episode thread" `Switch`
+  remembered in localStorage (off by default — persistence is the
+  author's explicit opt-in), "saved · 13:47" markers on persisted lines,
+  44 px targets on mobile. **Tests:** `TestWatchPartyChat` over real
+  sockets + Redis (trimmed line to both sockets with one id, validation on
+  the socket, reaction anchored to the clock, persisted heart + chat land
+  in the episode thread with timestamps and the thread's REST read returns
+  them with `comment_count` 2, backlog of 4 with monotonic ids for a late
+  joiner, burst-then-`rate_limited`, chat-before-join → bad_request);
+  vitest +10 (reducer chat/cap/notice, hook chat/react payloads, LiveChat
+  render/send/persist-switch/react-at-position/disabled+alert) — **351**
+  web tests; golangci 0, eslint/tsc clean, gen drift-free. **Verified
+  live** (api rebuilt): a scripted second user's line and 🔥 "at 12:09"
+  appeared in the host's browser without a reload; the host flipped the
+  switch, sent a line → "saved · 13:47" and `GET /threads/491/comments`
+  showed it by sakuga_sam with `timestamp_seconds` 827; a fresh mobile
+  load got the 3-line backlog, 375 px no overflow. **Pane quirk:** ref
+  clicks resolve to (0,0) and screenshots smear once the page is scrolled
+  in this in-app browser — JS `scrollIntoView` + `focus()` + typed keys
+  worked for the composer; keyboard activation of buttons did not, so the
+  reaction button's click path is covered by its vitest, not the pane.
+  **Next (M4.4):** lifecycle + discovery — `POST /parties/{id}/close` (host),
+  idle auto-close via asynq (no presence for N minutes → `closed_at`, drop
+  the Redis keys — the gateway's `PresenceCount` exists for this), "Start a
+  party" on episode pages (+ "N watching in a party" when open rooms
+  exist), open public parties on the schedule page and Tonight on Cour,
+  and a `GET /parties?episode=` / `GET /parties/open` list. The
+  `watch_parties_open_episode_idx` partial index is already there.
 - 2026-09-05 · M4.2 · The shared clock. **Model:** an *anchor*, not a
   stream — `{position, playing, at, duration}` in a Redis hash
   `party:{id}:clock` (24 h TTL); only host state changes cross the wire.

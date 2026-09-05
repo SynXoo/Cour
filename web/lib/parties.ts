@@ -11,6 +11,7 @@ export type PartyError = components["schemas"]["PartyError"];
 export type PartyState = components["schemas"]["PartyState"];
 export type PartyMemberLeft = components["schemas"]["PartyMemberLeft"];
 export type PartyClock = components["schemas"]["PartyClock"];
+export type PartyMessage = components["schemas"]["PartyMessage"];
 
 /**
  * A clock anchor as the client holds it: the server's anchor plus the local
@@ -29,11 +30,26 @@ export type PartyRoom = {
   members: PartyMember[];
   /** The shared clock's latest anchor; null until the first state. */
   clock: ClockAnchor | null;
+  /** Chat lines and reactions, oldest first; the backlog on join, then live. */
+  chat: PartyMessage[];
   /** The last join-level error (not found / forbidden / ended); null when joined. */
   error: PartyError | null;
+  /** A transient send-level error (rate limit, language policy); cleared by the next message. */
+  notice: PartyError | null;
 };
 
-export const EMPTY_ROOM: PartyRoom = { party: null, members: [], clock: null, error: null };
+export const EMPTY_ROOM: PartyRoom = {
+  party: null,
+  members: [],
+  clock: null,
+  chat: [],
+  error: null,
+  notice: null,
+};
+
+/** Chat kept in memory per room; older lines fall off the top. */
+export const CHAT_CAP = 200;
+export const CHAT_MAX_LEN = 500;
 
 /** Client heartbeat cadence; the server sweeps a member unseen for 45 s. */
 export const HEARTBEAT_MS = 15_000;
@@ -104,7 +120,21 @@ export function applyFrame(room: PartyRoom, frame: PartyFrame, now = Date.now())
       const seen = new Set<number>();
       const members = st.members.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
       const clock = isClock(st.clock) ? { clock: st.clock, receivedAt: now } : room.clock;
-      return { party: st.party, members: sortMembers(members, st.party.host.username), clock, error: null };
+      const chat = Array.isArray(st.chat) ? st.chat.filter(isMessage).slice(-CHAT_CAP) : room.chat;
+      return {
+        party: st.party,
+        members: sortMembers(members, st.party.host.username),
+        clock,
+        chat,
+        error: null,
+        notice: null,
+      };
+    }
+    case "chat":
+    case "react": {
+      const m = frame.data as PartyMessage;
+      if (!isMessage(m) || room.chat.some((x) => x.id === m.id)) return room;
+      return { ...room, chat: [...room.chat, m].slice(-CHAT_CAP), notice: null };
     }
     case "clock":
     case "sync": {
@@ -126,7 +156,13 @@ export function applyFrame(room: PartyRoom, frame: PartyFrame, now = Date.now())
     case "error": {
       const e = frame.data as PartyError;
       if (!e || typeof e.code !== "string") return room;
-      return { ...room, error: { code: e.code, message: e.message ?? "" } };
+      const err = { code: e.code, message: e.message ?? "" };
+      // Join-level failures own the page; anything else is a send that
+      // bounced (rate limit, language policy, bad payload) and only needs
+      // a line under the composer.
+      return FATAL_CODES.has(e.code) || e.code === "unauthorized"
+        ? { ...room, error: err }
+        : { ...room, notice: err };
     }
     default:
       return room;
@@ -194,4 +230,15 @@ export function parseClockInput(raw: string): number | null {
   const nums = parts.map(Number);
   if (nums.slice(1).some((n) => n >= 60)) return null;
   return nums.reduce((acc, n) => acc * 60 + n, 0);
+}
+
+function isMessage(v: unknown): v is PartyMessage {
+  const m = v as PartyMessage | null;
+  return (
+    !!m &&
+    typeof m.id === "number" &&
+    (m.kind === "chat" || m.kind === "react") &&
+    !!m.from &&
+    typeof m.from.username === "string"
+  );
 }

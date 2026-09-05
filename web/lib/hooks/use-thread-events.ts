@@ -5,8 +5,9 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { components } from "@/lib/api/schema";
 
+import { EMOJI_ORDER } from "@/lib/emoji";
+
 export type Comment = components["schemas"]["Comment"];
-type Emoji = components["schemas"]["Emoji"];
 type ReactionCount = components["schemas"]["ReactionCount"];
 type ReactionUpdate = components["schemas"]["ReactionUpdate"];
 type CommentDeleted = components["schemas"]["CommentDeleted"];
@@ -21,9 +22,8 @@ const commentsKey = (threadId: number) => ["comments", threadId] as const;
 export type CommentPage = components["schemas"]["CommentList"];
 export type CommentPages = InfiniteData<CommentPage>;
 
-// Mirrors comment-item.tsx's render order and the server's sortReactions, so a
-// live-added emoji lands in the exact slot the next REST fetch would give it.
-const EMOJI_ORDER: Emoji[] = ["+1", "heart", "laugh", "surprise", "cry", "fire"];
+// EMOJI_ORDER mirrors the server's sortReactions, so a live-added emoji lands
+// in the exact slot the next REST fetch would give it.
 
 // ── Cache-merge helpers (pure; unit-tested) ─────────────────────────────────
 //

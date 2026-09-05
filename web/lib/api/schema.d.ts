@@ -1104,11 +1104,21 @@ export interface paths {
          *       with. `play` without a position resumes from the paused anchor;
          *       `pause` without one freezes at the current interpolated position.
          *
+         *     - `chat` — `{body, persist?}` (1–500 chars). `react` —
+         *       `{emoji, position?, persist?}` (an `Emoji`; `position` defaults to
+         *       the clock's current position). Both broadcast a `PartyMessage`
+         *       to the room. With `persist: true` the message also lands in the
+         *       episode's thread as a timestamped comment (the author's own
+         *       opt-in — that is how a party enriches the async thread instead
+         *       of competing with it); the broadcast then carries `comment_id`.
+         *       Rate-limited per user (`error rate_limited`); the language
+         *       policy applies (`error validation_failed`).
+         *
          *
          *     Server → client ops:
          *     - `hello` — `{user_id, username}` once authenticated.
-         *     - `state` — a `PartyState` (the party, everyone present, the clock)
-         *       on join.
+         *     - `state` — a `PartyState` (the party, everyone present, the clock,
+         *       the recent chat) on join.
          *
          *     - `member.joined` — a `PartyMember`; `member.left` — a
          *       `PartyMemberLeft`. Broadcast to the room across instances.
@@ -1117,6 +1127,10 @@ export interface paths {
          *       `sync` — the same shape, sent to each socket every 30 s so
          *       client-side interpolation (`position + (now − received_at)` while
          *       playing) never drifts far.
+         *
+         *     - `chat` / `react` — a `PartyMessage` (kind matches the op),
+         *       broadcast to the room. The `state` snapshot carries the last 50
+         *       as `chat`, oldest first.
          *
          *     - `error` — `{code, message}` with the REST error codes
          *       (`unauthorized`, `not_found`, `forbidden`, `bad_request`).
@@ -2068,6 +2082,33 @@ export interface components {
             party: components["schemas"]["WatchParty"];
             members: components["schemas"]["PartyMember"][];
             clock: components["schemas"]["PartyClock"];
+            /** @description The room's last 50 messages and reactions, oldest first */
+            chat: components["schemas"]["PartyMessage"][];
+        };
+        PartyMessage: {
+            /**
+             * Format: int64
+             * @description Monotonic per room; dedupe key
+             */
+            id: number;
+            /** @enum {string} */
+            kind: "chat" | "react";
+            from: components["schemas"]["PartyMember"];
+            /** @description The message (kind = chat) */
+            body: string | null;
+            emoji: components["schemas"]["Emoji"] | null;
+            /**
+             * Format: double
+             * @description Clock position the message is anchored to
+             */
+            position: number | null;
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: int64
+             * @description The episode-thread comment this persisted as
+             */
+            comment_id: number | null;
         };
         /** @description The shared playback clock, as an anchor: `position` was true at `at` (server time). While `playing`, clients render `position + (now − at)`; paused, `position` as is. */
         PartyClock: {

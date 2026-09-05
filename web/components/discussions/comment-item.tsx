@@ -11,6 +11,7 @@ import type { components } from "@/lib/api/schema";
 import { useSession } from "@/lib/auth/session";
 import { formatTimestamp } from "@/lib/timestamp";
 import { cn } from "@/lib/utils";
+import { EMOJI_GLYPHS } from "@/lib/emoji";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -46,14 +47,6 @@ export const EpisodeAiringContext = createContext<string | null>(null);
 
 const NIGHT_OF_MS = 24 * 60 * 60 * 1000;
 
-const EMOJI_GLYPHS: Record<Emoji, string> = {
-  "+1": "👍",
-  heart: "❤️",
-  laugh: "😂",
-  surprise: "😮",
-  cry: "😢",
-  fire: "🔥",
-};
 
 /** Stable hue per username so the same person is the same color everywhere. */
 function hueFor(username: string): number {
