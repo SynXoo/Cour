@@ -82,3 +82,53 @@ export function latestAiredEpisode(episodes: Episode[], now: number = Date.now()
   if (latestAired) return latestAired;
   return episodes.reduce((max, e) => (e.number > max.number ? e : max));
 }
+
+// ── You are here (docs/PHASE_2.md §M3.10) ────────────────────────────────
+
+export type EpisodeState = "watched" | "next" | "ahead";
+
+/**
+ * The episode the viewer should watch next: the lowest-numbered one past
+ * their progress. Null when they're caught up (or the list is empty).
+ */
+export function nextUpNumber(episodes: Episode[], progress: number): number | null {
+  let best: number | null = null;
+  for (const e of episodes) {
+    if (e.number > progress && (best == null || e.number < best)) best = e.number;
+  }
+  return best;
+}
+
+/** How a row reads against the viewer's progress; null without a list entry. */
+export function episodeState(
+  number: number,
+  progress: number | null | undefined,
+  nextUp: number | null,
+): EpisodeState | null {
+  if (progress == null) return null;
+  if (number <= progress) return "watched";
+  if (number === nextUp) return "next";
+  return "ahead";
+}
+
+/** The range page that holds an episode number, if any. */
+export function rangeContaining(ranges: EpisodeRange[], number: number | null): EpisodeRange | undefined {
+  if (number == null) return undefined;
+  return ranges.find((r) => number >= r.lo && number <= r.hi);
+}
+
+/**
+ * The sentence above the list once the viewer has an entry. Reads as
+ * where they are, not as a chart.
+ */
+export function progressSummary(progress: number, total: number | null, nextUp: number | null): string {
+  if (total != null && total > 0 && progress >= total) {
+    return `You've watched all ${total} episodes`;
+  }
+  if (progress <= 0) {
+    return nextUp != null ? `Not started yet — episode ${nextUp} is up next` : "Not started yet";
+  }
+  const of = total ? ` of ${total}` : "";
+  const toGo = total ? ` · ${total - progress} to go` : "";
+  return `You're on episode ${progress}${of}${toGo}`;
+}

@@ -174,7 +174,7 @@ Miguel + Fable walked the live site; diagnosis and specs in
   comments, **direct messages** between friends (inbox + conversation,
   header badge), feed `scope=friends`, four new notification kinds.
   Spec in §M3.9.
-- [ ] **M3.10** (F) You are here — the anime page's episode list reads the
+- [x] **M3.10** (F) You are here — the anime page's episode list reads the
   viewer's progress: watched rows ticked, the next unwatched episode
   highlighted as *Up next* with a one-tap "Watched" that advances it,
   paginated shows open on the viewer's range, a "Continue · Ep N" action in
@@ -192,6 +192,36 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-04 · M3.10 · "You are here" on the anime page. `lib/episodes.ts`
+  gained the pure bits (`nextUpNumber` = lowest existing episode past
+  progress, so gapped numbering still works; `episodeState`
+  watched/next/ahead; `rangeContaining`; `progressSummary` — "You're on
+  episode 3 of 20 · 17 to go", "Not started yet — episode 1 is up next",
+  "You've watched all N") + 5 vitest cases. `episode-list.tsx` reads
+  `useMyListEntry` (anon or untracked = the list exactly as before) and
+  `useAnimeFriends`: watched rows get a check + muted text, the next-up row a
+  primary ring, an "Up next" pill and a one-tap **Watched** button (outside
+  the link, 44 px below `md`) that upserts `progress = that episode`
+  (planning → watching on the first tick, score preserved as `score ?? 0`
+  per the existing request shape; the server flips watching → completed on
+  the last episode as before); an unaired next-up keeps the pill and
+  countdown, no button. Long shows: range state is `string | null`, `null`
+  = "auto" resolved at render to the range holding next-up, so no
+  set-state-in-effect and a chip click pins. Friends' progress from
+  `GET /anime/{id}/friends` becomes stacked avatar markers on the row each
+  friend is on (`friendMarkers`: watching/paused with progress > 0; max
+  three + "+N", `role="img"` label "kai, mia and 1 more are here").
+  `ContinueLink` ("Continue · Ep N", primary-tinted) joins the header action
+  bar; the page passes `episodesCount` for the summary. Component test
+  (`episode-list.test.tsx`, hooks mocked): plain rows without an entry;
+  ticks/pill/data-state and the Watched call; planning → watching + no
+  button on an unaired next-up; markers grouped with overflow; a 120-episode
+  show opens on "51–100" for progress 73. **Verified in the preview** on
+  seed show 27552 (sam at ep 3, friends on eps 2/4): summary line, ticks,
+  Up next + Watched, markers, Continue · Ep 4; tapping Watched moved the
+  summary to ep 4, the pill to ep 5 and Continue to Ep 5 (reverted the demo
+  row + its `progress` activity by SQL afterwards); at 375 the next-up row
+  is link 247 px + button 90 px inside 343 px, no horizontal overflow.
 - 2026-09-04 · M3.9 · Friends & interactions, end to end. **Schema**
   `000018_friends`: `friend_requests` (pending only, PK on the pair),
   `friendships` (`CHECK user_a < user_b` so `(LEAST, GREATEST)` finds a pair

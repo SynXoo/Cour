@@ -3,8 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { ContinueLink } from "@/components/anime/continue-link";
 import { EpisodeList } from "@/components/anime/episode-list";
 import { FavoriteButton } from "@/components/anime/favorite-button";
+import { FriendsOnShow } from "@/components/anime/friends-on-show";
 import { ListEditor } from "@/components/anime/list-editor";
 import { AnimeReviews } from "@/components/reviews/anime-reviews";
 import { PageShell } from "@/components/page-shell";
@@ -125,9 +127,11 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
             <p className="text-sm text-muted-foreground">Studio: {mainStudios.join(", ")}</p>
           )}
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             <ListEditor animeId={anime.id} episodesCount={anime.episodes_count} />
             <FavoriteButton animeId={anime.id} />
+            {/* Signed-in + tracking + not caught up: the one link that matters. */}
+            <ContinueLink animeId={anime.id} episodes={anime.episodes} />
             <Link
               href={`/anime/${anime.id}/discussion`}
               className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
@@ -145,6 +149,9 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           </div>
         </div>
       </header>
+
+      {/* Friends on this show + recommendations to the viewer (§M3.9). */}
+      <FriendsOnShow animeId={anime.id} episodesCount={anime.episodes_count} />
 
       {anime.description && (
         <section aria-label="Synopsis" className="max-w-3xl">
@@ -172,7 +179,7 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           <p className="text-xs text-muted-foreground">
             Every episode has its own thread — tap in.
           </p>
-          <EpisodeList animeId={anime.id} episodes={anime.episodes} />
+          <EpisodeList animeId={anime.id} episodes={anime.episodes} episodesCount={anime.episodes_count} />
         </section>
       )}
 

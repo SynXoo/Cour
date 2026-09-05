@@ -3,10 +3,14 @@ import {
   buildRanges,
   DEFAULT_ORDER,
   type Episode,
+  episodeState,
   inRange,
   latestAiredEpisode,
   needsPagination,
+  nextUpNumber,
   orderEpisodes,
+  progressSummary,
+  rangeContaining,
 } from "./episodes";
 
 const ep = (number: number, airing_at: string | null = null, title: string | null = null): Episode => ({
@@ -103,5 +107,41 @@ describe("latestAiredEpisode", () => {
   it("mixes known and unknown dates — aired past wins over a numbered-but-dateless later ep", () => {
     const eps = [ep(1, iso(-1)), ep(2, null)];
     expect(latestAiredEpisode(eps, now)?.number).toBe(1);
+  });
+});
+
+describe("you are here", () => {
+  it("picks the lowest episode past the viewer's progress", () => {
+    expect(nextUpNumber(list(12), 7)).toBe(8);
+    expect(nextUpNumber(list(12), 0)).toBe(1);
+    expect(nextUpNumber(list(12), 12)).toBeNull();
+    // Gaps in numbering: the next *existing* one, not progress + 1.
+    expect(nextUpNumber([ep(1), ep(2), ep(5)], 2)).toBe(5);
+    expect(nextUpNumber([], 3)).toBeNull();
+  });
+
+  it("classifies rows against progress and the next-up number", () => {
+    expect(episodeState(3, 7, 8)).toBe("watched");
+    expect(episodeState(7, 7, 8)).toBe("watched");
+    expect(episodeState(8, 7, 8)).toBe("next");
+    expect(episodeState(9, 7, 8)).toBe("ahead");
+    expect(episodeState(1, null, null)).toBeNull();
+    expect(episodeState(1, undefined, null)).toBeNull();
+  });
+
+  it("finds the range page an episode lives on", () => {
+    const ranges = buildRanges(list(120));
+    expect(rangeContaining(ranges, 73)?.label).toBe("51–100");
+    expect(rangeContaining(ranges, 120)?.label).toBe("101–150");
+    expect(rangeContaining(ranges, null)).toBeUndefined();
+    expect(rangeContaining(ranges, 500)).toBeUndefined();
+  });
+
+  it("writes the progress line as a place, not a chart", () => {
+    expect(progressSummary(7, 12, 8)).toBe("You're on episode 7 of 12 · 5 to go");
+    expect(progressSummary(7, null, 8)).toBe("You're on episode 7");
+    expect(progressSummary(12, 12, null)).toBe("You've watched all 12 episodes");
+    expect(progressSummary(0, 12, 1)).toBe("Not started yet — episode 1 is up next");
+    expect(progressSummary(0, null, null)).toBe("Not started yet");
   });
 });
