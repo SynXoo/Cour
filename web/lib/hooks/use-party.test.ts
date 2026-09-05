@@ -199,6 +199,44 @@ describe("useParty", () => {
     expect(FakeSocket.instances).toHaveLength(1);
   });
 
+  it("sends host clock ops over the open socket and drops them while disconnected", () => {
+    const { result } = renderHook(() => useParty(7));
+    const ws = latest();
+    // Before open: silently ignored (no socket to write to).
+    act(() => result.current.controls.play());
+    expect(ws.sent).toHaveLength(0);
+
+    act(() => ws.open());
+    act(() => {
+      result.current.controls.play();
+      result.current.controls.seek(754);
+      result.current.controls.pause(700);
+      result.current.controls.play(0);
+    });
+    expect(ws.sent.slice(2).map((s) => JSON.parse(s))).toEqual([
+      { op: "play", data: {} },
+      { op: "seek", data: { position: 754 } },
+      { op: "pause", data: { position: 700 } },
+      { op: "play", data: { position: 0 } },
+    ]);
+
+    act(() => ws.drop());
+    act(() => result.current.controls.pause());
+    expect(ws.sent).toHaveLength(6);
+  });
+
+  it("folds clock and sync anchors into the room", () => {
+    const { result } = renderHook(() => useParty(7));
+    const ws = latest();
+    act(() => {
+      ws.open();
+      ws.receive("state", { party, members: [], clock: { position: 0, playing: false, at: "x", duration: null } });
+    });
+    expect(result.current.room.clock?.clock.playing).toBe(false);
+    act(() => ws.receive("clock", { position: 12, playing: true, at: "y", duration: 1440 }));
+    expect(result.current.room.clock?.clock).toEqual({ position: 12, playing: true, at: "y", duration: 1440 });
+  });
+
   it("closes the socket on unmount without reconnecting, and stays idle when disabled", () => {
     const { unmount } = renderHook(() => useParty(7));
     const ws = latest();

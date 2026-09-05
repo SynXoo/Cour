@@ -10,6 +10,15 @@ export type PartyMember = components["schemas"]["PartyMember"];
 export type PartyError = components["schemas"]["PartyError"];
 export type PartyState = components["schemas"]["PartyState"];
 export type PartyMemberLeft = components["schemas"]["PartyMemberLeft"];
+export type PartyClock = components["schemas"]["PartyClock"];
+
+/**
+ * A clock anchor as the client holds it: the server's anchor plus the local
+ * time it arrived. Interpolation uses the local receipt time, not the
+ * server's `at`, so a skewed device clock can't throw the room off; the
+ * 30 s `sync` re-anchors before drift matters.
+ */
+export type ClockAnchor = { clock: PartyClock; receivedAt: number };
 
 /** One `{op, data}` envelope, either direction. */
 export type PartyFrame = { op: string; data?: unknown };
@@ -18,11 +27,13 @@ export type PartyFrame = { op: string; data?: unknown };
 export type PartyRoom = {
   party: WatchParty | null;
   members: PartyMember[];
+  /** The shared clock's latest anchor; null until the first state. */
+  clock: ClockAnchor | null;
   /** The last join-level error (not found / forbidden / ended); null when joined. */
   error: PartyError | null;
 };
 
-export const EMPTY_ROOM: PartyRoom = { party: null, members: [], error: null };
+export const EMPTY_ROOM: PartyRoom = { party: null, members: [], clock: null, error: null };
 
 /** Client heartbeat cadence; the server sweeps a member unseen for 45 s. */
 export const HEARTBEAT_MS = 15_000;
@@ -85,14 +96,21 @@ function upsertMember(members: PartyMember[], m: PartyMember): PartyMember[] {
  * and a reconnect replays nothing it shouldn't); `error` records the join
  * failure. Unknown ops and `hello` leave the room untouched (same reference).
  */
-export function applyFrame(room: PartyRoom, frame: PartyFrame): PartyRoom {
+export function applyFrame(room: PartyRoom, frame: PartyFrame, now = Date.now()): PartyRoom {
   switch (frame.op) {
     case "state": {
       const st = frame.data as PartyState;
       if (!st || !st.party || !Array.isArray(st.members)) return room;
       const seen = new Set<number>();
       const members = st.members.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
-      return { party: st.party, members: sortMembers(members, st.party.host.username), error: null };
+      const clock = isClock(st.clock) ? { clock: st.clock, receivedAt: now } : room.clock;
+      return { party: st.party, members: sortMembers(members, st.party.host.username), clock, error: null };
+    }
+    case "clock":
+    case "sync": {
+      const c = frame.data as PartyClock;
+      if (!isClock(c)) return room;
+      return { ...room, clock: { clock: c, receivedAt: now } };
     }
     case "member.joined": {
       const m = frame.data as PartyMember;
@@ -136,4 +154,44 @@ export function errorCopy(error: PartyError, hostUsername: string | null): strin
     default:
       return error.message || "Couldn't join this party.";
   }
+}
+
+function isClock(v: unknown): v is PartyClock {
+  const c = v as PartyClock | null;
+  return !!c && typeof c.position === "number" && typeof c.playing === "boolean";
+}
+
+/** Where the shared clock is right now, in seconds, interpolated locally. */
+export function positionAt(anchor: ClockAnchor, now = Date.now()): number {
+  const { clock, receivedAt } = anchor;
+  let p = clock.position;
+  if (clock.playing) p += Math.max(0, now - receivedAt) / 1000;
+  if (p < 0) p = 0;
+  if (clock.duration != null && p > clock.duration) p = clock.duration;
+  return p;
+}
+
+/** `m:ss`, or `h:mm:ss` past an hour — the stopwatch readout. */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+  return `${h > 0 ? `${h}:` : ""}${mm}:${String(sec).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a jump target typed by the host: `12:34`, `1:02:03`, or bare
+ * seconds. Null when it isn't a time.
+ */
+export function parseClockInput(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  if (/^\d+$/.test(t)) return Number(t);
+  const parts = t.split(":");
+  if (parts.length < 2 || parts.length > 3 || parts.some((p) => !/^\d{1,2}$/.test(p))) return null;
+  const nums = parts.map(Number);
+  if (nums.slice(1).some((n) => n >= 60)) return null;
+  return nums.reduce((acc, n) => acc * 60 + n, 0);
 }

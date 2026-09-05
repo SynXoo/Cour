@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken, refreshSession } from "@/lib/api/client";
 import {
   EMPTY_ROOM,
@@ -24,9 +24,17 @@ export type PartyConnection =
   /** Closed for good — the caller unmounted, or a fatal join error. */
   | "closed";
 
+/** Host transport (docs/WATCH_PARTIES.md §clock). No-ops while disconnected. */
+export type ClockControls = {
+  play: (position?: number) => void;
+  pause: (position?: number) => void;
+  seek: (position: number) => void;
+};
+
 export type PartyHandle = {
   connection: PartyConnection;
   room: PartyRoom;
+  controls: ClockControls;
 };
 
 /**
@@ -42,6 +50,8 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
   // "connecting" room on the very next render, without an effect having to
   // reset state synchronously (react-hooks/set-state-in-effect).
   const [snap, setSnap] = useState<Snapshot>({ id: partyId, connection: "connecting", room: EMPTY_ROOM });
+  // The live socket, for the host controls; cleared on close.
+  const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     if (!enabled || typeof WebSocket === "undefined") return;
@@ -94,6 +104,7 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
 
       const socket = new WebSocket(socketUrl(window.location));
       ws = socket;
+      socketRef.current = socket;
 
       socket.onopen = () => {
         socket.send(encodeFrame("auth", { token }));
@@ -128,6 +139,7 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
       socket.onclose = () => {
         stopHeartbeat();
         if (ws === socket) ws = null;
+        if (socketRef.current === socket) socketRef.current = null;
         scheduleRetry();
       };
       // onclose always follows onerror; nothing extra to do here.
@@ -142,11 +154,25 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
       stopHeartbeat();
       ws?.close();
       ws = null;
+      socketRef.current = null;
     };
   }, [partyId, enabled]);
 
-  if (snap.id !== partyId) return { connection: "connecting", room: EMPTY_ROOM };
-  return { connection: snap.connection, room: snap.room };
+  const send = useCallback((op: string, data: unknown) => {
+    const socket = socketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(encodeFrame(op, data));
+  }, []);
+  const controls = useMemo<ClockControls>(
+    () => ({
+      play: (position) => send("play", position == null ? {} : { position }),
+      pause: (position) => send("pause", position == null ? {} : { position }),
+      seek: (position) => send("seek", { position }),
+    }),
+    [send],
+  );
+
+  if (snap.id !== partyId) return { connection: "connecting", room: EMPTY_ROOM, controls };
+  return { connection: snap.connection, room: snap.room, controls };
 }
 
 type Snapshot = { id: number; connection: PartyConnection; room: PartyRoom };

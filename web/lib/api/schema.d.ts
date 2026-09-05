@@ -1097,12 +1097,26 @@ export interface paths {
          *     - `heartbeat` — `{}`; send every 15 s. A socket silent for 60 s is
          *       closed; a member unseen for 45 s is swept from presence.
          *
+         *     - `play` — `{position?}`, `pause` — `{position?}`, `seek` —
+         *       `{position}` (seconds): the shared clock, **host only** (anyone
+         *       else gets `error forbidden`). Cour never touches a player — the
+         *       clock is a shared stopwatch everyone lines their own stream up
+         *       with. `play` without a position resumes from the paused anchor;
+         *       `pause` without one freezes at the current interpolated position.
+         *
          *
          *     Server → client ops:
          *     - `hello` — `{user_id, username}` once authenticated.
-         *     - `state` — a `PartyState` (the party + everyone present) on join.
+         *     - `state` — a `PartyState` (the party, everyone present, the clock)
+         *       on join.
+         *
          *     - `member.joined` — a `PartyMember`; `member.left` — a
          *       `PartyMemberLeft`. Broadcast to the room across instances.
+         *
+         *     - `clock` — a `PartyClock` whenever the host changes it (broadcast);
+         *       `sync` — the same shape, sent to each socket every 30 s so
+         *       client-side interpolation (`position + (now − received_at)` while
+         *       playing) never drifts far.
          *
          *     - `error` — `{code, message}` with the REST error codes
          *       (`unauthorized`, `not_found`, `forbidden`, `bad_request`).
@@ -2053,6 +2067,23 @@ export interface components {
         PartyState: {
             party: components["schemas"]["WatchParty"];
             members: components["schemas"]["PartyMember"][];
+            clock: components["schemas"]["PartyClock"];
+        };
+        /** @description The shared playback clock, as an anchor: `position` was true at `at` (server time). While `playing`, clients render `position + (now − at)`; paused, `position` as is. */
+        PartyClock: {
+            /**
+             * Format: double
+             * @description Seconds into the episode at `at`
+             */
+            position: number;
+            playing: boolean;
+            /**
+             * Format: date-time
+             * @description Server time the anchor was set or synced
+             */
+            at: string;
+            /** @description Episode length in seconds when the catalog knows it */
+            duration: number | null;
         };
         PartyHello: {
             /** Format: int64 */

@@ -1,16 +1,27 @@
 "use client";
 
-import { UsersThreeIcon } from "@phosphor-icons/react";
+import { PauseIcon, PlayIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useReducer, useState } from "react";
 import { animeHref, displayTitle } from "@/lib/anime";
 import { useSession } from "@/lib/auth/session";
 import { useFeatures } from "@/lib/hooks/use-features";
-import { useParty, type PartyConnection } from "@/lib/hooks/use-party";
-import { errorCopy, presenceLabel, type PartyMember, type WatchParty } from "@/lib/parties";
+import { useParty, type ClockControls, type PartyConnection } from "@/lib/hooks/use-party";
+import {
+  errorCopy,
+  formatClock,
+  parseClockInput,
+  positionAt,
+  presenceLabel,
+  type ClockAnchor,
+  type PartyMember,
+  type WatchParty,
+} from "@/lib/parties";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,7 +34,7 @@ export function PartyClient({ partyId }: { partyId: number }) {
   const { status, user } = useSession();
   const features = useFeatures();
   const enabled = status === "authed" && features.data?.watch_parties === true;
-  const { connection, room } = useParty(partyId, enabled);
+  const { connection, room, controls } = useParty(partyId, enabled);
 
   if (features.data && !features.data.watch_parties) {
     return (
@@ -46,7 +57,7 @@ export function PartyClient({ partyId }: { partyId: number }) {
     );
   }
 
-  const { party, members, error } = room;
+  const { party, members, clock, error } = room;
 
   if (error && !party) {
     return <Empty title="Can’t join this party">{errorCopy(error, null)}</Empty>;
@@ -72,6 +83,7 @@ export function PartyClient({ partyId }: { partyId: number }) {
   const episodeHref = `/anime/${anime.id}/episode/${episode.number}`;
   const ended = party.closed_at != null || error?.code === "conflict";
   const includesViewer = members.some((m) => m.username === user?.username);
+  const isHost = user?.username === host.username;
 
   return (
     <div className="flex flex-col gap-6 py-2">
@@ -120,13 +132,172 @@ export function PartyClient({ partyId }: { partyId: number }) {
         </p>
       )}
 
+      {clock && !ended && (
+        <SharedClock
+          anchor={clock}
+          isHost={isHost}
+          hostUsername={host.username}
+          controls={controls}
+          live={connection === "live"}
+        />
+      )}
+
       <Roster party={party} members={members} includesViewer={includesViewer} />
 
       <p className="text-xs text-muted-foreground">
         Bring your own legal stream — Cour never hosts or links to video. A party syncs
-        people: who&rsquo;s here now, and soon a shared clock and live chat.
+        people: who&rsquo;s here now, and one clock everyone lines their own player up with.
       </p>
     </div>
+  );
+}
+
+/**
+ * The shared clock (M4.2): a stopwatch, not a player. The readout
+ * interpolates the latest anchor locally (250 ms ticks while playing; the
+ * server re-syncs every 30 s), the host gets transport controls, everyone
+ * else reads. Reduced-motion users get the same numbers — only the LIVE dot
+ * pulses on this page, and that already respects the preference.
+ */
+function SharedClock({
+  anchor,
+  isHost,
+  hostUsername,
+  controls,
+  live,
+}: {
+  anchor: ClockAnchor;
+  isHost: boolean;
+  hostUsername: string;
+  controls: ClockControls;
+  live: boolean;
+}) {
+  const [, tick] = useReducer((n: number) => n + 1, 0);
+  const playing = anchor.clock.playing;
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [playing, anchor]);
+
+  const position = positionAt(anchor);
+  const duration = anchor.clock.duration;
+  const [jump, setJump] = useState("");
+  const jumpTarget = parseClockInput(jump);
+
+  const submitJump = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (jumpTarget == null) return;
+    controls.seek(jumpTarget);
+    setJump("");
+  };
+
+  return (
+    <section
+      aria-label="Shared clock"
+      className="rounded-lg border border-border bg-card p-4"
+      data-testid="shared-clock"
+      data-playing={playing}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <div>
+          <h2 className="text-sm font-semibold">Shared clock</h2>
+          <p className="text-xs text-muted-foreground">
+            {isHost
+              ? "You run the clock. Count everyone in, press play, and they match their own player to it."
+              : `@${hostUsername} runs the clock — line your own player up with it.`}
+          </p>
+        </div>
+        <p className="flex items-baseline gap-2 font-mono tabular-nums">
+          <span className="text-3xl font-semibold tracking-tight" data-testid="clock-readout">
+            {formatClock(position)}
+          </span>
+          {duration != null && (
+            <span className="text-sm text-muted-foreground">/ {formatClock(duration)}</span>
+          )}
+          <span
+            className={cn(
+              "rounded-full px-2 py-px text-[10px] font-semibold tracking-wide uppercase",
+              playing ? "bg-live/10 text-live" : "bg-muted text-muted-foreground",
+            )}
+          >
+            {playing ? "Playing" : "Paused"}
+          </span>
+        </p>
+      </div>
+
+      {duration != null && (
+        <div
+          className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={Math.floor(position)}
+          aria-label="Episode position"
+        >
+          <div
+            className="h-full bg-primary transition-[width] duration-200 motion-reduce:transition-none"
+            style={{ width: `${Math.min(100, (position / duration) * 100)}%` }}
+          />
+        </div>
+      )}
+
+      {isHost && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => (playing ? controls.pause() : controls.play())}
+            disabled={!live}
+            className="min-h-11 min-w-28 md:min-h-9"
+            aria-label={playing ? "Pause the shared clock" : "Start the shared clock"}
+          >
+            {playing ? (
+              <PauseIcon size={16} weight="fill" aria-hidden />
+            ) : (
+              <PlayIcon size={16} weight="fill" aria-hidden />
+            )}
+            {playing ? "Pause" : "Play"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!live}
+            className="min-h-11 md:min-h-9"
+            onClick={() => controls.seek(Math.max(0, position - 10))}
+          >
+            −10 s
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!live}
+            className="min-h-11 md:min-h-9"
+            onClick={() => controls.seek(position + 10)}
+          >
+            +10 s
+          </Button>
+          <form onSubmit={submitJump} className="flex items-center gap-2">
+            <Input
+              value={jump}
+              onChange={(e) => setJump(e.target.value)}
+              placeholder="12:34"
+              inputMode="numeric"
+              aria-label="Jump the clock to a time"
+              aria-invalid={jump !== "" && jumpTarget == null}
+              className="h-11 w-24 font-mono md:h-9"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={!live || jumpTarget == null}
+              className="min-h-11 md:min-h-9"
+            >
+              Jump
+            </Button>
+          </form>
+        </div>
+      )}
+    </section>
   );
 }
 

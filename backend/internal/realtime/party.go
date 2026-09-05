@@ -177,6 +177,10 @@ type session struct {
 	mu      sync.Mutex
 	partyID int64
 	cleanup func()
+	// Set on join, read by the clock ops and the sync loop.
+	isHost   bool
+	duration *int
+	stopSync chan struct{}
 }
 
 // authenticate waits for the first frame, which must be an auth op carrying a
@@ -240,6 +244,13 @@ func (s *session) handle(ctx context.Context, f Frame) {
 		s.leave(ctx)
 	case OpHeartbeat:
 		s.heartbeat(ctx)
+	case OpPlay, OpPause, OpSeek:
+		var req clockRequest
+		if json.Unmarshal(f.Data, &req) != nil || (f.Op == OpSeek && req.Position == nil) {
+			s.send(ctx, OpError, errorPayload{Code: ErrCodeBadRequest, Message: f.Op + " needs a numeric position"})
+			return
+		}
+		s.clockOp(ctx, f.Op, req.Position)
 	case OpAuth:
 		// Already authenticated; a stray auth frame is harmless.
 	default:
@@ -263,8 +274,13 @@ func (s *session) join(ctx context.Context, partyID int64) {
 	s.partyID = partyID
 	events, cleanup := s.g.bus.Subscribe(partyID)
 	s.cleanup = cleanup
+	s.isHost = v.Party.HostID == s.user.ID
+	s.duration = durationSeconds(v.Anime.DurationMin)
+	s.stopSync = make(chan struct{})
+	stopSync := s.stopSync
 	s.mu.Unlock()
 	go s.forward(ctx, events)
+	go s.syncLoop(ctx, partyID, stopSync)
 
 	added, ids, err := s.g.touchPresence(ctx, partyID, s.user.ID)
 	if err != nil {
@@ -279,7 +295,15 @@ func (s *session) join(ctx context.Context, partyID int64) {
 	for _, m := range members {
 		wire = append(wire, partyMember{ID: m.ID, Username: m.Username, AvatarURL: m.AvatarURL})
 	}
-	s.send(ctx, OpState, map[string]any{"party": s.g.toParty(v), "members": wire})
+	clock, err := s.g.loadClock(ctx, partyID, s.duration)
+	if err != nil {
+		s.g.log.Warn("party ws: clock", "party_id", partyID, "err", err)
+	}
+	s.send(ctx, OpState, map[string]any{
+		"party":   s.g.toParty(v),
+		"members": wire,
+		"clock":   clock.synced(s.g.now()),
+	})
 
 	if added {
 		s.g.bus.Publish(ctx, partyID, Encode(OpMemberJoined, s.self(members)))
@@ -315,11 +339,14 @@ func (s *session) leave(ctx context.Context) {
 	s.mu.Lock()
 	partyID := s.partyID
 	cleanup := s.cleanup
-	s.partyID, s.cleanup = 0, nil
+	stopSync := s.stopSync
+	s.partyID, s.cleanup, s.stopSync = 0, nil, nil
+	s.isHost, s.duration = false, nil
 	s.mu.Unlock()
 	if partyID == 0 {
 		return
 	}
+	close(stopSync)
 	cleanup()
 
 	bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), writeTimeout)
@@ -420,6 +447,69 @@ func marshal(v any) json.RawMessage {
 		return json.RawMessage("null")
 	}
 	return raw
+}
+
+// ── Shared clock ───────────────────────────────────────────────────────────
+
+// clockOp applies a host's play/pause/seek: load the anchor, transform it,
+// persist, and broadcast the new anchor to every instance as `clock`.
+func (s *session) clockOp(ctx context.Context, op string, position *float64) {
+	s.mu.Lock()
+	partyID, isHost, duration := s.partyID, s.isHost, s.duration
+	s.mu.Unlock()
+	if partyID == 0 {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeBadRequest, Message: "join a party first"})
+		return
+	}
+	if !isHost {
+		s.send(ctx, OpError, errorPayload{Code: ErrCodeForbidden, Message: "only the host controls the clock"})
+		return
+	}
+	c, err := s.g.loadClock(ctx, partyID, duration)
+	if err != nil {
+		s.g.log.Warn("party ws: clock load", "party_id", partyID, "err", err)
+		s.send(ctx, OpError, errorPayload{Code: "internal_error", Message: "clock unavailable"})
+		return
+	}
+	now := s.g.now()
+	switch op {
+	case OpPlay:
+		c = c.play(now, position)
+	case OpPause:
+		c = c.pause(now, position)
+	case OpSeek:
+		c = c.seek(now, *position)
+	}
+	if err := s.g.saveClock(ctx, partyID, c); err != nil {
+		s.g.log.Warn("party ws: clock save", "party_id", partyID, "err", err)
+		s.send(ctx, OpError, errorPayload{Code: "internal_error", Message: "clock unavailable"})
+		return
+	}
+	s.g.bus.Publish(ctx, partyID, Encode(OpClock, c))
+}
+
+// syncLoop re-sends this socket the current anchor every 30 s so the
+// client's interpolation can't drift, until leave closes stop.
+func (s *session) syncLoop(ctx context.Context, partyID int64, stop <-chan struct{}) {
+	t := time.NewTicker(syncEvery)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-stop:
+			return
+		case <-t.C:
+			s.mu.Lock()
+			duration := s.duration
+			s.mu.Unlock()
+			c, err := s.g.loadClock(ctx, partyID, duration)
+			if err != nil {
+				continue
+			}
+			s.send(ctx, OpSync, c.synced(s.g.now()))
+		}
+	}
 }
 
 // ── Presence (Redis ZSET: member → last heartbeat, unix seconds) ────────────

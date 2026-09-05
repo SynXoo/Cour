@@ -133,7 +133,14 @@ TS client sees them.
 ## Delivery plan
 
 1. Gateway + presence (join/leave/heartbeat), flag-gated. **Shipped (M4.1)** — plus the minimum REST to reach a room: `POST /parties`, `GET /parties/{id}`, `GET /features`, and the `/parties/{id}` page (roster + connection pill). Entry points on episode pages wait for step 4.
-2. Shared clock (host controls, drift correction).
+2. Shared clock (host controls, drift correction). **Shipped (M4.2)** —
+   `party:{id}:clock` hash, host-only `play`/`pause`/`seek`, `clock`
+   broadcast on change + per-socket `sync` every 30 s, `state` carries the
+   anchor; clients interpolate from *local receipt time* (a skewed device
+   clock can't throw the room off) and clamp to the catalog's
+   `duration_min` when known. The page shows a stopwatch readout, a
+   progress bar when the length is known, and the host's transport
+   (play/pause, ±10 s, jump to `m:ss`). Cour never touches a player.
 3. Live chat + reactions; persistence into episode threads.
 4. Room lifecycle: creation from any episode page, discovery of public
    rooms on the schedule page ("3 rooms watching tonight"), idle auto-close

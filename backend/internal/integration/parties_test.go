@@ -379,3 +379,99 @@ func TestWatchPartiesDark(t *testing.T) {
 	require.Equal(t, http.StatusOK, live.do(http.MethodGet, "/api/v1/features", nil, &features))
 	assert.True(t, features.WatchParties)
 }
+
+type wsClock struct {
+	Position float64 `json:"position"`
+	Playing  bool    `json:"playing"`
+	At       string  `json:"at"`
+	Duration *int    `json:"duration"`
+}
+
+func decodeClock(t *testing.T, f wsFrame) wsClock {
+	t.Helper()
+	var c wsClock
+	require.NoError(t, json.Unmarshal(f.Data, &c))
+	return c
+}
+
+// TestWatchPartyClock covers M4.2: the join snapshot carries the clock, only
+// the host may drive it, play/seek/pause broadcast anchors to everyone, and
+// a late joiner lands on the current anchor.
+func TestWatchPartyClock(t *testing.T) {
+	animeID := seedAnime(t, 900031, "Clock Show", "Clock Show", 12)
+
+	alice := newClient(t)
+	aliceSession := alice.register("clock_alice")
+	bob := newClient(t)
+	bobSession := bob.register("clock_bob")
+
+	var party partyResponse
+	require.Equal(t, http.StatusCreated, alice.do(http.MethodPost, "/api/v1/parties",
+		map[string]any{"anime_id": animeID, "episode": 1, "visibility": "public"}, &party))
+
+	host := dialParty(t, aliceSession.AccessToken, true)
+	defer host.close()
+	host.waitFor("hello", 3*time.Second)
+	host.send("join", map[string]any{"party": party.ID})
+	var st struct {
+		Clock wsClock `json:"clock"`
+	}
+	require.NoError(t, json.Unmarshal(host.waitFor("state", 3*time.Second).Data, &st))
+	assert.Equal(t, 0.0, st.Clock.Position, "a fresh room is paused at 0")
+	assert.False(t, st.Clock.Playing)
+	assert.NotEmpty(t, st.Clock.At)
+
+	guest := dialParty(t, bobSession.AccessToken, false)
+	defer guest.close()
+	guest.waitFor("hello", 3*time.Second)
+	guest.send("join", map[string]any{"party": party.ID})
+	guest.waitFor("state", 3*time.Second)
+	host.waitFor("member.joined", 3*time.Second)
+
+	// Only the host drives the clock.
+	guest.send("seek", map[string]any{"position": 10})
+	assert.Equal(t, "forbidden", errorCode(t, guest.waitFor("error", 3*time.Second)))
+	host.expectNone("clock", 300*time.Millisecond)
+
+	// Play broadcasts a running anchor to both sockets.
+	host.send("play", map[string]any{})
+	c := decodeClock(t, guest.waitFor("clock", 3*time.Second))
+	assert.True(t, c.Playing)
+	assert.Equal(t, 0.0, c.Position)
+	assert.True(t, decodeClock(t, host.waitFor("clock", 3*time.Second)).Playing)
+
+	// Seek keeps playing; pause freezes at (or after) the seek point.
+	host.send("seek", map[string]any{"position": 754})
+	c = decodeClock(t, guest.waitFor("clock", 3*time.Second))
+	assert.True(t, c.Playing)
+	assert.Equal(t, 754.0, c.Position)
+	host.waitFor("clock", 3*time.Second)
+
+	host.send("pause", map[string]any{})
+	c = decodeClock(t, guest.waitFor("clock", 3*time.Second))
+	assert.False(t, c.Playing)
+	assert.GreaterOrEqual(t, c.Position, 754.0)
+	assert.Less(t, c.Position, 760.0)
+	host.waitFor("clock", 3*time.Second)
+
+	// A bad seek is rejected without touching the anchor.
+	host.send("seek", map[string]any{})
+	assert.Equal(t, "bad_request", errorCode(t, host.waitFor("error", 3*time.Second)))
+
+	// A late joiner lands on the persisted anchor.
+	carol := newClient(t)
+	carolSession := carol.register("clock_carol")
+	late := dialParty(t, carolSession.AccessToken, true)
+	defer late.close()
+	late.waitFor("hello", 3*time.Second)
+	late.send("join", map[string]any{"party": party.ID})
+	require.NoError(t, json.Unmarshal(late.waitFor("state", 3*time.Second).Data, &st))
+	assert.False(t, st.Clock.Playing)
+	assert.GreaterOrEqual(t, st.Clock.Position, 754.0)
+
+	// Play with an explicit position restarts from there.
+	host.send("play", map[string]any{"position": 100})
+	c = decodeClock(t, late.waitFor("clock", 3*time.Second))
+	assert.True(t, c.Playing)
+	assert.Equal(t, 100.0, c.Position)
+}

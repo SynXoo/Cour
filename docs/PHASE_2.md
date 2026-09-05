@@ -190,7 +190,7 @@ Miguel + Fable walked the live site; diagnosis and specs in
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
 - [x] **M4.1** (F) WS gateway + presence, flag-gated
-- [ ] **M4.2** (F) Shared clock — host controls, drift correction
+- [x] **M4.2** (F) Shared clock — host controls, drift correction
 - [ ] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
 - [ ] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
 
@@ -198,6 +198,57 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-05 · M4.2 · The shared clock. **Model:** an *anchor*, not a
+  stream — `{position, playing, at, duration}` in a Redis hash
+  `party:{id}:clock` (24 h TTL); only host state changes cross the wire.
+  `internal/realtime/clock.go` is pure math over the anchor (`positionAt`,
+  `synced`, `play`/`pause`/`seek` with clamp-to-[0, duration] and
+  auto-pause at the end; 4 unit tests) + load/save; the gateway gains
+  host-only `play {position?}` / `pause {position?}` / `seek {position}`
+  (non-host → `error forbidden`, seek without a number → `bad_request`),
+  broadcasts the new anchor as `clock` over the party bus, sends each
+  socket a `sync` every 30 s from a per-session loop (no cross-instance
+  duplication), and the `state` snapshot carries the anchor re-synced to
+  now. `duration` comes from the catalog's `anime.duration_min` (× 60) on
+  every read, so a later sync reaches running rooms; null when unknown
+  (long-runners). **Drift policy (client):** interpolate from *local
+  receipt time* rather than the server's `at` — a skewed device clock can't
+  throw the room off, and the 30 s sync re-anchors long before network
+  latency (tens of ms) compounds into anything visible. **Web:**
+  `lib/parties.ts` grows `ClockAnchor`, `positionAt`, `formatClock`
+  (`m:ss` / `h:mm:ss`), `parseClockInput` (`12:34`, `1:02:03`, bare
+  seconds) and folds `state.clock` / `clock` / `sync` into the room (+5
+  vitest); `useParty` returns `controls` (`play`/`pause`/`seek`, no-ops
+  while disconnected — `useMemo` over a socket ref; `react-hooks/refs`
+  rejects reading a ref during render, so not `useRef(...).current`) (+2
+  vitest); the page gets a **Shared clock** card: 3xl mono readout ticking
+  at 250 ms while playing, `/ 21:00` + a progress bar when the length is
+  known, Playing/Paused chip, and for the host a transport row — Play/Pause,
+  −10 s / +10 s, jump-to-time input with `aria-invalid` on a bad time —
+  44 px on mobile, all disabled unless the socket is live; guests read
+  "@host runs the clock — line your own player up with it." The copy never
+  implies Cour plays anything. **Spec:** `PartyClock` schema, `PartyState.clock`,
+  the four ops documented under `partySocket`. **Tests:** Go unit 4 (clock
+  math) + `TestWatchPartyClock` over real sockets (snapshot carries a
+  paused 0, guest seek → forbidden and no broadcast, play/seek/pause
+  anchors reach both sockets with the expected positions, bad seek →
+  bad_request, a late joiner lands on the persisted anchor, play with a
+  position restarts there); **344** web tests; golangci 0, eslint/tsc
+  clean. **Verified live** (api rebuilt; preview via the other session's
+  dev server): host pressed Play → readout ticked 0:02 → +10 s → 0:13 with
+  the bar moving; a second user's socket got `state.clock {playing:true,
+  position:34.7, duration:1260}` and a `sync` at +30 s; 375 px: transport
+  wraps to two rows, no horizontal overflow. **Gotcha for later:** oapi-codegen
+  prunes schemas only reachable from the hand-routed `/ws` description
+  (`PartyState`, `PartyClock` … have no Go types) — the gateway keeps its
+  own wire structs on purpose; the TS types are generated fine. **Next
+  (M4.3):** live chat + reactions over the same socket (`chat {body}` →
+  broadcast `chat {from, body, at}`; `react {position, emoji, persist}` →
+  broadcast + optional `CreateComment` with `timestamp_seconds` into the
+  episode thread — that write must go through `discussions.Service` so the
+  M2 SSE `comment.created` fires and the thread stays the VOD record), a
+  small in-memory/Redis-list backlog so a late joiner sees the last ~50
+  messages, rate-limit chat per user, and the page's chat column.
 - 2026-09-05 · M4.1 · Watch parties begin: the WebSocket gateway + presence,
   flag-gated. **Transport spike first:** Next's router server proxies
   `Upgrade` requests for external rewrites (`router-server.js` →
