@@ -135,11 +135,10 @@ func (s *Syncer) UpsertMedia(ctx context.Context, items []Media) (map[int]int64,
 		ids[m.ID] = id
 
 		status := params.Status
-		if m.Episodes != nil && *m.Episodes > 0 &&
-			(status == sqlcgen.AnimeStatusFINISHED || status == sqlcgen.AnimeStatusRELEASING) {
+		if status == sqlcgen.AnimeStatusFINISHED || status == sqlcgen.AnimeStatusRELEASING {
 			if err := s.q.EnsureEpisodes(ctx, sqlcgen.EnsureEpisodesParams{
 				AnimeID: id,
-				Column2: int32(*m.Episodes),
+				Column2: int32(knownEpisodeCount(m)),
 			}); err != nil {
 				return ids, fmt.Errorf("ensure episodes anilist_id=%d: %w", m.ID, err)
 			}
@@ -149,6 +148,27 @@ func (s *Syncer) UpsertMedia(ctx context.Context, items []Media) (map[int]int64,
 		}
 	}
 	return ids, nil
+}
+
+// maxEpisodeStubs caps how many bare episode rows one show can claim, so a
+// bad upstream number can't spend a sync writing millions of rows. Nothing
+// real comes close — the longest running anime sit in the low thousands.
+const maxEpisodeStubs = 20000
+
+// knownEpisodeCount is how many episodes we can prove a show has. AniList
+// leaves `episodes` null on open-ended runs (One Piece and friends announce
+// no total), so fall back to the next airing episode minus one: everything
+// below it has already aired. Zero means "no idea" — EnsureEpisodes then
+// falls back to the highest episode already on record.
+func knownEpisodeCount(m Media) int {
+	n := 0
+	switch {
+	case m.Episodes != nil && *m.Episodes > 0:
+		n = *m.Episodes
+	case m.NextAiring != nil && m.NextAiring.Episode > 1:
+		n = m.NextAiring.Episode - 1
+	}
+	return min(n, maxEpisodeStubs)
 }
 
 // SyncSeason mirrors one season's chart.

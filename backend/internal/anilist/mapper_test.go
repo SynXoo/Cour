@@ -108,3 +108,26 @@ func TestSeasonMath(t *testing.T) {
 	assert.Equal(t, "WINTER", s)
 	assert.Equal(t, 2027, y)
 }
+
+func TestKnownEpisodeCount(t *testing.T) {
+	ep := func(n int) *int { return &n }
+	cases := []struct {
+		name string
+		m    Media
+		want int
+	}{
+		{"announced total wins", Media{Episodes: ep(24), NextAiring: &Airing{Episode: 13}}, 24},
+		{"open-ended run falls back to next airing", Media{NextAiring: &Airing{Episode: 1177}}, 1176},
+		{"nothing known", Media{}, 0},
+		{"zero total is not a total", Media{Episodes: ep(0)}, 0},
+		{"first episode not yet aired", Media{NextAiring: &Airing{Episode: 1}}, 0},
+		{"absurd upstream number is capped", Media{Episodes: ep(1 << 20)}, maxEpisodeStubs},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := knownEpisodeCount(c.m); got != c.want {
+				t.Fatalf("knownEpisodeCount = %d, want %d", got, c.want)
+			}
+		})
+	}
+}

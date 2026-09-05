@@ -11,9 +11,6 @@ export const RANGE_SIZE = 50;
  */
 export const PAGINATION_THRESHOLD = 50;
 
-export type EpisodeOrder = "asc" | "desc";
-export const DEFAULT_ORDER: EpisodeOrder = "desc";
-
 export type EpisodeRange = {
   /** Stable identity for React keys / selection — the range's low bound. */
   id: string;
@@ -34,9 +31,9 @@ function bucketOf(n: number): number {
 
 /**
  * Fixed episode-number buckets of RANGE_SIZE, but only the buckets that
- * actually contain episodes, ordered newest-first (highest range first) to
- * match the newest-first default. Labels span the full bucket ("1051–1100")
- * even when the top bucket is only partially filled.
+ * actually contain episodes, ascending — the rail and its range stepper both
+ * read left-to-right. Labels span the full bucket ("1051–1100") even when the
+ * top bucket is only partially filled.
  */
 export function buildRanges(episodes: Episode[]): EpisodeRange[] {
   const counts = new Map<number, number>();
@@ -45,7 +42,7 @@ export function buildRanges(episodes: Episode[]): EpisodeRange[] {
     counts.set(b, (counts.get(b) ?? 0) + 1);
   }
   return [...counts.keys()]
-    .sort((a, b) => b - a)
+    .sort((a, b) => a - b)
     .map((b) => {
       const lo = b * RANGE_SIZE + 1;
       const hi = lo + RANGE_SIZE - 1;
@@ -55,11 +52,6 @@ export function buildRanges(episodes: Episode[]): EpisodeRange[] {
 
 export function inRange(episode: Episode, range: EpisodeRange): boolean {
   return episode.number >= range.lo && episode.number <= range.hi;
-}
-
-export function orderEpisodes(episodes: Episode[], order: EpisodeOrder): Episode[] {
-  const sorted = [...episodes].sort((a, b) => a.number - b.number);
-  return order === "desc" ? sorted.reverse() : sorted;
 }
 
 /**
@@ -131,4 +123,92 @@ export function progressSummary(progress: number, total: number | null, nextUp: 
   const of = total ? ` of ${total}` : "";
   const toGo = total ? ` · ${total - progress} to go` : "";
   return `You're on episode ${progress}${of}${toGo}`;
+}
+
+// ── Getting somewhere (docs/PHASE_2.md §M3.11) ───────────────────────────
+
+/** How many matches the jump box offers at once. */
+export const SEARCH_LIMIT = 8;
+
+/**
+ * Matches for the jump box. An all-digits query searches episode numbers —
+ * the exact hit first, then numbers that merely start with it, so typing
+ * "10" on One Piece offers 10, then 100, 1000, 1001… Anything else searches
+ * episode titles. Empty query, empty result: the box shows nothing until
+ * you've said something.
+ */
+export function searchEpisodes(
+  episodes: Episode[],
+  query: string,
+  limit = SEARCH_LIMIT,
+): Episode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const byNumber = [...episodes].sort((a, b) => a.number - b.number);
+  if (/^\d+$/.test(q)) {
+    const exact = byNumber.filter((e) => String(e.number) === q);
+    const prefixed = byNumber.filter((e) => String(e.number) !== q && String(e.number).startsWith(q));
+    return [...exact, ...prefixed].slice(0, limit);
+  }
+  return byNumber.filter((e) => e.title?.toLowerCase().includes(q)).slice(0, limit);
+}
+
+/** One button in the jump row. The first is the page's primary action. */
+export type JumpTarget = {
+  key: "continue" | "start" | "latest";
+  label: string;
+  number: number;
+};
+
+/**
+ * The ways into a show, deduped by episode: pick up where you left off,
+ * start at the beginning, jump to the newest one out. A viewer who hasn't
+ * started gets "Start" rather than a "Continue" pointing at episode 1, and a
+ * one-episode show gets one button instead of three saying the same thing.
+ */
+export function jumpTargets(
+  episodes: Episode[],
+  nextUp: number | null,
+  now: number = Date.now(),
+): JumpTarget[] {
+  if (episodes.length === 0) return [];
+  const first = episodes.reduce((min, e) => (e.number < min.number ? e : min)).number;
+  const latest = latestAiredEpisode(episodes, now)?.number ?? first;
+
+  const targets: JumpTarget[] = [];
+  const add = (key: JumpTarget["key"], label: string, number: number) => {
+    if (targets.some((t) => t.number === number)) return;
+    targets.push({ key, label: `${label} · Ep ${number}`, number });
+  };
+  if (nextUp != null && nextUp !== first) add("continue", "Continue", nextUp);
+  add("start", "Start", first);
+  add("latest", "Latest", latest);
+  return targets;
+}
+
+/**
+ * The episode the rail scrolls to on open: where the viewer is going next,
+ * failing that the newest episode out. Null only for an empty list.
+ */
+export function anchorNumber(
+  episodes: Episode[],
+  nextUp: number | null,
+  now: number = Date.now(),
+): number | null {
+  if (nextUp != null && episodes.some((e) => e.number === nextUp)) return nextUp;
+  return latestAiredEpisode(episodes, now)?.number ?? null;
+}
+
+/**
+ * Air date sized for a rail card: "Jul 12", or "Jul 2015" once the year
+ * stops being obvious. `airDateLabel`'s full weekday-and-clock version wraps
+ * to three lines in a card and stays on the `title` attribute instead.
+ */
+export function railDateLabel(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    ...(sameYear ? { day: "numeric" } : { year: "numeric" }),
+  });
 }

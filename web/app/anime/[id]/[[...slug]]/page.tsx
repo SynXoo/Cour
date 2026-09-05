@@ -3,8 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { ContinueLink } from "@/components/anime/continue-link";
-import { EpisodeList } from "@/components/anime/episode-list";
+import { EpisodeNavigator } from "@/components/anime/episode-navigator";
 import { FavoriteButton } from "@/components/anime/favorite-button";
 import { FriendsOnShow } from "@/components/anime/friends-on-show";
 import { ListEditor } from "@/components/anime/list-editor";
@@ -12,7 +11,6 @@ import { AnimeReviews } from "@/components/reviews/anime-reviews";
 import { PageShell } from "@/components/page-shell";
 import { serverApi, type AnimeDetail } from "@/lib/api/client";
 import { formatLabel, seasonLabel, untilLabel } from "@/lib/anime";
-import { latestAiredEpisode } from "@/lib/episodes";
 
 type Params = { id: string; slug?: string[] };
 
@@ -49,7 +47,6 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
 
   const mainStudios = anime.studios.filter((s) => s.is_main).map((s) => s.name);
   const topTags = [...anime.tags].sort((a, b) => b.rank - a.rank).slice(0, 12);
-  const latestEpisode = latestAiredEpisode(anime.episodes);
 
   return (
     <PageShell width="browse">
@@ -130,28 +127,34 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <ListEditor animeId={anime.id} episodesCount={anime.episodes_count} />
             <FavoriteButton animeId={anime.id} />
-            {/* Signed-in + tracking + not caught up: the one link that matters. */}
-            <ContinueLink animeId={anime.id} episodes={anime.episodes} />
             <Link
               href={`/anime/${anime.id}/discussion`}
               className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
             >
               Discussion
             </Link>
-            {latestEpisode && (
-              <Link
-                href={`/anime/${anime.id}/episode/${latestEpisode.number}`}
-                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
-              >
-                Latest episode
-              </Link>
-            )}
           </div>
         </div>
       </header>
 
       {/* Friends on this show + recommendations to the viewer (§M3.9). */}
       <FriendsOnShow animeId={anime.id} episodesCount={anime.episodes_count} />
+
+      {anime.episodes.length > 0 && (
+        <section aria-labelledby="episodes-heading" className="space-y-3">
+          <h2 id="episodes-heading" className="text-lg font-semibold tracking-tight">
+            Episodes
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Every episode has its own thread — tap in.
+          </p>
+          <EpisodeNavigator
+            animeId={anime.id}
+            episodes={anime.episodes}
+            episodesCount={anime.episodes_count}
+          />
+        </section>
+      )}
 
       {anime.description && (
         <section aria-label="Synopsis" className="max-w-3xl">
@@ -168,18 +171,6 @@ export default async function AnimeDetailPage({ params }: { params: Promise<Para
               {t.name}
             </span>
           ))}
-        </section>
-      )}
-
-      {anime.episodes.length > 0 && (
-        <section aria-labelledby="episodes-heading" className="space-y-3">
-          <h2 id="episodes-heading" className="text-lg font-semibold tracking-tight">
-            Episodes
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Every episode has its own thread — tap in.
-          </p>
-          <EpisodeList animeId={anime.id} episodes={anime.episodes} episodesCount={anime.episodes_count} />
         </section>
       )}
 

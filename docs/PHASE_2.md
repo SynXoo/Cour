@@ -180,6 +180,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   paginated shows open on the viewer's range, a "Continue · Ep N" action in
   the header, and friends' positions as avatar markers on the rows they're
   on. Spec in §M3.10.
+- [x] **M3.11** (F) Getting to an episode — long runs mirrored their whole
+  episode list at last (open-ended shows like One Piece had exactly one
+  episode row), and the grid became an **episode navigator**: Continue /
+  Start / Latest jump buttons, a jump box that takes a number or a title,
+  and a snap rail that opens parked on where you are, paged by fifties on
+  long shows. Spec in §M3.11.
 
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
@@ -192,6 +198,43 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-05 · M3.11 · Getting to an episode. **Root cause of "One Piece
+  shows one episode":** `UpsertMedia` only called `EnsureEpisodes` when
+  AniList reported a total, and open-ended runs report `episodes: null` —
+  One Piece had `episodes_count NULL`, `next_airing_episode 1177`, and
+  exactly **1** episode row (from the airing window). Fix is three-part:
+  `knownEpisodeCount` falls back to `nextAiringEpisode - 1` (capped at
+  `maxEpisodeStubs = 20000` so a bad upstream number can't spend a sync);
+  `EnsureEpisodes` fills to `GREATEST($2, max(number) on record)` so a show
+  with *no* announced total still gets backfilled from whatever the schedule
+  proved; and the call now runs for every FINISHED/RELEASING title. Migration
+  `000019_episode_gap_fill` repaired the live mirror in one statement — 34
+  anime, 9 747 rows, One Piece 1 → 1 169 (the last 8 arrive when the sync
+  next touches it). Down migration is deliberately a no-op: backfilled stubs
+  are indistinguishable from sync-created ones and dropping them would take
+  real episode threads with them. **UI:** `episode-list.tsx` → `episode-navigator.tsx`
+  (jump row + cmdk jump box + snap rail + range stepper); `lib/episodes.ts`
+  gained `searchEpisodes` / `jumpTargets` / `anchorNumber` / `railDateLabel`
+  and lost `orderEpisodes`/`DEFAULT_ORDER` (`buildRanges` now ascending);
+  `continue-link.tsx` deleted, its job absorbed by the jump row's primary
+  button; the episodes section moved above the synopsis. **Three bugs the
+  preview caught that tests could not:** (1) `scroll-smooth` on the rail
+  made `scrollLeft = x` animate, so the anchor never landed — the rail
+  opened at episode 1 every time; arrows ask for smooth scrolling
+  themselves now. (2) The watched tick's `sr-only` label is
+  `position: absolute` with no containing block inside the rail, so it
+  escaped the scroller and gave the *page* a 2 669 px horizontal scrollbar
+  at 375 — each card is `relative` now; **any future rail with `sr-only`
+  content inside it needs the same.** (3) A bare `Ep 24` wrapped around the
+  Up next pill on a `w-28` card (`whitespace-nowrap` + `flex-wrap`).
+  vitest needed a `ResizeObserver` stub in `vitest.setup.ts` — cmdk mounts
+  one per list. Verified on the live stack at 375/768/1440: typing "813" on
+  One Piece lands on `/anime/170/episode/813`, FMAB opens parked on Ep 24
+  with the Watched button, no horizontal overflow at any width, 44 px touch
+  targets on every control below `sm`. `task test` 320 green, `task lint`
+  clean. **Note for whoever does titles:** every `episodes.title` is NULL
+  app-wide (Parking lot) — the navigator's title search and its wide card
+  layout are both written and tested but dormant until then.
 - 2026-09-04 · M3.10 · "You are here" on the anime page. `lib/episodes.ts`
   gained the pure bits (`nextUpNumber` = lowest existing episode past
   progress, so gapped numbering still works; `episodeState`
@@ -1263,6 +1306,16 @@ Miguel + Fable walked the live site; diagnosis and specs in
 ### Parking lot
 
 <!-- Mid-session ideas land here instead of in the diff. -->
+
+- **Episode titles are never mirrored (found 2026-09-05, M3.11).** Every
+  one of the ~1.5 M `episodes` rows has `title IS NULL`: `mediaFields`
+  doesn't ask for them and the airing-schedule sync only writes numbers and
+  air times. So the jump box's title half has nothing to match on, and the
+  rail always renders its narrow bare-number cards — both code paths exist
+  and are tested, they're just inert until titles land. AniList exposes
+  them only via `streamingEpisodes` (partial, licensor-localized, no episode
+  number — needs parsing out of the title string) so this is its own task,
+  not a field to add to the shared query.
 
 - **M3.9 follow-ups (2026-09-04):** @mention autocomplete in the composer
   (friends first, then recent thread participants — keep it off the
@@ -2336,6 +2389,44 @@ set-state-in-effect); choosing a chip pins it. The section header gains
 `GET /anime/{id}/friends` progress values become stacked avatar markers
 (max three + "+N", title = "@x is here") on the row each friend is on —
 the tracker showing the room.
+
+### Getting to an episode (M3.11)
+
+*(Ask: "when we open an anime like One Piece, sometimes it only shows the
+most recent episode… make it easy to go to a specific episode, or click
+begin or the latest. Maybe a carousel with a search bar instead of a big
+grid.")*
+
+Two halves, one cause and one consequence.
+
+**The missing episodes are a sync bug.** Episode stubs were only ever
+created when AniList reported a total episode count, and AniList leaves
+`episodes` null on open-ended runs — One Piece, Detective Conan, anything
+with no announced end. Those shows got rows only from the airing-schedule
+sync, i.e. the one or two episodes inside its window, which is why the page
+read "1 episode". `knownEpisodeCount` now falls back to
+`nextAiringEpisode - 1` (everything below the next airing has aired,
+capped at `maxEpisodeStubs`), `EnsureEpisodes` fills up to the greater of
+that and the highest episode already on record, and it runs for every
+FINISHED/RELEASING title rather than only counted ones. Migration
+`000019_episode_gap_fill` repairs the mirror once.
+
+**The grid becomes a navigator.** A thousand rows is a directory, not a
+way in. The section now leads with the ways in — **Continue · Ep N**
+(absorbed from the header, where it was about to be a second identical
+button), **Start · Ep 1**, **Latest · Ep N**, deduped so a one-episode show
+gets one button — then a **jump box** (cmdk in a popover): digits search
+episode numbers, exact hit first then prefix matches, anything else
+searches episode titles; picking a result moves the rail's range too.
+Below that a horizontal **snap rail** replaces the grid, opening parked on
+the anchor (next-up, else the newest episode out) with mandatory snapping
+settling it flush left, hover arrows at the edges on pointer devices. Long
+runs page it by fifties through a stepper (`‹ 1151–1200 ›` + a menu) rather
+than M2.5's wall of range chips; the newest-first order toggle goes, since
+the rail already opens where you are. Cards keep every M3.10 state
+(watched tick, Up next ring + pill + one-tap Watched, friend markers) and
+narrow to `w-28` on shows whose episodes are bare numbers. The episodes
+section moves above the synopsis: a returning viewer came for the way in.
 
 ## M4 — watch parties
 

@@ -92,9 +92,16 @@ ON CONFLICT (anime_id, number) DO UPDATE SET
 
 -- name: EnsureEpisodes :exec
 -- Create bare rows 1..N for an anime so episode threads always have an
--- anchor; airing sync fills in air times later.
+-- anchor; airing sync fills in air times later. N is the greater of the
+-- caller's count and the highest episode already on record: AniList leaves
+-- `episodes` null on open-ended runs (One Piece), where a schedule entry is
+-- the only proof of how far the show has actually got, and a lone row at
+-- 1177 would otherwise be the whole list.
 INSERT INTO episodes (anime_id, number)
-SELECT $1, generate_series(1, $2::int)
+SELECT $1, generate_series(
+  1,
+  GREATEST($2::int, COALESCE((SELECT max(number) FROM episodes WHERE anime_id = $1), 0))
+)
 ON CONFLICT (anime_id, number) DO NOTHING;
 
 -- name: ListEpisodes :many
