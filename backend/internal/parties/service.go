@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -173,6 +174,73 @@ func (s *Service) areFriends(ctx context.Context, a, b int64) (bool, error) {
 		return false, fmt.Errorf("parties: are friends: %w", err)
 	}
 	return ok, nil
+}
+
+// Close ends a party as its host. Not-found and not-yours both surface (a
+// stranger can't probe ids); an already-closed room is a no-op success.
+func (s *Service) Close(ctx context.Context, hostID, partyID int64) error {
+	v, err := s.view(ctx, partyID)
+	if err != nil {
+		return err
+	}
+	if v.Party.HostID != hostID {
+		return ErrForbidden
+	}
+	if _, err := s.q.CloseParty(ctx, sqlcgen.ClosePartyParams{ID: partyID, HostID: hostID}); err != nil {
+		return fmt.Errorf("parties: close: %w", err)
+	}
+	return nil
+}
+
+// CloseByID is the idle sweeper's close (no host check). Returns whether
+// the row changed, so the caller only broadcasts for rooms it actually ended.
+func (s *Service) CloseByID(ctx context.Context, partyID int64) (bool, error) {
+	n, err := s.q.ClosePartyByID(ctx, partyID)
+	if err != nil {
+		return false, fmt.Errorf("parties: close by id: %w", err)
+	}
+	return n > 0, nil
+}
+
+// OpenRoom is one row of the idle sweeper's scan.
+type OpenRoom struct {
+	ID        int64
+	CreatedAt time.Time
+}
+
+// ListOpenIDs is every open room (the idle sweeper's input).
+func (s *Service) ListOpenIDs(ctx context.Context) ([]OpenRoom, error) {
+	rows, err := s.q.ListOpenPartyIDs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("parties: list open ids: %w", err)
+	}
+	out := make([]OpenRoom, len(rows))
+	for i, r := range rows {
+		out[i] = OpenRoom{ID: r.ID, CreatedAt: r.CreatedAt}
+	}
+	return out, nil
+}
+
+// ListOpen is discovery: open rooms the viewer may join (nil viewer =
+// anonymous, public only), newest first, optionally scoped to one episode.
+func (s *Service) ListOpen(ctx context.Context, viewerID *int64, animeID *int64, episode *int32, limit int32) ([]View, error) {
+	rows, err := s.q.ListOpenPartiesVisible(ctx, sqlcgen.ListOpenPartiesVisibleParams{
+		Limit: limit, AnimeID: animeID, Episode: episode, Viewer: viewerID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parties: list open: %w", err)
+	}
+	out := make([]View, len(rows))
+	for i, row := range rows {
+		out[i] = View{
+			Party:         row.WatchParty,
+			Episode:       row.Episode,
+			Anime:         row.Anime,
+			HostUsername:  row.HostUsername,
+			HostAvatarURL: row.HostAvatarUrl,
+		}
+	}
+	return out, nil
 }
 
 // Members hydrates presence ids into display rows, preserving the given

@@ -156,7 +156,17 @@ TS client sees them.
    episode thread" switch remembered per browser (off by default).
 4. Room lifecycle: creation from any episode page, discovery of public
    rooms on the schedule page ("3 rooms watching tonight"), idle auto-close
-   via asynq.
+   via asynq. **Shipped (M4.4)** — `POST /parties/{id}/close` (host,
+   idempotent) and the worker's `parties:close_idle` sweep every 5 min
+   (no live member and last heartbeat — or creation, for a room nobody
+   joined — older than 15 min) both drop the room's Redis keys and
+   broadcast `party.closed`, after which the gateway drops each member.
+   `GET /parties[?anime_id&episode]` is discovery under the visibility
+   rule (anonymous → public only) with a live `watching` count per room.
+   Entry points: the episode page's launcher (open rooms for that episode
+   + "Start a party" with a visibility pick), and the "Watching together"
+   rail on the schedule page and the logged-in home. Explicit invites are
+   still not a thing — `invite` remains "the host's friends" (Parking lot).
 5. Later: SSE fallback for notification push (the bell currently polls),
    riding the same pub/sub channels.
 

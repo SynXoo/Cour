@@ -100,6 +100,66 @@ func (h partyHandlers) GetParty(w http.ResponseWriter, r *http.Request, partyID 
 	writeJSON(w, http.StatusOK, toWatchParty(v))
 }
 
+func (h partyHandlers) CloseParty(w http.ResponseWriter, r *http.Request, partyID int64) {
+	if !h.gate(w) {
+		return
+	}
+	id, ok := mustIdentity(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.Close(r.Context(), id.UserID, partyID); err != nil {
+		switch {
+		case errors.Is(err, parties.ErrNotFound):
+			writeNotFound(w)
+		case errors.Is(err, parties.ErrForbidden):
+			writeError(w, http.StatusForbidden, CodeForbidden, "only the host can end a party")
+		default:
+			writeInternal(w, h.log, err)
+		}
+		return
+	}
+	// The row is closed; now the live side. Best-effort — the sweeper
+	// would also catch a room whose keys survived.
+	if err := h.gateway.CloseRoom(r.Context(), partyID); err != nil {
+		h.log.Warn("party close: live state", "party_id", partyID, "err", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h partyHandlers) ListParties(w http.ResponseWriter, r *http.Request, params apigen.ListPartiesParams) {
+	if !h.gate(w) {
+		return
+	}
+	var viewer *int64
+	if id, ok := identity(r); ok {
+		viewer = &id.UserID
+	}
+	limit := int32(20)
+	if params.Limit != nil {
+		limit = int32(max(1, min(*params.Limit, 50)))
+	}
+	var episode *int32
+	if params.Episode != nil {
+		e := int32(*params.Episode)
+		episode = &e
+	}
+	views, err := h.svc.ListOpen(r.Context(), viewer, params.AnimeId, episode, limit)
+	if err != nil {
+		writeInternal(w, h.log, err)
+		return
+	}
+	data := make([]apigen.WatchPartySummary, 0, len(views))
+	for _, v := range views {
+		watching, err := h.gateway.PresenceCount(r.Context(), v.Party.ID)
+		if err != nil {
+			h.log.Warn("party list: presence", "party_id", v.Party.ID, "err", err)
+		}
+		data = append(data, toWatchPartySummary(v, int(watching)))
+	}
+	writeJSON(w, http.StatusOK, apigen.WatchPartyList{Data: data})
+}
+
 // PartySocket is GET /ws — hand-routed in server.go (outside the request
 // timeout, excluded from codegen) and only mounted when the feature is on.
 // A bearer header on the upgrade authenticates up front; a browser socket
@@ -124,6 +184,22 @@ func toWatchParty(v parties.View) apigen.WatchParty {
 		Visibility: apigen.PartyVisibility(v.Party.Visibility),
 		CreatedAt:  v.Party.CreatedAt,
 		ClosedAt:   v.Party.ClosedAt,
+	}
+}
+
+// toWatchPartySummary is WatchParty + the live member count (the spec's
+// allOf, which oapi-codegen flattens into one struct).
+func toWatchPartySummary(v parties.View, watching int) apigen.WatchPartySummary {
+	p := toWatchParty(v)
+	return apigen.WatchPartySummary{
+		Id:         p.Id,
+		Anime:      p.Anime,
+		Episode:    p.Episode,
+		Host:       p.Host,
+		Visibility: p.Visibility,
+		CreatedAt:  p.CreatedAt,
+		ClosedAt:   p.ClosedAt,
+		Watching:   watching,
 	}
 }
 

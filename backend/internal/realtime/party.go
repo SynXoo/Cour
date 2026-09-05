@@ -425,6 +425,12 @@ func (s *session) forward(ctx context.Context, events <-chan Event) {
 			continue
 		}
 		s.send(ctx, ev.Name, ev.Data)
+		if ev.Name == OpPartyClosed {
+			// The room is gone: drop out so heartbeats stop re-creating
+			// presence for a closed party. leave closes this channel.
+			go s.leave(ctx)
+			return
+		}
 	}
 }
 

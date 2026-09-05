@@ -192,12 +192,68 @@ Miguel + Fable walked the live site; diagnosis and specs in
 - [x] **M4.1** (F) WS gateway + presence, flag-gated
 - [x] **M4.2** (F) Shared clock — host controls, drift correction
 - [x] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
-- [ ] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
+- [x] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
 
 ### Session log
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-05 · M4.4 · Room lifecycle + discovery — **M4 complete.**
+  **Backend:** `POST /parties/{id}/close` (host only → 403 otherwise, 404
+  unknown, idempotent 204) closes the row via `parties.Close`, then
+  `realtime.CloseParty` — a plain function over a Redis client, so the
+  worker can call it too — deletes the room's keys (members, clock, chat,
+  seq) and publishes `party.closed` on the party bus; each gateway session
+  forwards the frame and then leaves the room, so heartbeats can't
+  resurrect presence for a closed party. `GET /parties[?anime_id&episode
+  &limit]` is discovery: `ListOpenPartiesVisible` applies the visibility
+  rule in SQL (public, or for a signed-in viewer: own rooms, `followers`
+  rooms whose host they follow, and any room whose host is a friend;
+  anonymous → public only; `sqlc.narg` for the optional filters), newest
+  first, hydrated with a live `watching` count from
+  `PartyGateway.PresenceCount`. `WatchPartySummary` is an `allOf` in the
+  spec — oapi-codegen flattens it, so the DTO is built field by field.
+  **Idle sweeper:** `parties:close_idle` in `internal/jobs` `@every 5m`
+  (never demo-gated — local data): for every open room, `realtime.LastSeen`
+  (newest ZSET score) or `created_at` when nobody ever joined; older than
+  15 min → `CloseByID` + `CloseParty`. `jobs.Deps` gained `Parties` +
+  `Redis`; `CloseIdleParties` is exported so the integration suite drives
+  it with the real clock after aging rows in SQL. **Web:**
+  `lib/hooks/use-parties.ts` (`useOpenParties` — 30 s poll, waits for the
+  session so followers-only rooms show on the first fetch;
+  `useCreateParty`; `useCloseParty`), reducer + hook handle `party.closed`
+  (room marked ended, reconnect loop stops), the party page gets an **End
+  party** button for the host and an ended notice linking to the thread
+  (clock + chat unmount); `components/parties/party-launcher.tsx` on the
+  episode page (aired episodes only): open rooms for that episode with
+  live counts + Join, a visibility `Select` (Followers default / Public /
+  Friends only) and **Start a party** → navigates to the new room; anon
+  sees the rooms and "Sign in to start one"; `components/parties/open-parties.tsx`
+  is the discovery rail mounted on the schedule page ("Watching together
+  tonight") and the logged-in home ("Watching together right now") — both
+  render nothing when no room is open or the flag is off, so the pages
+  mount them unconditionally. **Tests:** `TestWatchPartyLifecycle`
+  (anonymous/stranger/follower visibility in the list, episode filter,
+  watching=2 with two sockets, non-host 403, close → both sockets get
+  `party.closed`, idempotent, closed_at set, gone from discovery, chatting
+  after → bad_request, unknown → 404; sweeper closes a never-joined room
+  aged 30 min and one whose member left, keeps a room with a live member);
+  vitest +9 (reducer/hook `party.closed`, OpenParties render + count label,
+  PartyLauncher flag-off/start-with-default-visibility/rooms/anon) — **360**
+  web tests; golangci 0, eslint/tsc clean, gen drift-free. **Verified
+  live** (api + worker rebuilt): episode page launcher showed
+  "@sakuga_sam's room · 0 watching · Join →" + the Start form; the
+  schedule and home rails listed the room; closing over REST as the host
+  flipped the open party page to **Ended** (pill, notice, chat and clock
+  unmounted) without a reload and emptied discovery + `party:1:*` keys.
+  **Pane note:** coordinate clicks kept missing the header button in this
+  in-app browser, so the End-party button's click is covered by its typed
+  mutation + the REST/socket path, not a pane click. **M4 wrap:** all four
+  boxes ticked; WATCH_PARTIES.md delivery plan annotated per step. Left
+  for later (Parking lot): explicit invites (`invite` = host's friends),
+  party history on profiles ("watched with 6 others"), SSE fallback for
+  the bell (delivery step 5), and a lighter presence poll for discovery
+  counts at scale (N `ZCOUNT`s per list).
 - 2026-09-05 · M4.3 · Live chat + reactions + opt-in persistence.
   **Backend** (`realtime/chat.go` + session handlers): `chat {body,
   persist?}` (trimmed, 1–500 runes) and `react {emoji, position?,
@@ -1487,6 +1543,13 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- Mid-session ideas land here instead of in the diff. -->
 
+- **Watch-party follow-ups (M4 shipped 2026-09-05).** Explicit invites
+  (`invite` visibility currently means "the host's friends"); party
+  history on profiles / the episode thread ("watched with 6 others" from
+  `watch_parties` + a members table if we want names); the bell's SSE
+  fallback riding the party bus (WATCH_PARTIES.md step 5); discovery's
+  per-room `ZCOUNT` becomes a pipeline once lists grow; a "party starting"
+  notification to the host's friends/followers when a room opens.
 - **Episode titles are never mirrored (found 2026-09-05, M3.11).** Every
   one of the ~1.5 M `episodes` rows has `title IS NULL`: `mediaFields`
   doesn't ask for them and the airing-schedule sync only writes numbers and

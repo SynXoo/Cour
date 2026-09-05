@@ -101,6 +101,14 @@ describe("applyFrame", () => {
     expect(joined.error).toBeNull();
   });
 
+  it("marks the party ended on party.closed, once", () => {
+    const live = applyFrame(EMPTY_ROOM, { op: "state", data: { party, members: [] } });
+    const ended = applyFrame(live, { op: "party.closed", data: {} }, Date.UTC(2026, 8, 5, 21));
+    expect(ended.party?.closed_at).toBe("2026-09-05T21:00:00.000Z");
+    expect(applyFrame(ended, { op: "party.closed", data: {} })).toBe(ended);
+    expect(applyFrame(EMPTY_ROOM, { op: "party.closed", data: {} })).toBe(EMPTY_ROOM);
+  });
+
   it("keeps send-level errors out of the page-level error", () => {
     const bounced = applyFrame(EMPTY_ROOM, { op: "error", data: { code: "rate_limited", message: "slow" } });
     expect(bounced.error).toBeNull();

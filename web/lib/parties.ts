@@ -153,6 +153,10 @@ export function applyFrame(room: PartyRoom, frame: PartyFrame, now = Date.now())
       if (!room.members.some((m) => m.id === d.id)) return room;
       return { ...room, members: room.members.filter((m) => m.id !== d.id) };
     }
+    case "party.closed": {
+      if (!room.party || room.party.closed_at != null) return room;
+      return { ...room, party: { ...room.party, closed_at: new Date(now).toISOString() } };
+    }
     case "error": {
       const e = frame.data as PartyError;
       if (!e || typeof e.code !== "string") return room;

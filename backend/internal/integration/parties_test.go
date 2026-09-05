@@ -19,6 +19,8 @@ import (
 
 	"cour/internal/config"
 	"cour/internal/httpapi"
+	"cour/internal/jobs"
+	"cour/internal/parties"
 )
 
 // wsFrame is one {op, data} envelope off the party socket.
@@ -625,4 +627,131 @@ func TestWatchPartyChat(t *testing.T) {
 	solo.waitFor("hello", 3*time.Second)
 	solo.send("chat", map[string]any{"body": "hello?"})
 	assert.Equal(t, "bad_request", errorCode(t, solo.waitFor("error", 3*time.Second)))
+}
+
+type partyListResponse struct {
+	Data []struct {
+		ID       int64 `json:"id"`
+		Watching int   `json:"watching"`
+		Host     struct {
+			Username string `json:"username"`
+		} `json:"host"`
+	} `json:"data"`
+}
+
+func partyIDs(l partyListResponse) []int64 {
+	out := make([]int64, 0, len(l.Data))
+	for _, p := range l.Data {
+		out = append(out, p.ID)
+	}
+	return out
+}
+
+// TestWatchPartyLifecycle covers M4.4: discovery lists open rooms with live
+// counts under the visibility rule (anonymous → public only), the host ends
+// a room (members get party.closed and are dropped; not the host → 403),
+// and the idle sweeper closes rooms nobody has been in.
+func TestWatchPartyLifecycle(t *testing.T) {
+	animeID := seedAnime(t, 900033, "Lifecycle Show", "Lifecycle Show", 12)
+
+	alice := newClient(t)
+	aliceSession := alice.register("life_alice")
+	bob := newClient(t)
+	bobSession := bob.register("life_bob")
+	carol := newClient(t)
+	carol.register("life_carol")
+	anon := newClient(t)
+
+	// Alice: a public room on ep 3. Carol: a followers-only room on ep 3.
+	var pub, priv partyResponse
+	require.Equal(t, http.StatusCreated, alice.do(http.MethodPost, "/api/v1/parties",
+		map[string]any{"anime_id": animeID, "episode": 3, "visibility": "public"}, &pub))
+	require.Equal(t, http.StatusCreated, carol.do(http.MethodPost, "/api/v1/parties",
+		map[string]any{"anime_id": animeID, "episode": 3}, &priv))
+
+	list := func(c *apiClient, query string) partyListResponse {
+		var l partyListResponse
+		require.Equal(t, http.StatusOK, c.do(http.MethodGet, "/api/v1/parties"+query, nil, &l))
+		return l
+	}
+	episodeQ := "?anime_id=" + itoa(animeID) + "&episode=3"
+
+	// Anonymous and a stranger see the public room only; carol sees her own.
+	assert.Equal(t, []int64{pub.ID}, partyIDs(list(anon, episodeQ)))
+	assert.Equal(t, []int64{pub.ID}, partyIDs(list(bob, episodeQ)))
+	assert.ElementsMatch(t, []int64{pub.ID, priv.ID}, partyIDs(list(carol, episodeQ)))
+
+	// Bob follows carol → her followers-only room appears for him.
+	require.Equal(t, http.StatusOK, bob.do(http.MethodPut, "/api/v1/users/life_carol/follow", nil, nil))
+	assert.ElementsMatch(t, []int64{pub.ID, priv.ID}, partyIDs(list(bob, episodeQ)))
+
+	// The episode filter scopes; the unfiltered list carries everything open.
+	assert.Empty(t, partyIDs(list(bob, "?anime_id="+itoa(animeID)+"&episode=4")))
+	all := partyIDs(list(bob, ""))
+	assert.Contains(t, all, pub.ID)
+	assert.Contains(t, all, priv.ID)
+
+	// Live counts: two members in alice's room show as watching=2.
+	host := dialParty(t, aliceSession.AccessToken, true)
+	defer host.close()
+	host.waitFor("hello", 3*time.Second)
+	host.send("join", map[string]any{"party": pub.ID})
+	host.waitFor("state", 3*time.Second)
+	guest := dialParty(t, bobSession.AccessToken, true)
+	defer guest.close()
+	guest.waitFor("hello", 3*time.Second)
+	guest.send("join", map[string]any{"party": pub.ID})
+	guest.waitFor("state", 3*time.Second)
+	host.waitFor("member.joined", 3*time.Second)
+	for _, p := range list(anon, episodeQ).Data {
+		if p.ID == pub.ID {
+			assert.Equal(t, 2, p.Watching)
+		}
+	}
+
+	// Only the host may end it.
+	require.Equal(t, http.StatusForbidden, bob.do(http.MethodPost, "/api/v1/parties/"+itoa(pub.ID)+"/close", nil, nil))
+	require.Equal(t, http.StatusNoContent, alice.do(http.MethodPost, "/api/v1/parties/"+itoa(pub.ID)+"/close", nil, nil))
+	guest.waitFor("party.closed", 3*time.Second)
+	host.waitFor("party.closed", 3*time.Second)
+	// Idempotent, and the row + discovery reflect it.
+	require.Equal(t, http.StatusNoContent, alice.do(http.MethodPost, "/api/v1/parties/"+itoa(pub.ID)+"/close", nil, nil))
+	var got partyResponse
+	require.Equal(t, http.StatusOK, bob.do(http.MethodGet, "/api/v1/parties/"+itoa(pub.ID), nil, &got))
+	assert.NotNil(t, got.ClosedAt)
+	assert.NotContains(t, partyIDs(list(anon, episodeQ)), pub.ID)
+	// A member dropped from the closed room can't chat into it.
+	guest.send("chat", map[string]any{"body": "still here?"})
+	assert.Equal(t, "bad_request", errorCode(t, guest.waitFor("error", 3*time.Second)))
+	// Unknown id → 404.
+	require.Equal(t, http.StatusNotFound, alice.do(http.MethodPost, "/api/v1/parties/99999999/close", nil, nil))
+
+	// The idle sweeper: carol's room has never had a member. With "now" 20
+	// minutes ahead it closes; a room with a fresh heartbeat survives.
+	var fresh partyResponse
+	require.Equal(t, http.StatusCreated, bob.do(http.MethodPost, "/api/v1/parties",
+		map[string]any{"anime_id": animeID, "episode": 5, "visibility": "public"}, &fresh))
+	keeper := dialParty(t, bobSession.AccessToken, true)
+	defer keeper.close()
+	keeper.waitFor("hello", 3*time.Second)
+	keeper.send("join", map[string]any{"party": fresh.ID})
+	keeper.waitFor("state", 3*time.Second)
+	// Ages carol's room past the window in DB time, then sweeps with real now.
+	_, err := testPool.Exec(context.Background(),
+		"UPDATE watch_parties SET created_at = now() - interval '30 minutes' WHERE id = $1", priv.ID)
+	require.NoError(t, err)
+	require.NoError(t, jobs.CloseIdleParties(context.Background(), parties.New(testPool, slog.New(slog.DiscardHandler)), testRedis, time.Now(), slog.New(slog.DiscardHandler)))
+	require.Equal(t, http.StatusOK, carol.do(http.MethodGet, "/api/v1/parties/"+itoa(priv.ID), nil, &got))
+	assert.NotNil(t, got.ClosedAt, "an idle room closes")
+	require.Equal(t, http.StatusOK, bob.do(http.MethodGet, "/api/v1/parties/"+itoa(fresh.ID), nil, &got))
+	assert.Nil(t, got.ClosedAt, "a room with a live member stays open")
+	// A room whose members all left long ago closes too (presence sweeps
+	// their heartbeats; the sweeper sees no one and an old creation).
+	keeper.send("leave", map[string]any{})
+	_, err = testPool.Exec(context.Background(),
+		"UPDATE watch_parties SET created_at = now() - interval '30 minutes' WHERE id = $1", fresh.ID)
+	require.NoError(t, err)
+	require.NoError(t, jobs.CloseIdleParties(context.Background(), parties.New(testPool, slog.New(slog.DiscardHandler)), testRedis, time.Now(), slog.New(slog.DiscardHandler)))
+	require.Equal(t, http.StatusOK, bob.do(http.MethodGet, "/api/v1/parties/"+itoa(fresh.ID), nil, &got))
+	assert.NotNil(t, got.ClosedAt)
 }

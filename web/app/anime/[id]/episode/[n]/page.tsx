@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { EpisodeSpoilerShield } from "@/components/discussions/episode-spoiler-shield";
 import { ThreadView } from "@/components/discussions/thread-view";
 import { PageShell } from "@/components/page-shell";
+import { PartyLauncher } from "@/components/parties/party-launcher";
 import { serverApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { airDateLabel, animeHref, displayTitle, isUpcoming, untilLabel } from "@/lib/anime";
@@ -123,6 +124,10 @@ export default async function EpisodeThreadPage({ params }: { params: Promise<Pa
           speculation. Tag spoilers from source material!
         </p>
       )}
+
+      {/* Watch parties (M4): open rooms for this episode + "Start a party".
+          Renders nothing while the feature flag is off. */}
+      {!upcoming && <PartyLauncher animeId={anime.id} episode={episode.number} />}
 
       <EpisodeSpoilerShield
         animeId={anime.id}

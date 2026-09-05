@@ -18,6 +18,7 @@ import { Greeting } from "./home/greeting";
 import { PulseBlock } from "./home/pulse";
 import { YourEvening } from "./home/your-evening";
 import { LiveRooms } from "./live-rooms";
+import { OpenParties } from "@/components/parties/open-parties";
 
 // The live layer (busiest threads → rooms, stats, pulse) refreshes faster
 // than the catalog's default 5 minutes: the home should visibly move
@@ -157,6 +158,9 @@ export async function HomeView() {
             </aside>
           )}
         </div>
+
+        {/* ── Watch parties open right now (renders nothing when none) ── */}
+        <OpenParties />
 
         {/* ── Continue watching (renders nothing when caught up) ─────── */}
         <ContinueWatching />

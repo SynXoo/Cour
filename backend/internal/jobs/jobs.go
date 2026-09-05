@@ -12,10 +12,13 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 
 	"cour/internal/anilist"
 	"cour/internal/discovery"
 	"cour/internal/imports"
+	"cour/internal/parties"
+	"cour/internal/realtime"
 )
 
 // Task type names, namespaced by subsystem.
@@ -27,7 +30,14 @@ const (
 	TypeBackfillCatalog = "anilist:backfill_catalog" // one-time full-catalog crawl
 
 	TypeRecomputeDiscovery = "discovery:recompute" // trending scores + hidden gems
+
+	TypeCloseIdleParties = "parties:close_idle" // rooms nobody has been in for a while
 )
+
+// partyIdleAfter is how long a room may sit with nobody present before the
+// sweeper closes it. Long enough to survive a reconnect storm or a break,
+// short enough that abandoned rooms don't litter discovery all night.
+const partyIdleAfter = 15 * time.Minute
 
 // backfillChunkPages bounds one backfill task to ~20s of rate-limited
 // requests; the handler chains the next chunk until the crawl finishes.
@@ -44,6 +54,8 @@ type Deps struct {
 	Syncer    *anilist.Syncer
 	Discovery *discovery.Service
 	Imports   *imports.Service
+	Parties   *parties.Service
+	Redis     *redis.Client // party live state (presence) for the idle sweeper
 	Enqueuer  *asynq.Client // for tasks that chain follow-up tasks
 	Log       *slog.Logger
 	DemoMode  bool
@@ -60,6 +72,58 @@ func RegisterHandlers(mux *asynq.ServeMux, d Deps) {
 	// Imports are NOT demo-gated: MAL uploads work offline against the
 	// fixture catalog; the AniList path guards demo mode internally.
 	mux.HandleFunc(imports.TaskProcess, d.handleImportProcess)
+	// Watch-party rooms are local state too — never demo-gated.
+	mux.HandleFunc(TypeCloseIdleParties, d.handleCloseIdleParties)
+}
+
+// handleCloseIdleParties ends rooms nobody has been in for partyIdleAfter:
+// no live member, and the last heartbeat (or, for a room nobody ever
+// joined, its creation) older than the window. The close is the same as the
+// host's — the row, the Redis state, and a party.closed broadcast.
+func (d Deps) handleCloseIdleParties(ctx context.Context, _ *asynq.Task) error {
+	if d.Parties == nil || d.Redis == nil {
+		return nil
+	}
+	return CloseIdleParties(ctx, d.Parties, d.Redis, time.Now(), d.Log)
+}
+
+// CloseIdleParties is the sweeper's body, exported so the integration suite
+// can drive it with a chosen "now".
+func CloseIdleParties(ctx context.Context, svc *parties.Service, rdb *redis.Client, now time.Time, log *slog.Logger) error {
+	open, err := svc.ListOpenIDs(ctx)
+	if err != nil {
+		return err
+	}
+	cutoff := now.Add(-partyIdleAfter)
+	closed := 0
+	for _, room := range open {
+		lastSeen, err := realtime.LastSeen(ctx, rdb, room.ID)
+		if err != nil {
+			log.Warn("parties: idle sweep presence", "party_id", room.ID, "err", err)
+			continue
+		}
+		if lastSeen.IsZero() {
+			lastSeen = room.CreatedAt
+		}
+		if !lastSeen.Before(cutoff) {
+			continue
+		}
+		changed, err := svc.CloseByID(ctx, room.ID)
+		if err != nil {
+			log.Warn("parties: idle close", "party_id", room.ID, "err", err)
+			continue
+		}
+		if changed {
+			closed++
+			if err := realtime.CloseParty(ctx, rdb, room.ID); err != nil {
+				log.Warn("parties: idle close live state", "party_id", room.ID, "err", err)
+			}
+		}
+	}
+	if closed > 0 {
+		log.Info("parties: idle rooms closed", "count", closed)
+	}
+	return nil
 }
 
 // handleImportProcess runs one import's fetch/match stage. On the final
@@ -181,6 +245,7 @@ func Schedule(s *asynq.Scheduler) error {
 		// they read our own DB, not AniList.
 		{"@every 30m", asynq.NewTask("notify:episodes_aired", nil, asynq.Queue(QueueCritical))},
 		{"@every 15m", asynq.NewTask(TypeRecomputeDiscovery, nil, asynq.Queue(QueueDefault))},
+		{"@every 5m", asynq.NewTask(TypeCloseIdleParties, nil, asynq.Queue(QueueDefault))},
 	}
 	for _, e := range entries {
 		if _, err := s.Register(e.spec, e.task); err != nil {

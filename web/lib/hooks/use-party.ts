@@ -129,6 +129,11 @@ export function useParty(partyId: number, enabled = true): PartyHandle {
         if (frame.op === "state") {
           attempt = 0;
           setConnection("live");
+        } else if (frame.op === "party.closed") {
+          // The room ended (host, or idle sweep): no reconnect will bring
+          // it back. The server drops us right after this frame.
+          closedByUs = true;
+          setConnection("closed");
         } else if (frame.op === "error") {
           const code = (frame.data as { code?: string } | undefined)?.code ?? "";
           if (code === "unauthorized") {

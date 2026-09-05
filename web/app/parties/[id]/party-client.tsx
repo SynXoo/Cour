@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useReducer, useState } from "react";
+import { toast } from "sonner";
 import { animeHref, displayTitle } from "@/lib/anime";
 import { useSession } from "@/lib/auth/session";
 import { useFeatures } from "@/lib/hooks/use-features";
+import { useCloseParty } from "@/lib/hooks/use-parties";
 import { useParty, type ClockControls, type PartyConnection } from "@/lib/hooks/use-party";
 import {
   errorCopy,
@@ -36,6 +38,7 @@ export function PartyClient({ partyId }: { partyId: number }) {
   const features = useFeatures();
   const enabled = status === "authed" && features.data?.watch_parties === true;
   const { connection, room, controls } = useParty(partyId, enabled);
+  const close = useCloseParty();
 
   if (features.data && !features.data.watch_parties) {
     return (
@@ -118,8 +121,35 @@ export function PartyClient({ partyId }: { partyId: number }) {
             </p>
           </div>
         </div>
-        <ConnectionPill connection={ended ? "closed" : connection} ended={ended} />
+        <div className="flex items-center gap-2 md:shrink-0">
+          <ConnectionPill connection={ended ? "closed" : connection} ended={ended} />
+          {isHost && !ended && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={close.isPending}
+              className="min-h-11 md:min-h-8"
+              onClick={() =>
+                close.mutate(partyId, {
+                  onError: (err) => toast.error(err.message),
+                })
+              }
+            >
+              End party
+            </Button>
+          )}
+        </div>
       </header>
+
+      {ended && !error && (
+        <p role="status" className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm">
+          This party has ended. The conversation carries on in{" "}
+          <Link href={episodeHref} className="font-medium underline-offset-4 hover:underline">
+            the episode thread →
+          </Link>
+        </p>
+      )}
 
       {error && (
         <p

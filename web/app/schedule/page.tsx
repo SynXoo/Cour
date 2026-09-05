@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/page-shell";
+import { OpenParties } from "@/components/parties/open-parties";
 import { serverApi } from "@/lib/api/client";
 import { ScheduleView } from "./schedule-view";
 
@@ -26,6 +27,9 @@ export default async function SchedulePage() {
           One day at a time, your shows first. Times are your local time.
         </p>
       </header>
+
+      {/* Rooms watching together right now (M4.4); nothing when none are open. */}
+      <OpenParties heading="Watching together tonight" />
 
       {entries.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-16 text-center text-muted-foreground">

@@ -1285,6 +1285,34 @@ paths:
           $ref: "#/components/responses/Error"
 
   /parties:
+    get:
+      operationId: listParties
+      summary: Open watch parties the viewer may join
+      description: >
+        Discovery: open rooms, newest first, each with how many people are
+        in it right now. Anonymous viewers see public rooms; signed-in
+        viewers also see the followers/invite rooms their follows and
+        friends host, and their own. Filter to one episode with
+        `anime_id` + `episode` (the episode page's launcher), or leave both
+        off for the schedule / home rails.
+      parameters:
+        - name: anime_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: episode
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      responses:
+        "200":
+          description: Open parties
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchPartyList" }
+        default:
+          $ref: "#/components/responses/Error"
     post:
       operationId: createParty
       summary: Start a watch party on an episode
@@ -1306,6 +1334,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/WatchParty" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /parties/{partyId}/close:
+    post:
+      operationId: closeParty
+      summary: End a watch party (host only)
+      description: >
+        Marks the room closed, drops its live state (presence, clock, chat)
+        and tells every connected member (`party.closed` on the socket).
+        Idempotent. Rooms nobody has been in for 15 minutes close on their
+        own (worker job).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204":
+          description: Closed (or already closed)
         default:
           $ref: "#/components/responses/Error"
 
@@ -1393,6 +1442,9 @@ paths:
         - `chat` / `react` — a `PartyMessage` (kind matches the op),
           broadcast to the room. The `state` snapshot carries the last 50
           as `chat`, oldest first.
+
+        - `party.closed` — `{}` when the host ends the room or it idles
+          out; the server drops the member from the room right after.
 
         - `error` — `{code, message}` with the REST error codes
           (`unauthorized`, `not_found`, `forbidden`, `bad_request`).
@@ -2742,6 +2794,22 @@ components:
         visibility: { $ref: "#/components/schemas/PartyVisibility" }
         created_at: { type: string, format: date-time }
         closed_at: { type: string, format: date-time, nullable: true }
+
+    WatchPartySummary:
+      allOf:
+        - $ref: "#/components/schemas/WatchParty"
+        - type: object
+          required: [watching]
+          properties:
+            watching: { type: integer, description: Members present right now }
+
+    WatchPartyList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/WatchPartySummary" }
 
     PartyMember:
       type: object

@@ -1044,13 +1044,37 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Open watch parties the viewer may join
+         * @description Discovery: open rooms, newest first, each with how many people are in it right now. Anonymous viewers see public rooms; signed-in viewers also see the followers/invite rooms their follows and friends host, and their own. Filter to one episode with `anime_id` + `episode` (the episode page's launcher), or leave both off for the schedule / home rails.
+         */
+        get: operations["listParties"];
         put?: never;
         /**
          * Start a watch party on an episode
          * @description Opens a room bound to one episode; the caller becomes its host. A host runs one room at a time — starting a new party closes the caller's previous open one. Cour never hosts, proxies, or links to video: a party synchronizes people (presence, a shared clock, chat), and every participant brings their own legal source.
          */
         post: operations["createParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a watch party (host only)
+         * @description Marks the room closed, drops its live state (presence, clock, chat) and tells every connected member (`party.closed` on the socket). Idempotent. Rooms nobody has been in for 15 minutes close on their own (worker job).
+         */
+        post: operations["closeParty"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1131,6 +1155,9 @@ export interface paths {
          *     - `chat` / `react` — a `PartyMessage` (kind matches the op),
          *       broadcast to the room. The `state` snapshot carries the last 50
          *       as `chat`, oldest first.
+         *
+         *     - `party.closed` — `{}` when the host ends the room or it idles
+         *       out; the server drops the member from the room right after.
          *
          *     - `error` — `{code, message}` with the REST error codes
          *       (`unauthorized`, `not_found`, `forbidden`, `bad_request`).
@@ -2064,6 +2091,13 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             closed_at: string | null;
+        };
+        WatchPartySummary: components["schemas"]["WatchParty"] & {
+            /** @description Members present right now */
+            watching: number;
+        };
+        WatchPartyList: {
+            data: components["schemas"]["WatchPartySummary"][];
         };
         PartyMember: {
             /** Format: int64 */
@@ -3874,6 +3908,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listParties: {
+        parameters: {
+            query?: {
+                anime_id?: number;
+                episode?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open parties */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchPartyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createParty: {
         parameters: {
             query?: never;
@@ -3895,6 +3954,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WatchParty"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    closeParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Closed (or already closed) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

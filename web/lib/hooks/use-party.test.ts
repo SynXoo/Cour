@@ -199,6 +199,23 @@ describe("useParty", () => {
     expect(FakeSocket.instances).toHaveLength(1);
   });
 
+  it("stops on party.closed and marks the room ended", () => {
+    const { result } = renderHook(() => useParty(7));
+    const ws = latest();
+    act(() => {
+      ws.open();
+      ws.receive("state", { party, members: [] });
+      ws.receive("party.closed", {});
+    });
+    expect(result.current.connection).toBe("closed");
+    expect(result.current.room.party?.closed_at).not.toBeNull();
+    act(() => ws.drop());
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
+
   it("sends host clock ops over the open socket and drops them while disconnected", () => {
     const { result } = renderHook(() => useParty(7));
     const ws = latest();

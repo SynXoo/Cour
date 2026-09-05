@@ -18,6 +18,7 @@ import (
 	"cour/internal/jobs"
 	"cour/internal/logging"
 	"cour/internal/notify"
+	"cour/internal/parties"
 	"cour/internal/store"
 	"cour/internal/store/sqlcgen"
 )
@@ -70,6 +71,8 @@ func main() {
 		// The worker only processes jobs (the API creates them), so no
 		// enqueue func.
 		Imports:  imports.New(pool, anilistClient, nil, cfg.DemoMode, log),
+		Parties:  parties.New(pool, log),
+		Redis:    rdb,
 		Enqueuer: client,
 		Log:      log,
 		DemoMode: cfg.DemoMode,

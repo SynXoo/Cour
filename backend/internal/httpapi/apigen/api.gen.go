@@ -1617,6 +1617,25 @@ type WatchParty struct {
 	Visibility PartyVisibility `json:"visibility"`
 }
 
+// WatchPartyList defines model for WatchPartyList.
+type WatchPartyList struct {
+	Data []WatchPartySummary `json:"data"`
+}
+
+// WatchPartySummary defines model for WatchPartySummary.
+type WatchPartySummary struct {
+	Anime      AnimeSummary    `json:"anime"`
+	ClosedAt   *time.Time      `json:"closed_at"`
+	CreatedAt  time.Time       `json:"created_at"`
+	Episode    Episode         `json:"episode"`
+	Host       ReviewAuthor    `json:"host"`
+	Id         int64           `json:"id"`
+	Visibility PartyVisibility `json:"visibility"`
+
+	// Watching Members present right now
+	Watching int `json:"watching"`
+}
+
 // WatchingEntry defines model for WatchingEntry.
 type WatchingEntry struct {
 	Anime    AnimeSummary `json:"anime"`
@@ -1705,6 +1724,13 @@ type GetMyPulseParams struct {
 type ListOpenReportsParams struct {
 	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPartiesParams defines parameters for ListParties.
+type ListPartiesParams struct {
+	AnimeId *int64 `form:"anime_id,omitempty" json:"anime_id,omitempty"`
+	Episode *int   `form:"episode,omitempty" json:"episode,omitempty"`
+	Limit   *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetScheduleParams defines parameters for GetSchedule.
@@ -1988,12 +2014,18 @@ type ServerInterface interface {
 	// Close a report as resolved or dismissed (moderators only)
 	// (POST /mod/reports/{reportId})
 	ResolveReport(w http.ResponseWriter, r *http.Request, reportId int64)
+	// Open watch parties the viewer may join
+	// (GET /parties)
+	ListParties(w http.ResponseWriter, r *http.Request, params ListPartiesParams)
 	// Start a watch party on an episode
 	// (POST /parties)
 	CreateParty(w http.ResponseWriter, r *http.Request)
 	// A watch party's shell (episode, host, visibility, open/closed)
 	// (GET /parties/{partyId})
 	GetParty(w http.ResponseWriter, r *http.Request, partyId int64)
+	// End a watch party (host only)
+	// (POST /parties/{partyId}/close)
+	CloseParty(w http.ResponseWriter, r *http.Request, partyId int64)
 	// Report content or a user to the moderators
 	// (POST /reports)
 	FileReport(w http.ResponseWriter, r *http.Request)
@@ -2396,6 +2428,12 @@ func (_ Unimplemented) ResolveReport(w http.ResponseWriter, r *http.Request, rep
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Open watch parties the viewer may join
+// (GET /parties)
+func (_ Unimplemented) ListParties(w http.ResponseWriter, r *http.Request, params ListPartiesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Start a watch party on an episode
 // (POST /parties)
 func (_ Unimplemented) CreateParty(w http.ResponseWriter, r *http.Request) {
@@ -2405,6 +2443,12 @@ func (_ Unimplemented) CreateParty(w http.ResponseWriter, r *http.Request) {
 // A watch party's shell (episode, host, visibility, open/closed)
 // (GET /parties/{partyId})
 func (_ Unimplemented) GetParty(w http.ResponseWriter, r *http.Request, partyId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// End a watch party (host only)
+// (POST /parties/{partyId}/close)
+func (_ Unimplemented) CloseParty(w http.ResponseWriter, r *http.Request, partyId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -4220,6 +4264,65 @@ func (siw *ServerInterfaceWrapper) ResolveReport(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListParties operation middleware
+func (siw *ServerInterfaceWrapper) ListParties(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPartiesParams
+
+	// ------------- Optional query parameter "anime_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "anime_id", r.URL.Query(), &params.AnimeId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "anime_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "anime_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "episode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "episode", r.URL.Query(), &params.Episode, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "episode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "episode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListParties(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateParty operation middleware
 func (siw *ServerInterfaceWrapper) CreateParty(w http.ResponseWriter, r *http.Request) {
 
@@ -4263,6 +4366,38 @@ func (siw *ServerInterfaceWrapper) GetParty(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetParty(w, r, partyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloseParty operation middleware
+func (siw *ServerInterfaceWrapper) CloseParty(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "partyId" -------------
+	var partyId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "partyId", chi.URLParam(r, "partyId"), &partyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "partyId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloseParty(w, r, partyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5436,10 +5571,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/mod/reports/{reportId}", wrapper.ResolveReport)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/parties", wrapper.ListParties)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/parties", wrapper.CreateParty)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/parties/{partyId}", wrapper.GetParty)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/parties/{partyId}/close", wrapper.CloseParty)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/reports", wrapper.FileReport)

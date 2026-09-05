@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 )
 
 const closeOpenPartiesForHost = `-- name: CloseOpenPartiesForHost :execrows
@@ -16,6 +17,39 @@ WHERE host_id = $1 AND closed_at IS NULL
 
 func (q *Queries) CloseOpenPartiesForHost(ctx context.Context, hostID int64) (int64, error) {
 	result, err := q.db.Exec(ctx, closeOpenPartiesForHost, hostID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const closeParty = `-- name: CloseParty :execrows
+UPDATE watch_parties SET closed_at = now()
+WHERE id = $1 AND host_id = $2 AND closed_at IS NULL
+`
+
+type ClosePartyParams struct {
+	ID     int64
+	HostID int64
+}
+
+// Host-only close; idempotent (already-closed rows match 0).
+func (q *Queries) CloseParty(ctx context.Context, arg ClosePartyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, closeParty, arg.ID, arg.HostID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const closePartyByID = `-- name: ClosePartyByID :execrows
+UPDATE watch_parties SET closed_at = now()
+WHERE id = $1 AND closed_at IS NULL
+`
+
+// The idle sweeper's close (no host check).
+func (q *Queries) ClosePartyByID(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, closePartyByID, id)
 	if err != nil {
 		return 0, err
 	}
@@ -137,6 +171,151 @@ func (q *Queries) GetPartyView(ctx context.Context, id int64) (GetPartyViewRow, 
 		&i.HostAvatarUrl,
 	)
 	return i, err
+}
+
+const listOpenPartiesVisible = `-- name: ListOpenPartiesVisible :many
+SELECT watch_parties.id, watch_parties.episode_id, watch_parties.host_id, watch_parties.visibility, watch_parties.created_at, watch_parties.closed_at, episodes.id, episodes.anime_id, episodes.number, episodes.title, episodes.airing_at, episodes.created_at, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id,
+       users.username AS host_username, users.avatar_url AS host_avatar_url
+FROM watch_parties
+JOIN episodes ON episodes.id = watch_parties.episode_id
+JOIN anime    ON anime.id = episodes.anime_id
+JOIN users    ON users.id = watch_parties.host_id
+WHERE watch_parties.closed_at IS NULL
+  AND ($2::bigint IS NULL OR anime.id = $2::bigint)
+  AND ($3::int IS NULL OR episodes.number = $3::int)
+  AND (
+    watch_parties.visibility = 'public'
+    OR ($4::bigint IS NOT NULL AND (
+      watch_parties.host_id = $4::bigint
+      OR (watch_parties.visibility = 'followers' AND EXISTS (
+        SELECT 1 FROM follows
+        WHERE follows.follower_id = $4::bigint AND follows.followee_id = watch_parties.host_id))
+      OR EXISTS (
+        SELECT 1 FROM friendships
+        WHERE friendships.user_a = LEAST($4::bigint, watch_parties.host_id)
+          AND friendships.user_b = GREATEST($4::bigint, watch_parties.host_id))
+    ))
+  )
+ORDER BY watch_parties.created_at DESC
+LIMIT $1
+`
+
+type ListOpenPartiesVisibleParams struct {
+	Limit   int32
+	AnimeID *int64
+	Episode *int32
+	Viewer  *int64
+}
+
+type ListOpenPartiesVisibleRow struct {
+	WatchParty    WatchParty
+	Episode       Episode
+	Anime         Anime
+	HostUsername  string
+	HostAvatarUrl *string
+}
+
+// Discovery. viewer is NULL for anonymous (public rooms only); a signed-in
+// viewer also sees followers/invite rooms whose host they follow or are
+// friends with, and their own. Optional episode filter.
+func (q *Queries) ListOpenPartiesVisible(ctx context.Context, arg ListOpenPartiesVisibleParams) ([]ListOpenPartiesVisibleRow, error) {
+	rows, err := q.db.Query(ctx, listOpenPartiesVisible,
+		arg.Limit,
+		arg.AnimeID,
+		arg.Episode,
+		arg.Viewer,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOpenPartiesVisibleRow
+	for rows.Next() {
+		var i ListOpenPartiesVisibleRow
+		if err := rows.Scan(
+			&i.WatchParty.ID,
+			&i.WatchParty.EpisodeID,
+			&i.WatchParty.HostID,
+			&i.WatchParty.Visibility,
+			&i.WatchParty.CreatedAt,
+			&i.WatchParty.ClosedAt,
+			&i.Episode.ID,
+			&i.Episode.AnimeID,
+			&i.Episode.Number,
+			&i.Episode.Title,
+			&i.Episode.AiringAt,
+			&i.Episode.CreatedAt,
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+			&i.HostUsername,
+			&i.HostAvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenPartyIDs = `-- name: ListOpenPartyIDs :many
+SELECT id, created_at FROM watch_parties WHERE closed_at IS NULL
+`
+
+type ListOpenPartyIDsRow struct {
+	ID        int64
+	CreatedAt time.Time
+}
+
+// Every open room, for the idle sweeper.
+func (q *Queries) ListOpenPartyIDs(ctx context.Context) ([]ListOpenPartyIDsRow, error) {
+	rows, err := q.db.Query(ctx, listOpenPartyIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOpenPartyIDsRow
+	for rows.Next() {
+		var i ListOpenPartyIDsRow
+		if err := rows.Scan(&i.ID, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
