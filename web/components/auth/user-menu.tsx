@@ -60,6 +60,12 @@ export function UserMenu() {
           <Link href="/feed">Feed</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href="/friends">Friends</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/messages">Messages</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/recommendations">For you</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

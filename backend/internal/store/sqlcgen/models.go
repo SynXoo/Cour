@@ -376,9 +376,13 @@ func (ns NullListStatus) Value() (driver.Value, error) {
 type NotificationType string
 
 const (
-	NotificationTypeCommentReply NotificationType = "comment_reply"
-	NotificationTypeNewFollower  NotificationType = "new_follower"
-	NotificationTypeEpisodeAired NotificationType = "episode_aired"
+	NotificationTypeCommentReply   NotificationType = "comment_reply"
+	NotificationTypeNewFollower    NotificationType = "new_follower"
+	NotificationTypeEpisodeAired   NotificationType = "episode_aired"
+	NotificationTypeFriendRequest  NotificationType = "friend_request"
+	NotificationTypeFriendAccepted NotificationType = "friend_accepted"
+	NotificationTypeMention        NotificationType = "mention"
+	NotificationTypeRecommendation NotificationType = "recommendation"
 )
 
 func (e *NotificationType) Scan(src interface{}) error {
@@ -630,6 +634,15 @@ type Anime struct {
 	MalID             *int32
 }
 
+type AnimeRecommendation struct {
+	ID         int64
+	FromUserID int64
+	ToUserID   int64
+	AnimeID    int64
+	Note       string
+	CreatedAt  time.Time
+}
+
 type Comment struct {
 	ID               int64
 	ThreadID         int64
@@ -648,6 +661,24 @@ type CommentReaction struct {
 	UserID    int64
 	Emoji     string
 	CreatedAt time.Time
+}
+
+type DmMessage struct {
+	ID        int64
+	ThreadID  int64
+	SenderID  int64
+	Body      string
+	CreatedAt time.Time
+}
+
+type DmThread struct {
+	ID            int64
+	UserA         int64
+	UserB         int64
+	LastMessageAt time.Time
+	LastReadA     int64
+	LastReadB     int64
+	CreatedAt     time.Time
 }
 
 type EmailToken struct {
@@ -679,6 +710,19 @@ type Follow struct {
 	FollowerID int64
 	FolloweeID int64
 	CreatedAt  time.Time
+}
+
+type FriendRequest struct {
+	RequesterID int64
+	AddresseeID int64
+	Note        string
+	CreatedAt   time.Time
+}
+
+type Friendship struct {
+	UserA     int64
+	UserB     int64
+	CreatedAt time.Time
 }
 
 type ImportJob struct {

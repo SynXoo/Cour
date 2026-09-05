@@ -58,6 +58,36 @@ describe("describeNotification", () => {
     });
   });
 
+  it("sends a mention to the same room a reply would", () => {
+    const { href, text } = describeNotification(
+      notif({ type: "mention", anime, payload: { kind: "episode", episode: 9 } }),
+    );
+    expect(href).toBe("/anime/7/episode/9");
+    expect(text).toBe("mentioned you in a comment on Frieren");
+  });
+
+  it("quotes the note on a friend request and lands on the friends hub", () => {
+    expect(describeNotification(notif({ type: "friend_request", payload: { note: "same thread!" } }))).toEqual({
+      text: "sent you a friend request — “same thread!”",
+      href: "/friends",
+    });
+    expect(describeNotification(notif({ type: "friend_request", payload: { note: "  " } })).text).toBe(
+      "sent you a friend request",
+    );
+  });
+
+  it("points an accepted request at the new friend", () => {
+    expect(describeNotification(notif({ type: "friend_accepted" })).href).toBe("/users/sam");
+  });
+
+  it("names the recommended show and quotes why", () => {
+    const { href, text } = describeNotification(
+      notif({ type: "recommendation", anime, payload: { note: "ep 7 sakuga" } }),
+    );
+    expect(href).toBe("/anime/7/frieren");
+    expect(text).toBe("thinks you'd like Frieren — “ep 7 sakuga”");
+  });
+
   it("falls back to the schedule when an aired episode has no anime", () => {
     const { href, text } = describeNotification(
       notif({ type: "episode_aired", actor: null, payload: { episode: 3 } }),

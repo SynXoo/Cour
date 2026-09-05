@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const countFriendships = `-- name: CountFriendships :one
+SELECT COUNT(*)::bigint FROM friendships
+`
+
+func (q *Queries) CountFriendships(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countFriendships)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*)::bigint FROM users
 `

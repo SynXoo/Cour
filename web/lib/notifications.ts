@@ -8,9 +8,24 @@ export type NotificationType = components["schemas"]["NotificationType"];
 export const NOTIFICATION_FILTERS: { value: NotificationType | null; label: string }[] = [
   { value: null, label: "All" },
   { value: "comment_reply", label: "Replies" },
+  { value: "mention", label: "Mentions" },
+  { value: "friend_request", label: "Friends" },
   { value: "new_follower", label: "Follows" },
   { value: "episode_aired", label: "Episodes" },
 ];
+
+/** Deep link for a comment notification: the episode room or the series board. */
+function threadHref(n: Notification, p: Record<string, unknown>): string {
+  if (!n.anime) return "/";
+  if (p.kind === "episode" && typeof p.episode === "number") {
+    return `/anime/${n.anime.id}/episode/${p.episode}`;
+  }
+  return `/anime/${n.anime.id}/discussion`;
+}
+
+function quoted(note: unknown): string {
+  return typeof note === "string" && note.trim() !== "" ? ` — “${note.trim()}”` : "";
+}
 
 /**
  * The one-line sentence and destination for a notification. The actor's
@@ -20,21 +35,30 @@ export const NOTIFICATION_FILTERS: { value: NotificationType | null; label: stri
 export function describeNotification(n: Notification): { text: string; href: string } {
   const p = n.payload as Record<string, unknown>;
   switch (n.type) {
-    case "comment_reply": {
-      const base = n.anime ? animeHref(n.anime) : "/";
-      const href =
-        p.kind === "episode" && n.anime && typeof p.episode === "number"
-          ? `/anime/${n.anime.id}/episode/${p.episode}`
-          : n.anime
-            ? `/anime/${n.anime.id}/discussion`
-            : base;
+    case "comment_reply":
       return {
         text: `replied to your comment${n.anime ? ` on ${displayTitle(n.anime)}` : ""}`,
-        href,
+        href: threadHref(n, p),
       };
-    }
+    case "mention":
+      return {
+        text: `mentioned you${n.anime ? ` in a comment on ${displayTitle(n.anime)}` : ""}`,
+        href: threadHref(n, p),
+      };
     case "new_follower":
       return { text: "followed you", href: n.actor ? `/users/${n.actor.username}` : "/" };
+    case "friend_request":
+      return { text: `sent you a friend request${quoted(p.note)}`, href: "/friends" };
+    case "friend_accepted":
+      return {
+        text: "accepted your friend request — you're friends now",
+        href: n.actor ? `/users/${n.actor.username}` : "/friends",
+      };
+    case "recommendation":
+      return {
+        text: `thinks you'd like ${n.anime ? displayTitle(n.anime) : "a show"}${quoted(p.note)}`,
+        href: n.anime ? animeHref(n.anime) : "/",
+      };
     case "episode_aired": {
       const ep = typeof p.episode === "number" ? p.episode : null;
       return {

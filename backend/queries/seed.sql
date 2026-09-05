@@ -10,3 +10,6 @@ UPDATE list_entries SET updated_at = now() - (random() * interval '13 days');
 
 -- name: CountUsers :one
 SELECT COUNT(*)::bigint FROM users;
+
+-- name: CountFriendships :one
+SELECT COUNT(*)::bigint FROM friendships;

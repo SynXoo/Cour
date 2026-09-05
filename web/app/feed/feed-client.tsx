@@ -3,8 +3,10 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserApi } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
@@ -40,16 +42,25 @@ function itemHref(item: FeedItem): string {
   return animeHref(item.anime);
 }
 
+type Scope = "all" | "friends";
+
 export function FeedClient() {
   const { status } = useSession();
+  // Everyone you follow, or just friends (§M3.9) — same query, narrower set.
+  const [scope, setScope] = useState<Scope>("all");
 
   const feed = useInfiniteQuery({
-    queryKey: ["feed"],
+    queryKey: ["feed", scope],
     enabled: status === "authed",
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const res = await browserApi.GET("/me/feed", {
-        params: { query: pageParam > 0 ? { cursor: pageParam } : {} },
+        params: {
+          query: {
+            ...(pageParam > 0 ? { cursor: pageParam } : {}),
+            ...(scope === "friends" ? { scope } : {}),
+          },
+        },
       });
       if (res.error) throw new Error(res.error.error.message);
       return res.data;
@@ -75,7 +86,17 @@ export function FeedClient() {
 
   return (
     <div className="flex flex-col gap-4 py-2">
-      <h1 className="text-2xl font-bold tracking-tight">Feed</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Feed</h1>
+        <div role="group" aria-label="Whose activity" className="flex gap-1.5">
+          <Chip active={scope === "all"} onClick={() => setScope("all")}>
+            Everyone
+          </Chip>
+          <Chip active={scope === "friends"} onClick={() => setScope("friends")}>
+            Friends
+          </Chip>
+        </div>
+      </div>
 
       {feed.isLoading || status === "loading" ? (
         <div className="space-y-2">
@@ -85,8 +106,17 @@ export function FeedClient() {
         </div>
       ) : items.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-16 text-center text-sm text-muted-foreground">
-          Quiet in here. Follow people from their profiles and their activity
-          shows up here.
+          {scope === "friends" ? (
+            <>
+              Nothing from friends yet.{" "}
+              <Link href="/friends" className="underline underline-offset-4 hover:text-primary">
+                Add a few
+              </Link>{" "}
+              and their watching, rating, and arguing lands here.
+            </>
+          ) : (
+            <>Quiet in here. Follow people from their profiles and their activity shows up here.</>
+          )}
         </p>
       ) : (
         <>

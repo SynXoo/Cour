@@ -442,6 +442,10 @@ paths:
       summary: Activity from everyone the caller follows
       security: [{ bearerAuth: [] }]
       parameters:
+        - name: scope
+          in: query
+          description: "`friends` narrows the feed to friendships (default everyone followed)"
+          schema: { type: string, enum: [all, friends], default: all }
         - name: cursor
           in: query
           schema: { type: integer, format: int64 }
@@ -454,6 +458,246 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Feed" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users:
+    get:
+      operationId: searchUsers
+      summary: Find people by username (prefix first, then fuzzy)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 20 }
+      responses:
+        "200":
+          description: Up to ten matches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserRefList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{username}/friend:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        schema: { type: string, maxLength: 20 }
+    put:
+      operationId: befriendUser
+      summary: Send a friend request — or accept theirs if one is waiting
+      description: >
+        Mutual intent is a friendship, not a second pending row: when the
+        other person already asked, this accepts. Accepting also follows
+        both ways so friends land in each other's feed.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FriendRequestBody" }
+      responses:
+        "200":
+          description: Updated relation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationState" }
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: unfriendUser
+      summary: No relationship — cancel my request, decline theirs, or unfriend
+      description: >
+        Whichever the current state is. Unfriending leaves follows alone;
+        they are the person's own to keep or drop.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Updated relation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationState" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{username}/friends:
+    get:
+      operationId: listUserFriends
+      summary: This user's friends, newest first
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Friends
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserRefList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/friends:
+    get:
+      operationId: getMyFriends
+      summary: Friends, pending requests both ways, and suggestions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: The caller's friends overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FriendsOverview" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/friend-recommendations:
+    get:
+      operationId: getFriendRecommendations
+      summary: Shows friends recommended to the caller that aren't on their list yet
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+      responses:
+        "200":
+          description: Newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FriendRecommendationList" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /anime/{id}/friends:
+    get:
+      operationId: getAnimeFriends
+      summary: The caller's friends on this show, and who recommended it to them
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Watching first (furthest along at the top), then completed, then the rest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FriendsOnAnime" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /anime/{id}/recommend:
+    post:
+      operationId: recommendAnime
+      summary: Recommend this show to a friend
+      description: Friends only (403 otherwise). Re-recommending updates the note.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecommendRequest" }
+      responses:
+        "204":
+          description: Sent
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/messages:
+    get:
+      operationId: getMyInbox
+      summary: Conversations, newest activity first
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Inbox
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Inbox" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/messages/unread-count:
+    get:
+      operationId: getUnreadMessageCount
+      summary: Unread direct-message count (for the header badge)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnreadCount" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/messages/{username}:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        schema: { type: string, maxLength: 20 }
+    get:
+      operationId: getConversation
+      summary: One conversation, newest first
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: before_id
+          in: query
+          description: Keyset cursor — messages older than this id
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Message page (empty for a friend you haven't messaged yet)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessagePage" }
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: sendMessage
+      summary: Send a direct message (friends only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendMessageRequest" }
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DirectMessage" }
+        default:
+          $ref: "#/components/responses/Error"
+
+  /me/messages/{username}/read:
+    post:
+      operationId: markConversationRead
+      summary: Move the caller's read pointer to the end of this conversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "204":
+          description: Marked
         default:
           $ref: "#/components/responses/Error"
 
@@ -1979,11 +2223,160 @@ components:
 
     RelationState:
       type: object
-      required: [followers, following, is_following]
+      required: [followers, following, is_following, friends, friendship]
       properties:
         followers: { type: integer }
         following: { type: integer }
         is_following: { type: boolean, description: Always false for anonymous callers }
+        friends: { type: integer }
+        friendship:
+          $ref: "#/components/schemas/FriendshipStatus"
+
+    FriendshipStatus:
+      type: string
+      description: The caller's standing with this user; `none` for anonymous callers
+      enum: [none, friends, request_sent, request_received, self]
+
+    FriendRequestBody:
+      type: object
+      properties:
+        note: { type: string, maxLength: 200, description: Optional line that rides the request }
+
+    FriendRef:
+      type: object
+      required: [username, avatar_url, since]
+      properties:
+        username: { type: string }
+        avatar_url: { type: string, nullable: true }
+        since: { type: string, format: date-time }
+
+    FriendRequest:
+      type: object
+      required: [user, note, created_at]
+      properties:
+        user: { $ref: "#/components/schemas/ReviewAuthor" }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    FriendsOverview:
+      type: object
+      required: [friends, incoming, outgoing, suggested]
+      properties:
+        friends:
+          type: array
+          items: { $ref: "#/components/schemas/FriendRef" }
+        incoming:
+          type: array
+          description: Requests waiting on the caller
+          items: { $ref: "#/components/schemas/FriendRequest" }
+        outgoing:
+          type: array
+          description: Requests the caller sent
+          items: { $ref: "#/components/schemas/FriendRequest" }
+        suggested:
+          type: array
+          description: Mutual follows who aren't friends yet
+          items: { $ref: "#/components/schemas/ReviewAuthor" }
+
+    FriendOnAnime:
+      type: object
+      required: [user, status, progress, score]
+      properties:
+        user: { $ref: "#/components/schemas/ReviewAuthor" }
+        status: { $ref: "#/components/schemas/ListStatus" }
+        progress: { type: integer, minimum: 0 }
+        score: { type: integer, nullable: true, minimum: 1, maximum: 10 }
+
+    AnimeRecommendation:
+      type: object
+      required: [from, note, created_at]
+      properties:
+        from: { $ref: "#/components/schemas/ReviewAuthor" }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    FriendsOnAnime:
+      type: object
+      required: [data, recommendations]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/FriendOnAnime" }
+        recommendations:
+          type: array
+          description: Friends who recommended this show to the caller
+          items: { $ref: "#/components/schemas/AnimeRecommendation" }
+
+    RecommendRequest:
+      type: object
+      required: [to]
+      properties:
+        to: { type: string, description: Friend's username }
+        note: { type: string, maxLength: 500 }
+
+    FriendRecommendation:
+      type: object
+      required: [anime, from, note, created_at]
+      properties:
+        anime: { $ref: "#/components/schemas/AnimeSummary" }
+        from: { $ref: "#/components/schemas/ReviewAuthor" }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    FriendRecommendationList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/FriendRecommendation" }
+
+    InboxEntry:
+      type: object
+      required: [peer, last_body, last_mine, last_at, unread]
+      properties:
+        peer: { $ref: "#/components/schemas/ReviewAuthor" }
+        last_body: { type: string }
+        last_mine: { type: boolean, description: The caller sent the last message }
+        last_at: { type: string, format: date-time }
+        unread: { type: integer }
+
+    Inbox:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/InboxEntry" }
+
+    DirectMessage:
+      type: object
+      required: [id, sender, mine, body, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        sender: { type: string, description: Username }
+        mine: { type: boolean }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+
+    MessagePage:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/DirectMessage" }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Pass back as ?before_id= for the next (older) page; null at the oldest message
+
+    SendMessageRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
 
     UserRefList:
       type: object
@@ -2026,7 +2419,7 @@ components:
 
     NotificationType:
       type: string
-      enum: [comment_reply, new_follower, episode_aired]
+      enum: [comment_reply, new_follower, episode_aired, friend_request, friend_accepted, mention, recommendation]
 
     Notification:
       type: object

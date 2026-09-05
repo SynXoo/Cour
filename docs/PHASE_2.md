@@ -166,6 +166,21 @@ Miguel + Fable walked the live site; diagnosis and specs in
   music, dock shorts/OVAs/specials, exclude the trending top-50, and get
   format chips + a per-card reason. Spec in §M3.8.
 
+- [x] **M3.9** (F) Friends & interactions — friendships on top of follows
+  (request / accept / decline / unfriend, auto-follow both ways on accept),
+  `/friends` hub (requests, friends, suggested = mutual follows, find
+  people), friend state on profiles, **friends on this show** strip on the
+  anime page, **recommend to a friend** with a note, **@mentions** in
+  comments, **direct messages** between friends (inbox + conversation,
+  header badge), feed `scope=friends`, four new notification kinds.
+  Spec in §M3.9.
+- [ ] **M3.10** (F) You are here — the anime page's episode list reads the
+  viewer's progress: watched rows ticked, the next unwatched episode
+  highlighted as *Up next* with a one-tap "Watched" that advances it,
+  paginated shows open on the viewer's range, a "Continue · Ep N" action in
+  the header, and friends' positions as avatar markers on the rows they're
+  on. Spec in §M3.10.
+
 ### M4 — watch parties ([design](WATCH_PARTIES.md))
 
 - [ ] **M4.1** (F) WS gateway + presence, flag-gated
@@ -177,6 +192,75 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
 
+- 2026-09-04 · M3.9 · Friends & interactions, end to end. **Schema**
+  `000018_friends`: `friend_requests` (pending only, PK on the pair),
+  `friendships` (`CHECK user_a < user_b` so `(LEAST, GREATEST)` finds a pair
+  from either side), `anime_recommendations` (unique per triple, re-rec
+  refreshes note + bumps `created_at`), `dm_threads` (ordered pair, per-side
+  read pointers `last_read_a/b` = message id) + `dm_messages`; four
+  `notification_type` values added (`ADD VALUE IF NOT EXISTS`; the down
+  migration rebuilds the enum). **Spec-first, `task gen` clean** — heads-up:
+  adding four values flipped oapi-codegen's `NotificationType` constants from
+  bare (`apigen.CommentReply`) to prefixed (`apigen.NotificationTypeCommentReply`);
+  `notifications.go` updated. sqlc gotcha: a named param that shares a name
+  with a column inside a subselect (`@thread_id` vs `dm_messages.thread_id`)
+  fails as "ambiguous" — renamed the params and qualified the columns.
+  **Two friend verbs** (`social/friends.go`): `Befriend` sends, or accepts when
+  the other side already asked (accept = delete request + friendship + follow
+  both ways in one tx, *no* new-follower ping — the accept is the news);
+  `Unfriend` = "no relationship" (cancel / decline / unfriend, whichever
+  applies; follows untouched). `RelationState` grew `friends` + `friendship`
+  (`none|friends|request_sent|request_received|self`) so the profile's one
+  fetch drives Follow + Friend + Message. `social/messages.go`: friends-only
+  `Send` (tx: get-or-create thread via the no-op `ON CONFLICT DO UPDATE`
+  trick, insert, touch + advance the sender's own pointer), `Conversation`
+  (newest-first keyset, empty page for no thread), `MarkRead`, `Inbox`
+  (lateral last-message + unread subquery), `UnreadMessages`. Mentions:
+  `discussions.ParseMentions` (word-start `@`, 3–20 chars, ≤ 5 distinct,
+  lowercased) resolved via `GetUsersByUsernames` after commit, minus the
+  author and the parent's author; one `notify:mention` task per comment.
+  `notify` gained four tasks/handlers (mention re-reads the comment so a
+  deletion pings nobody). Feed `?scope=friends` = the same keyset query over
+  friendships. `GET /users?q=` = ILIKE prefix first, then trigram. **Tests:**
+  `TestParseMentions` table; integration `TestFriendsFlow` (request →
+  notification via the real enqueued task read back through
+  `asynq.Inspector` → accept-by-PUT with auto-follow both ways → friends on
+  a show → recommend 403/204/upsert → DMs 403/422/201, inbox unread, read
+  pointer, newest-first page → friends-scoped feed vs default → search →
+  unfriend keeps follows and closes the DM gate → DELETE declines) and
+  `TestMentionNotification` (payload carries only the eligible id; handler
+  lands a `mention` with the episode deep link). Full Go unit + integration
+  green, golangci 0 issues. **Web:** `lib/social.ts` (`friendAction` state
+  machine, `splitMentions` mirroring the Go regex, `friendMarkers`,
+  `friendStandingLabel`, `chronological`/`sameGroup`) + tests; relation row
+  rebuilt in `follow-button.tsx` (Follow · Friend · Message · counts —
+  **fixed a pre-existing gap**: its query fired during session hydration so
+  a hard reload showed "Follow"/"Add friend" for people you follow/befriend;
+  now `enabled: status !== "loading"`); `/friends` hub (requests both ways
+  with notes, find people, mutual-follow suggestions, friends grid);
+  `/messages` inbox + `/messages/[username]` (oldest-first bubbles grouped
+  within 5 min, Load older, Enter sends, 4 s poll with focus refetch off,
+  read pointer advanced when visible **and** on `visibilitychange`, send
+  invalidates every `["messages"]` query so the badge drops); header
+  `InboxBadge` (60 s poll); Friends + Messages in the user menu and the
+  mobile Menu sheet; `MentionText` in comment bodies; `FriendsOnShow` strip +
+  Recommend dialog on the anime page; home `FriendRecs` row; feed
+  Everyone/Friends chips; bell chips + sentences for the four kinds
+  (`notifications.ts` + tests). 304 vitest / tsc / eslint green.
+  **Demo:** `seedFriends` (own idempotent pass, gated on `friendships` being
+  empty, runs on the existing DB — ran it live via
+  `docker compose exec api //usr/local/bin/seed`: 90 friendships, 3 pending
+  around sakuga_sam, 2 recs, 2 DM threads where the friend has the last word,
+  a mention, and airing show 27552 on sam's list at ep 3 with two friends on
+  eps 2/4). **Verified in the preview** signed in as sakuga_sam at 1280 and
+  375: accept a request from /friends, send a DM (201, bubble, badge 2→1→0
+  as threads were read), profile row Following ✓ · Friends ✓ · Message,
+  notifications page sentences for mention/rec/request, friends-only feed,
+  home row; 0 console errors from new code. Ops: **api + worker images
+  rebuilt** (migration 18 applied by the API on boot); the compose web image
+  predates this session — `docker compose up -d --build web` before a prod
+  demo. Parking lot has the follow-ups (mention autocomplete, DMs over M4's
+  WS, blocking, multi-kind notification filter).
 - 2026-09-04 · M3.8 · Come-back loop + discovery restructure (Miguel's four
   asks: the signed-in home needs a reason to return, threads is a bulletin
   board, schedule is too much about too many shows, trending/gems overlap).
@@ -1150,6 +1234,15 @@ Miguel + Fable walked the live site; diagnosis and specs in
 
 <!-- Mid-session ideas land here instead of in the diff. -->
 
+- **M3.9 follow-ups (2026-09-04):** @mention autocomplete in the composer
+  (friends first, then recent thread participants — keep it off the
+  keystroke hot path); DMs pushed live over M4's WS gateway instead of the
+  4 s poll; group conversations; a "Recommend" entry point from the list
+  page and from feed items; blocking (the friendship gate covers DMs, but
+  mentions and requests from strangers have no mute yet); notification
+  `type` filter accepting several kinds so one "Friends" chip can cover
+  both request and accept.
+
 - **M3.8 follow-ups (2026-09-04):** badge-earned toast at the moment of
   earning (needs a client-side diff of `/me/pulse` badges between visits,
   or a server-side `earned_at`); the schedule's Popular lens could rank by
@@ -2113,6 +2206,106 @@ no music videos; shorts/OVAs/specials docked 3–6 points so a full show
 outranks a 5-minute special at the same score; anything in the trending
 top-50 excluded (a gem is by definition not what everyone's talking
 about); format chips and a per-card "★ 84 · only 1.2k on lists" reason.
+
+### Friends & interactions (M3.9)
+
+*(From Miguel's 2026-09-04 ask before M4: "the social aspect should be
+expanded upon — being able to add friends, interactions between people,
+etc.")*
+
+**Friends sit on top of follows; they don't replace them.** A follow is
+one-way and cheap (it's how the feed and trending's "why for you" work);
+a friendship is mutual and explicit. Accepting a request inserts follows
+both ways (`ON CONFLICT DO NOTHING`) so friends' activity lands in each
+other's feed without a second step; unfriending removes only the
+friendship — follows are the person's own to keep or drop.
+
+*Schema* (`000018_friends`): `friend_requests (requester_id, addressee_id,
+note, created_at)` — pending only, PK on the pair, not-self CHECK; accept
+or decline deletes the row. `friendships (user_a, user_b, created_at)` with
+`CHECK (user_a < user_b)` so a pair has one row whichever side asks.
+`anime_recommendations (from_user_id, to_user_id, anime_id, note,
+created_at)` unique per triple (re-recommending updates the note, never
+spams). `dm_threads (id, user_a, user_b, last_message_at, last_read_a,
+last_read_b)` + `dm_messages (id, thread_id, sender_id, body, created_at)`.
+`notification_type` gains `friend_request`, `friend_accepted`, `mention`,
+`recommendation`.
+
+*State machine, two verbs.* `PUT /users/{u}/friend` (optional `note`) sends
+a request — or, when the other side already asked, accepts (mutual intent
+is a friendship, not a second pending row). `DELETE /users/{u}/friend`
+means "no relationship": it cancels my outgoing request, declines their
+incoming one, or unfriends — whichever the current state is. Both return
+the `RelationState`, which now carries `friendship`
+(`none | friends | request_sent | request_received | self`) and a
+`friends` count next to followers/following, so the profile's one existing
+fetch drives both buttons. `GET /me/friends` returns friends (with
+`since`), incoming and outgoing requests (with notes), and `suggested` =
+people who follow you *and* whom you follow, not yet friends — the
+cheapest honest "you may know" there is. `GET /users?q=` (prefix + trigram
+on username, 10 rows) is the "find people" box; `GET /users/{u}/friends`
+is the public list.
+
+*Interactions.* (1) **Friends on this show** — `GET /anime/{id}/friends`
+(auth): each friend's status / progress / score on it, watching first by
+progress, then completed, then the rest; plus any recommendations *to the
+viewer* for it. Rendered as a strip under the header on the anime page;
+each row links to the profile. (2) **Recommend to a friend** —
+`POST /anime/{id}/recommend {to, note}` (friends only → 403 otherwise),
+one `recommendation` notification with the note; the anime page shows
+"@x recommended this to you — 'note'" to the recipient, and the signed-in
+home gets a **Friends think you'd like** row (`GET /me/friend-recommendations`,
+anime not on the viewer's list, newest first, twelve). (3) **@mentions** —
+`discussions.Post` parses `@username` tokens after commit (regex, ≤ 5
+distinct, existing users only, never self, never the parent's author who
+already gets a reply notification) and enqueues `notify:mention` per user;
+comment bodies render mentions as profile links. No autocomplete yet
+(Parking lot). (4) **Direct messages**, friends only — the friendship *is*
+the spam gate, which is the main reason friends exist as a distinct thing.
+`GET /me/messages` inbox (peer, last message, unread count, newest first),
+`GET /me/messages/{u}` newest-first keyset page (`before_id`),
+`POST /me/messages/{u}` (≤ 2 000 chars, 201), `POST /me/messages/{u}/read`
+(advances the viewer's read pointer; the client calls it when the page is
+visible), `GET /me/messages/unread-count` for the header badge. Transport
+is polling (60 s for the badge like the bell, 4 s inside an open
+conversation while visible) — M4's WS gateway is the place to push these
+live; the SSE hub is keyed by thread and stays that way. No notification
+row for a DM: the badge is the signal.
+
+*Feed.* `GET /me/feed?scope=friends` narrows the same keyset query to
+friendships; the page grows an Everyone / Friends toggle.
+
+*Notifications.* Bell chips: All · Replies · Mentions · Friends
+(`friend_request`) · Follows · Episodes. `friend_accepted` and
+`recommendation` show under All with their own sentences.
+
+*Demo.* A separate, idempotent `seedFriends` pass (runs even when the demo
+users already exist, gated on `friendships` being empty): 2–5 friends per
+user, two incoming + one outgoing request for `sakuga_sam`, two
+recommendations to them with notes, two short DM conversations, and one
+comment that mentions them — so every new surface has texture on the
+first load.
+
+### You are here (M3.10)
+
+*(Same ask: "when we click on an anime it should probably highlight the
+current episode it is on.")*
+
+The episode list is already a client component; it now reads the viewer's
+list entry (`useMyListEntry`, anon = nothing changes). With progress *p*:
+rows ≤ *p* are **watched** (a check in place of the number's weight, muted
+text); row *p + 1* is **Up next** — primary ring, a pill, and a one-tap
+**Watched** button that upserts `progress + 1` (status/score preserved;
+the server already flips watching → completed on the last episode) so the
+highlight walks down the list as you tap. An unaired *p + 1* keeps its
+countdown and the pill but no button. Long shows open on the range that
+contains *p + 1* (a `null` "auto" range state, resolved at render, so no
+set-state-in-effect); choosing a chip pins it. The section header gains
+"You're on episode *p* of *N* · *k* to go" and the action bar a
+**Continue · Ep p+1** link. Friends' positions ride the same list:
+`GET /anime/{id}/friends` progress values become stacked avatar markers
+(max three + "+N", title = "@x is here") on the row each friend is on —
+the tracker showing the room.
 
 ## M4 — watch parties
 

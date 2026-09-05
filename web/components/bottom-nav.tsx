@@ -3,10 +3,12 @@
 import {
   CalendarBlankIcon,
   CalendarDotsIcon,
+  ChatCircleIcon,
   ChatsCircleIcon,
   HouseIcon,
   type Icon,
   ListChecksIcon,
+  UsersThreeIcon,
   ListIcon,
   MagicWandIcon,
   MagnifyingGlassIcon,
@@ -50,6 +52,8 @@ const browseLinks: { href: string; label: string; icon: Icon }[] = [
 
 const personalLinks: { href: string; label: string; icon: Icon }[] = [
   { href: "/feed", label: "Feed", icon: RssIcon },
+  { href: "/friends", label: "Friends", icon: UsersThreeIcon },
+  { href: "/messages", label: "Messages", icon: ChatCircleIcon },
   { href: "/recommendations", label: "For you", icon: MagicWandIcon },
 ];
 

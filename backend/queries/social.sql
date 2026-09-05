@@ -42,3 +42,18 @@ WHERE activities.user_id IN (SELECT followee_id FROM follows WHERE follower_id =
   AND activities.id < $2
 ORDER BY activities.id DESC
 LIMIT $3;
+
+-- name: FeedActivitiesFriends :many
+-- The same feed narrowed to friendships (docs/PHASE_2.md §M3.9 `scope=friends`).
+SELECT sqlc.embed(activities), sqlc.embed(users), sqlc.embed(anime)
+FROM activities
+JOIN users ON users.id = activities.user_id
+JOIN anime ON anime.id = activities.anime_id
+WHERE activities.user_id IN (
+    SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END
+    FROM friendships WHERE user_a = $1 OR user_b = $1
+  )
+  AND activities.type NOT IN ('progress', 'helpful_vote')
+  AND activities.id < $2
+ORDER BY activities.id DESC
+LIMIT $3;

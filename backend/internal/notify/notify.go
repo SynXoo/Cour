@@ -21,9 +21,13 @@ import (
 )
 
 const (
-	TaskCommentReply  = "notify:comment_reply"
-	TaskNewFollower   = "notify:new_follower"
-	TaskEpisodesAired = "notify:episodes_aired"
+	TaskCommentReply   = "notify:comment_reply"
+	TaskNewFollower    = "notify:new_follower"
+	TaskEpisodesAired  = "notify:episodes_aired"
+	TaskFriendRequest  = "notify:friend_request"
+	TaskFriendAccepted = "notify:friend_accepted"
+	TaskMention        = "notify:mention"
+	TaskRecommendation = "notify:recommendation"
 
 	queue = "critical"
 )
@@ -35,6 +39,29 @@ type commentReplyPayload struct {
 type newFollowerPayload struct {
 	FollowerID int64 `json:"follower_id"`
 	FolloweeID int64 `json:"followee_id"`
+}
+
+type friendRequestPayload struct {
+	RequesterID int64  `json:"requester_id"`
+	AddresseeID int64  `json:"addressee_id"`
+	Note        string `json:"note"`
+}
+
+type friendAcceptedPayload struct {
+	AccepterID  int64 `json:"accepter_id"`
+	RequesterID int64 `json:"requester_id"`
+}
+
+type mentionPayload struct {
+	CommentID int64   `json:"comment_id"`
+	UserIDs   []int64 `json:"user_ids"`
+}
+
+type recommendationPayload struct {
+	FromID  int64  `json:"from_id"`
+	ToID    int64  `json:"to_id"`
+	AnimeID int64  `json:"anime_id"`
+	Note    string `json:"note"`
 }
 
 // ── Producer (used by the API process) ─────────────────────────────────────
@@ -78,6 +105,30 @@ func (e *Enqueuer) Followed(_ context.Context, followerID, followeeID int64) {
 	e.enqueue(TaskNewFollower, newFollowerPayload{FollowerID: followerID, FolloweeID: followeeID})
 }
 
+// FriendRequested implements social.Notifier.
+func (e *Enqueuer) FriendRequested(_ context.Context, requesterID, addresseeID int64, note string) {
+	e.enqueue(TaskFriendRequest, friendRequestPayload{RequesterID: requesterID, AddresseeID: addresseeID, Note: note})
+}
+
+// FriendAccepted implements social.Notifier.
+func (e *Enqueuer) FriendAccepted(_ context.Context, accepterID, requesterID int64) {
+	e.enqueue(TaskFriendAccepted, friendAcceptedPayload{AccepterID: accepterID, RequesterID: requesterID})
+}
+
+// Recommended implements social.Notifier.
+func (e *Enqueuer) Recommended(_ context.Context, fromID, toID, animeID int64, note string) {
+	e.enqueue(TaskRecommendation, recommendationPayload{FromID: fromID, ToID: toID, AnimeID: animeID, Note: note})
+}
+
+// Mentioned implements discussions.Notifier: one task per comment carrying
+// every mentioned user, so a five-name comment is one enqueue.
+func (e *Enqueuer) Mentioned(_ context.Context, comment sqlcgen.Comment, userIDs []int64) {
+	if len(userIDs) == 0 {
+		return
+	}
+	e.enqueue(TaskMention, mentionPayload{CommentID: comment.ID, UserIDs: userIDs})
+}
+
 // ── Consumer (worker process) ──────────────────────────────────────────────
 
 type Handlers struct {
@@ -94,6 +145,10 @@ func (h *Handlers) Register(mux *asynq.ServeMux) {
 	mux.HandleFunc(TaskCommentReply, h.handleCommentReply)
 	mux.HandleFunc(TaskNewFollower, h.handleNewFollower)
 	mux.HandleFunc(TaskEpisodesAired, h.handleEpisodesAired)
+	mux.HandleFunc(TaskFriendRequest, h.handleFriendRequest)
+	mux.HandleFunc(TaskFriendAccepted, h.handleFriendAccepted)
+	mux.HandleFunc(TaskMention, h.handleMention)
+	mux.HandleFunc(TaskRecommendation, h.handleRecommendation)
 }
 
 func (h *Handlers) handleCommentReply(ctx context.Context, t *asynq.Task) error {
@@ -155,6 +210,100 @@ func (h *Handlers) handleNewFollower(ctx context.Context, t *asynq.Task) error {
 		Type:    sqlcgen.NotificationTypeNewFollower,
 		ActorID: &p.FollowerID,
 		Payload: []byte("{}"),
+	}); err != nil {
+		return fmt.Errorf("insert notification: %w", err)
+	}
+	return nil
+}
+
+func (h *Handlers) handleFriendRequest(ctx context.Context, t *asynq.Task) error {
+	var p friendRequestPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	payload, _ := json.Marshal(map[string]any{"note": p.Note})
+	if err := h.q.InsertNotification(ctx, sqlcgen.InsertNotificationParams{
+		UserID:  p.AddresseeID,
+		Type:    sqlcgen.NotificationTypeFriendRequest,
+		ActorID: &p.RequesterID,
+		Payload: payload,
+	}); err != nil {
+		return fmt.Errorf("insert notification: %w", err)
+	}
+	return nil
+}
+
+func (h *Handlers) handleFriendAccepted(ctx context.Context, t *asynq.Task) error {
+	var p friendAcceptedPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	if err := h.q.InsertNotification(ctx, sqlcgen.InsertNotificationParams{
+		UserID:  p.RequesterID,
+		Type:    sqlcgen.NotificationTypeFriendAccepted,
+		ActorID: &p.AccepterID,
+		Payload: []byte("{}"),
+	}); err != nil {
+		return fmt.Errorf("insert notification: %w", err)
+	}
+	return nil
+}
+
+// handleMention pings everyone a comment named. The comment is re-read so a
+// deletion between post and fan-out pings nobody.
+func (h *Handlers) handleMention(ctx context.Context, t *asynq.Task) error {
+	var p mentionPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	comment, err := h.q.GetComment(ctx, p.CommentID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("get comment: %w", err)
+	}
+	if comment.DeletedAt != nil {
+		return nil
+	}
+	thread, err := h.q.GetThread(ctx, comment.ThreadID)
+	if err != nil {
+		return fmt.Errorf("get thread: %w", err)
+	}
+	payload, err := threadLinkPayload(ctx, h.q, thread)
+	if err != nil {
+		return err
+	}
+	for _, userID := range p.UserIDs {
+		if userID == comment.UserID {
+			continue
+		}
+		if err := h.q.InsertNotification(ctx, sqlcgen.InsertNotificationParams{
+			UserID:  userID,
+			Type:    sqlcgen.NotificationTypeMention,
+			ActorID: &comment.UserID,
+			AnimeID: &thread.AnimeID,
+			RefID:   &comment.ID,
+			Payload: payload,
+		}); err != nil {
+			return fmt.Errorf("insert notification: %w", err)
+		}
+	}
+	return nil
+}
+
+func (h *Handlers) handleRecommendation(ctx context.Context, t *asynq.Task) error {
+	var p recommendationPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	payload, _ := json.Marshal(map[string]any{"note": p.Note})
+	if err := h.q.InsertNotification(ctx, sqlcgen.InsertNotificationParams{
+		UserID:  p.ToID,
+		Type:    sqlcgen.NotificationTypeRecommendation,
+		ActorID: &p.FromID,
+		AnimeID: &p.AnimeID,
+		Payload: payload,
 	}); err != nil {
 		return fmt.Errorf("insert notification: %w", err)
 	}

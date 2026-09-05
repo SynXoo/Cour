@@ -187,6 +187,33 @@ func (e Format) Valid() bool {
 	}
 }
 
+// Defines values for FriendshipStatus.
+const (
+	FriendshipStatusFriends         FriendshipStatus = "friends"
+	FriendshipStatusNone            FriendshipStatus = "none"
+	FriendshipStatusRequestReceived FriendshipStatus = "request_received"
+	FriendshipStatusRequestSent     FriendshipStatus = "request_sent"
+	FriendshipStatusSelf            FriendshipStatus = "self"
+)
+
+// Valid indicates whether the value is a known member of the FriendshipStatus enum.
+func (e FriendshipStatus) Valid() bool {
+	switch e {
+	case FriendshipStatusFriends:
+		return true
+	case FriendshipStatusNone:
+		return true
+	case FriendshipStatusRequestReceived:
+		return true
+	case FriendshipStatusRequestSent:
+		return true
+	case FriendshipStatusSelf:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImportMatch.
 const (
 	ImportMatchId     ImportMatch = "id"
@@ -288,19 +315,31 @@ func (e ListStatus) Valid() bool {
 
 // Defines values for NotificationType.
 const (
-	CommentReply NotificationType = "comment_reply"
-	EpisodeAired NotificationType = "episode_aired"
-	NewFollower  NotificationType = "new_follower"
+	NotificationTypeCommentReply   NotificationType = "comment_reply"
+	NotificationTypeEpisodeAired   NotificationType = "episode_aired"
+	NotificationTypeFriendAccepted NotificationType = "friend_accepted"
+	NotificationTypeFriendRequest  NotificationType = "friend_request"
+	NotificationTypeMention        NotificationType = "mention"
+	NotificationTypeNewFollower    NotificationType = "new_follower"
+	NotificationTypeRecommendation NotificationType = "recommendation"
 )
 
 // Valid indicates whether the value is a known member of the NotificationType enum.
 func (e NotificationType) Valid() bool {
 	switch e {
-	case CommentReply:
+	case NotificationTypeCommentReply:
 		return true
-	case EpisodeAired:
+	case NotificationTypeEpisodeAired:
 		return true
-	case NewFollower:
+	case NotificationTypeFriendAccepted:
+		return true
+	case NotificationTypeFriendRequest:
+		return true
+	case NotificationTypeMention:
+		return true
+	case NotificationTypeNewFollower:
+		return true
+	case NotificationTypeRecommendation:
 		return true
 	default:
 		return false
@@ -442,6 +481,24 @@ func (e ThreadKind) Valid() bool {
 	}
 }
 
+// Defines values for GetMyFeedParamsScope.
+const (
+	GetMyFeedParamsScopeAll     GetMyFeedParamsScope = "all"
+	GetMyFeedParamsScopeFriends GetMyFeedParamsScope = "friends"
+)
+
+// Valid indicates whether the value is a known member of the GetMyFeedParamsScope enum.
+func (e GetMyFeedParamsScope) Valid() bool {
+	switch e {
+	case GetMyFeedParamsScopeAll:
+		return true
+	case GetMyFeedParamsScopeFriends:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetUserPublicListParamsSort.
 const (
 	Score   GetUserPublicListParamsSort = "score"
@@ -513,6 +570,13 @@ type AnimeDetail struct {
 type AnimeList struct {
 	Data []AnimeSummary `json:"data"`
 	Page PageInfo       `json:"page"`
+}
+
+// AnimeRecommendation defines model for AnimeRecommendation.
+type AnimeRecommendation struct {
+	CreatedAt time.Time    `json:"created_at"`
+	From      ReviewAuthor `json:"from"`
+	Note      string       `json:"note"`
 }
 
 // AnimeSummary defines model for AnimeSummary.
@@ -600,6 +664,17 @@ type CommitImportRequest struct {
 
 // CommitImportRequestMode merge skips titles already on the list; overwrite lets the import win
 type CommitImportRequestMode string
+
+// DirectMessage defines model for DirectMessage.
+type DirectMessage struct {
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	Id        int64     `json:"id"`
+	Mine      bool      `json:"mine"`
+
+	// Sender Username
+	Sender string `json:"sender"`
+}
 
 // DiscoveryList defines model for DiscoveryList.
 type DiscoveryList struct {
@@ -695,6 +770,72 @@ type FormatCount struct {
 	Count  int    `json:"count"`
 	Format Format `json:"format"`
 }
+
+// FriendOnAnime defines model for FriendOnAnime.
+type FriendOnAnime struct {
+	Progress int          `json:"progress"`
+	Score    *int         `json:"score"`
+	Status   ListStatus   `json:"status"`
+	User     ReviewAuthor `json:"user"`
+}
+
+// FriendRecommendation defines model for FriendRecommendation.
+type FriendRecommendation struct {
+	Anime     AnimeSummary `json:"anime"`
+	CreatedAt time.Time    `json:"created_at"`
+	From      ReviewAuthor `json:"from"`
+	Note      string       `json:"note"`
+}
+
+// FriendRecommendationList defines model for FriendRecommendationList.
+type FriendRecommendationList struct {
+	Data []FriendRecommendation `json:"data"`
+}
+
+// FriendRef defines model for FriendRef.
+type FriendRef struct {
+	AvatarUrl *string   `json:"avatar_url"`
+	Since     time.Time `json:"since"`
+	Username  string    `json:"username"`
+}
+
+// FriendRequest defines model for FriendRequest.
+type FriendRequest struct {
+	CreatedAt time.Time    `json:"created_at"`
+	Note      string       `json:"note"`
+	User      ReviewAuthor `json:"user"`
+}
+
+// FriendRequestBody defines model for FriendRequestBody.
+type FriendRequestBody struct {
+	// Note Optional line that rides the request
+	Note *string `json:"note,omitempty"`
+}
+
+// FriendsOnAnime defines model for FriendsOnAnime.
+type FriendsOnAnime struct {
+	Data []FriendOnAnime `json:"data"`
+
+	// Recommendations Friends who recommended this show to the caller
+	Recommendations []AnimeRecommendation `json:"recommendations"`
+}
+
+// FriendsOverview defines model for FriendsOverview.
+type FriendsOverview struct {
+	Friends []FriendRef `json:"friends"`
+
+	// Incoming Requests waiting on the caller
+	Incoming []FriendRequest `json:"incoming"`
+
+	// Outgoing Requests the caller sent
+	Outgoing []FriendRequest `json:"outgoing"`
+
+	// Suggested Mutual follows who aren't friends yet
+	Suggested []ReviewAuthor `json:"suggested"`
+}
+
+// FriendshipStatus The caller's standing with this user; `none` for anonymous callers
+type FriendshipStatus string
 
 // GenreStat defines model for GenreStat.
 type GenreStat struct {
@@ -809,6 +950,22 @@ type ImportSource string
 // ImportStatus pending/processing — being fetched and matched; ready — preview available, awaiting commit; committing — apply in flight; done — applied; failed — fetch or parse error (see `error`); superseded — replaced by a newer import before commit.
 type ImportStatus string
 
+// Inbox defines model for Inbox.
+type Inbox struct {
+	Data []InboxEntry `json:"data"`
+}
+
+// InboxEntry defines model for InboxEntry.
+type InboxEntry struct {
+	LastAt   time.Time `json:"last_at"`
+	LastBody string    `json:"last_body"`
+
+	// LastMine The caller sent the last message
+	LastMine bool         `json:"last_mine"`
+	Peer     ReviewAuthor `json:"peer"`
+	Unread   int          `json:"unread"`
+}
+
 // Kudos defines model for Kudos.
 type Kudos struct {
 	// ReactionsWeek Reactions the viewer's comments drew in the last 7 days
@@ -868,6 +1025,14 @@ type LoginRequest struct {
 type MarkReadRequest struct {
 	All *bool    `json:"all,omitempty"`
 	Ids *[]int64 `json:"ids,omitempty"`
+}
+
+// MessagePage defines model for MessagePage.
+type MessagePage struct {
+	Data []DirectMessage `json:"data"`
+
+	// NextCursor Pass back as ?before_id= for the next (older) page; null at the oldest message
+	NextCursor *int64 `json:"next_cursor"`
 }
 
 // MyList defines model for MyList.
@@ -996,6 +1161,14 @@ type ReactionCount struct {
 	Mine  bool  `json:"mine"`
 }
 
+// RecommendRequest defines model for RecommendRequest.
+type RecommendRequest struct {
+	Note *string `json:"note,omitempty"`
+
+	// To Friend's username
+	To string `json:"to"`
+}
+
 // RecommendationItem defines model for RecommendationItem.
 type RecommendationItem struct {
 	Anime   AnimeSummary `json:"anime"`
@@ -1022,6 +1195,10 @@ type RegisterRequest struct {
 type RelationState struct {
 	Followers int `json:"followers"`
 	Following int `json:"following"`
+	Friends   int `json:"friends"`
+
+	// Friendship The caller's standing with this user; `none` for anonymous callers
+	Friendship FriendshipStatus `json:"friendship"`
 
 	// IsFollowing Always false for anonymous callers
 	IsFollowing bool `json:"is_following"`
@@ -1165,6 +1342,11 @@ type SeasonChart struct {
 type SeasonCount struct {
 	Count int `json:"count"`
 	Year  int `json:"year"`
+}
+
+// SendMessageRequest defines model for SendMessageRequest.
+type SendMessageRequest struct {
+	Body string `json:"body"`
 }
 
 // SessionResponse defines model for SessionResponse.
@@ -1426,13 +1608,30 @@ type StartMALImportMultipartBody struct {
 
 // GetMyFeedParams defines parameters for GetMyFeed.
 type GetMyFeedParams struct {
-	Cursor *int64 `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+	// Scope `friends` narrows the feed to friendships (default everyone followed)
+	Scope  *GetMyFeedParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+	Cursor *int64                `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetMyFeedParamsScope defines parameters for GetMyFeed.
+type GetMyFeedParamsScope string
+
+// GetFriendRecommendationsParams defines parameters for GetFriendRecommendations.
+type GetFriendRecommendationsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetMyListParams defines parameters for GetMyList.
 type GetMyListParams struct {
 	Status *ListStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// GetConversationParams defines parameters for GetConversation.
+type GetConversationParams struct {
+	// BeforeId Keyset cursor — messages older than this id
+	BeforeId *int64 `form:"before_id,omitempty" json:"before_id,omitempty"`
+	Limit    *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetMyNotificationsParams defines parameters for GetMyNotifications.
@@ -1484,6 +1683,11 @@ type GetTrendingExplainedParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// SearchUsersParams defines parameters for SearchUsers.
+type SearchUsersParams struct {
+	Q string `form:"q" json:"q"`
+}
+
 // GetUserPublicListParams defines parameters for GetUserPublicList.
 type GetUserPublicListParams struct {
 	Status *ListStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -1510,6 +1714,9 @@ type ListUserReviewsParams struct {
 	Page    *int `form:"page,omitempty" json:"page,omitempty"`
 	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
+
+// RecommendAnimeJSONRequestBody defines body for RecommendAnime for application/json ContentType.
+type RecommendAnimeJSONRequestBody = RecommendRequest
 
 // UpsertMyReviewJSONRequestBody defines body for UpsertMyReview for application/json ContentType.
 type UpsertMyReviewJSONRequestBody = UpsertReviewRequest
@@ -1541,6 +1748,9 @@ type StartMALImportMultipartRequestBody StartMALImportMultipartBody
 // UpsertMyListEntryJSONRequestBody defines body for UpsertMyListEntry for application/json ContentType.
 type UpsertMyListEntryJSONRequestBody = UpsertListEntryRequest
 
+// SendMessageJSONRequestBody defines body for SendMessage for application/json ContentType.
+type SendMessageJSONRequestBody = SendMessageRequest
+
 // MarkNotificationsReadJSONRequestBody defines body for MarkNotificationsRead for application/json ContentType.
 type MarkNotificationsReadJSONRequestBody = MarkReadRequest
 
@@ -1556,6 +1766,9 @@ type FileReportJSONRequestBody = FileReportRequest
 // PostCommentJSONRequestBody defines body for PostComment for application/json ContentType.
 type PostCommentJSONRequestBody = PostCommentRequest
 
+// BefriendUserJSONRequestBody defines body for BefriendUser for application/json ContentType.
+type BefriendUserJSONRequestBody = FriendRequestBody
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Browse or search the catalog
@@ -1567,6 +1780,12 @@ type ServerInterface interface {
 	// An episode's thread with context (created on first visit)
 	// (GET /anime/{id}/episodes/{number}/thread)
 	GetEpisodeThread(w http.ResponseWriter, r *http.Request, id int64, number int)
+	// The caller's friends on this show, and who recommended it to them
+	// (GET /anime/{id}/friends)
+	GetAnimeFriends(w http.ResponseWriter, r *http.Request, id int64)
+	// Recommend this show to a friend
+	// (POST /anime/{id}/recommend)
+	RecommendAnime(w http.ResponseWriter, r *http.Request, id int64)
 	// Reviews for an anime, most helpful first
 	// (GET /anime/{id}/reviews)
 	ListAnimeReviews(w http.ResponseWriter, r *http.Request, id int64, params ListAnimeReviewsParams)
@@ -1654,6 +1873,12 @@ type ServerInterface interface {
 	// Activity from everyone the caller follows
 	// (GET /me/feed)
 	GetMyFeed(w http.ResponseWriter, r *http.Request, params GetMyFeedParams)
+	// Shows friends recommended to the caller that aren't on their list yet
+	// (GET /me/friend-recommendations)
+	GetFriendRecommendations(w http.ResponseWriter, r *http.Request, params GetFriendRecommendationsParams)
+	// Friends, pending requests both ways, and suggestions
+	// (GET /me/friends)
+	GetMyFriends(w http.ResponseWriter, r *http.Request)
 	// The authenticated user's anime list
 	// (GET /me/list)
 	GetMyList(w http.ResponseWriter, r *http.Request, params GetMyListParams)
@@ -1666,6 +1891,21 @@ type ServerInterface interface {
 	// Add or update this anime on the user's list
 	// (PUT /me/list/{animeId})
 	UpsertMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64)
+	// Conversations, newest activity first
+	// (GET /me/messages)
+	GetMyInbox(w http.ResponseWriter, r *http.Request)
+	// Unread direct-message count (for the header badge)
+	// (GET /me/messages/unread-count)
+	GetUnreadMessageCount(w http.ResponseWriter, r *http.Request)
+	// One conversation, newest first
+	// (GET /me/messages/{username})
+	GetConversation(w http.ResponseWriter, r *http.Request, username string, params GetConversationParams)
+	// Send a direct message (friends only)
+	// (POST /me/messages/{username})
+	SendMessage(w http.ResponseWriter, r *http.Request, username string)
+	// Move the caller's read pointer to the end of this conversation
+	// (POST /me/messages/{username}/read)
+	MarkConversationRead(w http.ResponseWriter, r *http.Request, username string)
 	// The caller's notifications, newest first
 	// (GET /me/notifications)
 	GetMyNotifications(w http.ResponseWriter, r *http.Request, params GetMyNotificationsParams)
@@ -1726,6 +1966,9 @@ type ServerInterface interface {
 	// Trending Now with the why — per-title signal breakdown, plus the viewer's angle
 	// (GET /trending/explained)
 	GetTrendingExplained(w http.ResponseWriter, r *http.Request, params GetTrendingExplainedParams)
+	// Find people by username (prefix first, then fuzzy)
+	// (GET /users)
+	SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams)
 	// Public profile with stats and showcases
 	// (GET /users/{username})
 	GetUserProfile(w http.ResponseWriter, r *http.Request, username string)
@@ -1744,6 +1987,15 @@ type ServerInterface interface {
 	// Who this user follows
 	// (GET /users/{username}/following)
 	ListFollowing(w http.ResponseWriter, r *http.Request, username string)
+	// No relationship — cancel my request, decline theirs, or unfriend
+	// (DELETE /users/{username}/friend)
+	UnfriendUser(w http.ResponseWriter, r *http.Request, username string)
+	// Send a friend request — or accept theirs if one is waiting
+	// (PUT /users/{username}/friend)
+	BefriendUser(w http.ResponseWriter, r *http.Request, username string)
+	// This user's friends, newest first
+	// (GET /users/{username}/friends)
+	ListUserFriends(w http.ResponseWriter, r *http.Request, username string)
 	// One page of a user's list, publicly browsable
 	// (GET /users/{username}/list)
 	GetUserPublicList(w http.ResponseWriter, r *http.Request, username string, params GetUserPublicListParams)
@@ -1771,6 +2023,18 @@ func (_ Unimplemented) GetAnime(w http.ResponseWriter, r *http.Request, id int64
 // An episode's thread with context (created on first visit)
 // (GET /anime/{id}/episodes/{number}/thread)
 func (_ Unimplemented) GetEpisodeThread(w http.ResponseWriter, r *http.Request, id int64, number int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The caller's friends on this show, and who recommended it to them
+// (GET /anime/{id}/friends)
+func (_ Unimplemented) GetAnimeFriends(w http.ResponseWriter, r *http.Request, id int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Recommend this show to a friend
+// (POST /anime/{id}/recommend)
+func (_ Unimplemented) RecommendAnime(w http.ResponseWriter, r *http.Request, id int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1948,6 +2212,18 @@ func (_ Unimplemented) GetMyFeed(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Shows friends recommended to the caller that aren't on their list yet
+// (GET /me/friend-recommendations)
+func (_ Unimplemented) GetFriendRecommendations(w http.ResponseWriter, r *http.Request, params GetFriendRecommendationsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Friends, pending requests both ways, and suggestions
+// (GET /me/friends)
+func (_ Unimplemented) GetMyFriends(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // The authenticated user's anime list
 // (GET /me/list)
 func (_ Unimplemented) GetMyList(w http.ResponseWriter, r *http.Request, params GetMyListParams) {
@@ -1969,6 +2245,36 @@ func (_ Unimplemented) GetMyListEntry(w http.ResponseWriter, r *http.Request, an
 // Add or update this anime on the user's list
 // (PUT /me/list/{animeId})
 func (_ Unimplemented) UpsertMyListEntry(w http.ResponseWriter, r *http.Request, animeId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Conversations, newest activity first
+// (GET /me/messages)
+func (_ Unimplemented) GetMyInbox(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unread direct-message count (for the header badge)
+// (GET /me/messages/unread-count)
+func (_ Unimplemented) GetUnreadMessageCount(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One conversation, newest first
+// (GET /me/messages/{username})
+func (_ Unimplemented) GetConversation(w http.ResponseWriter, r *http.Request, username string, params GetConversationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send a direct message (friends only)
+// (POST /me/messages/{username})
+func (_ Unimplemented) SendMessage(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Move the caller's read pointer to the end of this conversation
+// (POST /me/messages/{username}/read)
+func (_ Unimplemented) MarkConversationRead(w http.ResponseWriter, r *http.Request, username string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2092,6 +2398,12 @@ func (_ Unimplemented) GetTrendingExplained(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Find people by username (prefix first, then fuzzy)
+// (GET /users)
+func (_ Unimplemented) SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Public profile with stats and showcases
 // (GET /users/{username})
 func (_ Unimplemented) GetUserProfile(w http.ResponseWriter, r *http.Request, username string) {
@@ -2125,6 +2437,24 @@ func (_ Unimplemented) ListFollowers(w http.ResponseWriter, r *http.Request, use
 // Who this user follows
 // (GET /users/{username}/following)
 func (_ Unimplemented) ListFollowing(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// No relationship — cancel my request, decline theirs, or unfriend
+// (DELETE /users/{username}/friend)
+func (_ Unimplemented) UnfriendUser(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send a friend request — or accept theirs if one is waiting
+// (PUT /users/{username}/friend)
+func (_ Unimplemented) BefriendUser(w http.ResponseWriter, r *http.Request, username string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// This user's friends, newest first
+// (GET /users/{username}/friends)
+func (_ Unimplemented) ListUserFriends(w http.ResponseWriter, r *http.Request, username string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2312,6 +2642,70 @@ func (siw *ServerInterfaceWrapper) GetEpisodeThread(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetEpisodeThread(w, r, id, number)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnimeFriends operation middleware
+func (siw *ServerInterfaceWrapper) GetAnimeFriends(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnimeFriends(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecommendAnime operation middleware
+func (siw *ServerInterfaceWrapper) RecommendAnime(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecommendAnime(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3053,6 +3447,19 @@ func (siw *ServerInterfaceWrapper) GetMyFeed(w http.ResponseWriter, r *http.Requ
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetMyFeedParams
 
+	// ------------- Optional query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "scope", r.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scope"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scope", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "cursor" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
@@ -3081,6 +3488,65 @@ func (siw *ServerInterfaceWrapper) GetMyFeed(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMyFeed(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFriendRecommendations operation middleware
+func (siw *ServerInterfaceWrapper) GetFriendRecommendations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetFriendRecommendationsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFriendRecommendations(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyFriends operation middleware
+func (siw *ServerInterfaceWrapper) GetMyFriends(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyFriends(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3216,6 +3682,171 @@ func (siw *ServerInterfaceWrapper) UpsertMyListEntry(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpsertMyListEntry(w, r, animeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyInbox operation middleware
+func (siw *ServerInterfaceWrapper) GetMyInbox(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyInbox(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUnreadMessageCount operation middleware
+func (siw *ServerInterfaceWrapper) GetUnreadMessageCount(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUnreadMessageCount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetConversation operation middleware
+func (siw *ServerInterfaceWrapper) GetConversation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetConversationParams
+
+	// ------------- Optional query parameter "before_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before_id", r.URL.Query(), &params.BeforeId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetConversation(w, r, username, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendMessage operation middleware
+func (siw *ServerInterfaceWrapper) SendMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendMessage(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MarkConversationRead operation middleware
+func (siw *ServerInterfaceWrapper) MarkConversationRead(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkConversationRead(w, r, username)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3902,6 +4533,39 @@ func (siw *ServerInterfaceWrapper) GetTrendingExplained(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// SearchUsers operation middleware
+func (siw *ServerInterfaceWrapper) SearchUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchUsersParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchUsers(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUserProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -4061,6 +4725,96 @@ func (siw *ServerInterfaceWrapper) ListFollowing(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListFollowing(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnfriendUser operation middleware
+func (siw *ServerInterfaceWrapper) UnfriendUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnfriendUser(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BefriendUser operation middleware
+func (siw *ServerInterfaceWrapper) BefriendUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BefriendUser(w, r, username)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserFriends operation middleware
+func (siw *ServerInterfaceWrapper) ListUserFriends(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "username" -------------
+	var username string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserFriends(w, r, username)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4381,6 +5135,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/anime/{id}/episodes/{number}/thread", wrapper.GetEpisodeThread)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/anime/{id}/friends", wrapper.GetAnimeFriends)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/anime/{id}/recommend", wrapper.RecommendAnime)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/anime/{id}/reviews", wrapper.ListAnimeReviews)
 	})
 	r.Group(func(r chi.Router) {
@@ -4468,6 +5228,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/me/feed", wrapper.GetMyFeed)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/friend-recommendations", wrapper.GetFriendRecommendations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/friends", wrapper.GetMyFriends)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/list", wrapper.GetMyList)
 	})
 	r.Group(func(r chi.Router) {
@@ -4478,6 +5244,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/me/list/{animeId}", wrapper.UpsertMyListEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/messages", wrapper.GetMyInbox)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/messages/unread-count", wrapper.GetUnreadMessageCount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/messages/{username}", wrapper.GetConversation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/me/messages/{username}", wrapper.SendMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/me/messages/{username}/read", wrapper.MarkConversationRead)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/notifications", wrapper.GetMyNotifications)
@@ -4540,6 +5321,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/trending/explained", wrapper.GetTrendingExplained)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users", wrapper.SearchUsers)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}", wrapper.GetUserProfile)
 	})
 	r.Group(func(r chi.Router) {
@@ -4556,6 +5340,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}/following", wrapper.ListFollowing)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/users/{username}/friend", wrapper.UnfriendUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/users/{username}/friend", wrapper.BefriendUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{username}/friends", wrapper.ListUserFriends)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/{username}/list", wrapper.GetUserPublicList)

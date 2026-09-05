@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { createContext, useContext, useRef, useState, type CSSProperties } from "react";
+import { MentionText } from "@/components/social/mention-text";
 import { SpoilerGuard } from "@/components/spoiler-guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -263,7 +264,7 @@ export function CommentItem({
         ) : (
           <SpoilerGuard active={comment.has_spoilers || shield}>
             <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
-              {comment.body}
+              <MentionText body={comment.body} />
             </p>
           </SpoilerGuard>
         )}

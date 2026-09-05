@@ -66,4 +66,8 @@ func main() {
 		log.Error("demo seed", "err", err)
 		os.Exit(1)
 	}
+	if err := seedFriends(ctx, pool, queries, log); err != nil {
+		log.Error("social seed", "err", err)
+		os.Exit(1)
+	}
 }

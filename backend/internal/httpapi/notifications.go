@@ -15,11 +15,16 @@ type notificationHandlers struct {
 	log *slog.Logger
 }
 
-// Bare apigen constant names, same reason as validListStatuses in lists.go.
+// Type-prefixed apigen constants: M3.9 added enough enum values that
+// oapi-codegen switched this enum back to prefixed names.
 var validNotificationTypes = map[apigen.NotificationType]sqlcgen.NotificationType{
-	apigen.CommentReply: sqlcgen.NotificationTypeCommentReply,
-	apigen.NewFollower:  sqlcgen.NotificationTypeNewFollower,
-	apigen.EpisodeAired: sqlcgen.NotificationTypeEpisodeAired,
+	apigen.NotificationTypeCommentReply:   sqlcgen.NotificationTypeCommentReply,
+	apigen.NotificationTypeNewFollower:    sqlcgen.NotificationTypeNewFollower,
+	apigen.NotificationTypeEpisodeAired:   sqlcgen.NotificationTypeEpisodeAired,
+	apigen.NotificationTypeFriendRequest:  sqlcgen.NotificationTypeFriendRequest,
+	apigen.NotificationTypeFriendAccepted: sqlcgen.NotificationTypeFriendAccepted,
+	apigen.NotificationTypeMention:        sqlcgen.NotificationTypeMention,
+	apigen.NotificationTypeRecommendation: sqlcgen.NotificationTypeRecommendation,
 }
 
 func (h notificationHandlers) GetMyNotifications(w http.ResponseWriter, r *http.Request, params apigen.GetMyNotificationsParams) {

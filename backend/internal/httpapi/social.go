@@ -59,7 +59,9 @@ func (h socialHandlers) writeRelation(w http.ResponseWriter, state social.Relati
 	writeJSON(w, http.StatusOK, apigen.RelationState{
 		Followers:   int(state.Followers),
 		Following:   int(state.Following),
+		Friends:     int(state.Friends),
 		IsFollowing: state.IsFollowing,
+		Friendship:  apigen.FriendshipStatus(state.Friendship),
 	})
 }
 
@@ -111,7 +113,12 @@ func (h socialHandlers) GetMyFeed(w http.ResponseWriter, r *http.Request, params
 		limit = *params.Limit
 	}
 
-	rows, next, err := h.svc.Feed(r.Context(), id.UserID, cursor, limit)
+	scope := social.FeedEveryone
+	if params.Scope != nil && *params.Scope == apigen.GetMyFeedParamsScopeFriends {
+		scope = social.FeedFriends
+	}
+
+	rows, next, err := h.svc.Feed(r.Context(), id.UserID, scope, cursor, limit)
 	if err != nil {
 		writeInternal(w, h.log, err)
 		return

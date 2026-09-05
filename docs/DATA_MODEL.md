@@ -21,6 +21,12 @@ erDiagram
     users ||--o{ refresh_tokens : "signs in via"
     users ||--o{ email_tokens : "verifies/resets"
     users ||--o{ follows : "follows (self-M2M)"
+    users ||--o{ friend_requests : "asks (pending only)"
+    users ||--o{ friendships : "is friends with (ordered pair)"
+    users ||--o{ anime_recommendations : "recommends to a friend"
+    users ||--o{ dm_threads : "converses in (ordered pair)"
+    dm_threads ||--o{ dm_messages : contains
+    anime ||--o{ anime_recommendations : "is recommended in"
 
     anime ||--o{ episodes : has
     anime ||--o{ list_entries : "is tracked in"
@@ -84,6 +90,19 @@ erDiagram
 - **comment_reactions** — PK `(comment_id, user_id, emoji)`, emoji CHECK'd
   against a fixed vocabulary.
 - **follows** — PK `(follower_id, followee_id)`, self-follow CHECK.
+- **friend_requests** — pending only: PK `(requester_id, addressee_id)`,
+  optional `note`; accept or decline deletes the row (M3.9).
+- **friendships** — one row per pair with `CHECK (user_a < user_b)`, so a
+  friendship is found by `(LEAST, GREATEST)` whichever side asks. Accepting
+  a request inserts the row *and* follows both ways in one transaction;
+  unfriending removes only the friendship.
+- **anime_recommendations** — `(from_user_id, to_user_id, anime_id)`
+  unique + `note`; re-recommending updates the note and bumps
+  `created_at`. Friends only (enforced in the service).
+- **dm_threads** / **dm_messages** — one thread per ordered pair
+  (`UNIQUE (user_a, user_b)`), each side's read pointer on the thread
+  (`last_read_a` / `last_read_b` = message id), messages keyset-paged on
+  `(thread_id, id DESC)`, body CHECK 1–2000 chars. Friends only.
 
 ### Event spine
 - **activities** — append-only: `(user_id, type, anime_id, ref_id,
@@ -92,8 +111,10 @@ erDiagram
   `(user_id, id DESC)`) and the trending recompute (window scan on
   `created_at`). One stream, two products.
 - **notifications** — materialized per recipient by asynq workers
-  (`comment_reply|new_follower|episode_aired`), `read_at`, payload carries
-  deep-link data. Partial index on unread.
+  (`comment_reply|new_follower|episode_aired|friend_request|friend_accepted|mention|recommendation`),
+  `read_at`, payload carries deep-link data (thread link, request/rec note).
+  Partial index on unread. DMs raise no notification — the inbox badge is
+  their signal.
 - **trending_scores** — durable snapshot of the latest ranking (the serve
   path is a Redis ZSET; this table is for durability and debugging).
 

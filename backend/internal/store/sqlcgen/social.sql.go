@@ -108,6 +108,106 @@ func (q *Queries) FeedActivities(ctx context.Context, arg FeedActivitiesParams) 
 	return items, nil
 }
 
+const feedActivitiesFriends = `-- name: FeedActivitiesFriends :many
+SELECT activities.id, activities.user_id, activities.type, activities.anime_id, activities.ref_id, activities.payload, activities.created_at, users.id, users.email, users.username, users.password_hash, users.discord_id, users.avatar_url, users.bio, users.favorite_genres, users.role, users.email_verified_at, users.created_at, users.updated_at, users.banner_anime_id, users.accent_color, anime.id, anime.anilist_id, anime.title_romaji, anime.title_english, anime.title_native, anime.synonyms, anime.description, anime.format, anime.status, anime.season, anime.season_year, anime.episodes_count, anime.duration_min, anime.genres, anime.tags, anime.studios, anime.cover_image, anime.cover_color, anime.banner_image, anime.average_score, anime.popularity, anime.anilist_trending, anime.is_adult, anime.next_airing_at, anime.next_airing_episode, anime.synced_at, anime.created_at, anime.updated_at, anime.search_doc, anime.mal_id
+FROM activities
+JOIN users ON users.id = activities.user_id
+JOIN anime ON anime.id = activities.anime_id
+WHERE activities.user_id IN (
+    SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END
+    FROM friendships WHERE user_a = $1 OR user_b = $1
+  )
+  AND activities.type NOT IN ('progress', 'helpful_vote')
+  AND activities.id < $2
+ORDER BY activities.id DESC
+LIMIT $3
+`
+
+type FeedActivitiesFriendsParams struct {
+	UserA int64
+	ID    int64
+	Limit int32
+}
+
+type FeedActivitiesFriendsRow struct {
+	Activity Activity
+	User     User
+	Anime    Anime
+}
+
+// The same feed narrowed to friendships (docs/PHASE_2.md §M3.9 `scope=friends`).
+func (q *Queries) FeedActivitiesFriends(ctx context.Context, arg FeedActivitiesFriendsParams) ([]FeedActivitiesFriendsRow, error) {
+	rows, err := q.db.Query(ctx, feedActivitiesFriends, arg.UserA, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FeedActivitiesFriendsRow
+	for rows.Next() {
+		var i FeedActivitiesFriendsRow
+		if err := rows.Scan(
+			&i.Activity.ID,
+			&i.Activity.UserID,
+			&i.Activity.Type,
+			&i.Activity.AnimeID,
+			&i.Activity.RefID,
+			&i.Activity.Payload,
+			&i.Activity.CreatedAt,
+			&i.User.ID,
+			&i.User.Email,
+			&i.User.Username,
+			&i.User.PasswordHash,
+			&i.User.DiscordID,
+			&i.User.AvatarUrl,
+			&i.User.Bio,
+			&i.User.FavoriteGenres,
+			&i.User.Role,
+			&i.User.EmailVerifiedAt,
+			&i.User.CreatedAt,
+			&i.User.UpdatedAt,
+			&i.User.BannerAnimeID,
+			&i.User.AccentColor,
+			&i.Anime.ID,
+			&i.Anime.AnilistID,
+			&i.Anime.TitleRomaji,
+			&i.Anime.TitleEnglish,
+			&i.Anime.TitleNative,
+			&i.Anime.Synonyms,
+			&i.Anime.Description,
+			&i.Anime.Format,
+			&i.Anime.Status,
+			&i.Anime.Season,
+			&i.Anime.SeasonYear,
+			&i.Anime.EpisodesCount,
+			&i.Anime.DurationMin,
+			&i.Anime.Genres,
+			&i.Anime.Tags,
+			&i.Anime.Studios,
+			&i.Anime.CoverImage,
+			&i.Anime.CoverColor,
+			&i.Anime.BannerImage,
+			&i.Anime.AverageScore,
+			&i.Anime.Popularity,
+			&i.Anime.AnilistTrending,
+			&i.Anime.IsAdult,
+			&i.Anime.NextAiringAt,
+			&i.Anime.NextAiringEpisode,
+			&i.Anime.SyncedAt,
+			&i.Anime.CreatedAt,
+			&i.Anime.UpdatedAt,
+			&i.Anime.SearchDoc,
+			&i.Anime.MalID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const follow = `-- name: Follow :execrows
 INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2)
 ON CONFLICT DO NOTHING

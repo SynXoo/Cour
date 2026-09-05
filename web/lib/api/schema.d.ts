@@ -399,6 +399,208 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find people by username (prefix first, then fuzzy) */
+        get: operations["searchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{username}/friend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Send a friend request — or accept theirs if one is waiting
+         * @description Mutual intent is a friendship, not a second pending row: when the other person already asked, this accepts. Accepting also follows both ways so friends land in each other's feed.
+         */
+        put: operations["befriendUser"];
+        post?: never;
+        /**
+         * No relationship — cancel my request, decline theirs, or unfriend
+         * @description Whichever the current state is. Unfriending leaves follows alone; they are the person's own to keep or drop.
+         */
+        delete: operations["unfriendUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{username}/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This user's friends, newest first */
+        get: operations["listUserFriends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Friends, pending requests both ways, and suggestions */
+        get: operations["getMyFriends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/friend-recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shows friends recommended to the caller that aren't on their list yet */
+        get: operations["getFriendRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/anime/{id}/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's friends on this show, and who recommended it to them */
+        get: operations["getAnimeFriends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/anime/{id}/recommend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend this show to a friend
+         * @description Friends only (403 otherwise). Re-recommending updates the note.
+         */
+        post: operations["recommendAnime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conversations, newest activity first */
+        get: operations["getMyInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread direct-message count (for the header badge) */
+        get: operations["getUnreadMessageCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        /** One conversation, newest first */
+        get: operations["getConversation"];
+        put?: never;
+        /** Send a direct message (friends only) */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages/{username}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move the caller's read pointer to the end of this conversation */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/notifications": {
         parameters: {
             query?: never;
@@ -1483,6 +1685,103 @@ export interface components {
             following: number;
             /** @description Always false for anonymous callers */
             is_following: boolean;
+            friends: number;
+            friendship: components["schemas"]["FriendshipStatus"];
+        };
+        /**
+         * @description The caller's standing with this user; `none` for anonymous callers
+         * @enum {string}
+         */
+        FriendshipStatus: "none" | "friends" | "request_sent" | "request_received" | "self";
+        FriendRequestBody: {
+            /** @description Optional line that rides the request */
+            note?: string;
+        };
+        FriendRef: {
+            username: string;
+            avatar_url: string | null;
+            /** Format: date-time */
+            since: string;
+        };
+        FriendRequest: {
+            user: components["schemas"]["ReviewAuthor"];
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FriendsOverview: {
+            friends: components["schemas"]["FriendRef"][];
+            /** @description Requests waiting on the caller */
+            incoming: components["schemas"]["FriendRequest"][];
+            /** @description Requests the caller sent */
+            outgoing: components["schemas"]["FriendRequest"][];
+            /** @description Mutual follows who aren't friends yet */
+            suggested: components["schemas"]["ReviewAuthor"][];
+        };
+        FriendOnAnime: {
+            user: components["schemas"]["ReviewAuthor"];
+            status: components["schemas"]["ListStatus"];
+            progress: number;
+            score: number | null;
+        };
+        AnimeRecommendation: {
+            from: components["schemas"]["ReviewAuthor"];
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FriendsOnAnime: {
+            data: components["schemas"]["FriendOnAnime"][];
+            /** @description Friends who recommended this show to the caller */
+            recommendations: components["schemas"]["AnimeRecommendation"][];
+        };
+        RecommendRequest: {
+            /** @description Friend's username */
+            to: string;
+            note?: string;
+        };
+        FriendRecommendation: {
+            anime: components["schemas"]["AnimeSummary"];
+            from: components["schemas"]["ReviewAuthor"];
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FriendRecommendationList: {
+            data: components["schemas"]["FriendRecommendation"][];
+        };
+        InboxEntry: {
+            peer: components["schemas"]["ReviewAuthor"];
+            last_body: string;
+            /** @description The caller sent the last message */
+            last_mine: boolean;
+            /** Format: date-time */
+            last_at: string;
+            unread: number;
+        };
+        Inbox: {
+            data: components["schemas"]["InboxEntry"][];
+        };
+        DirectMessage: {
+            /** Format: int64 */
+            id: number;
+            /** @description Username */
+            sender: string;
+            mine: boolean;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        MessagePage: {
+            data: components["schemas"]["DirectMessage"][];
+            /**
+             * Format: int64
+             * @description Pass back as ?before_id= for the next (older) page; null at the oldest message
+             */
+            next_cursor: number | null;
+        };
+        SendMessageRequest: {
+            body: string;
         };
         UserRefList: {
             data: components["schemas"]["ReviewAuthor"][];
@@ -1512,7 +1811,7 @@ export interface components {
             next_cursor: number | null;
         };
         /** @enum {string} */
-        NotificationType: "comment_reply" | "new_follower" | "episode_aired";
+        NotificationType: "comment_reply" | "new_follower" | "episode_aired" | "friend_request" | "friend_accepted" | "mention" | "recommendation";
         Notification: {
             /** Format: int64 */
             id: number;
@@ -2367,6 +2666,8 @@ export interface operations {
     getMyFeed: {
         parameters: {
             query?: {
+                /** @description `friends` narrows the feed to friendships (default everyone followed) */
+                scope?: "all" | "friends";
                 cursor?: number;
                 limit?: number;
             };
@@ -2384,6 +2685,311 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Feed"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    searchUsers: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to ten matches */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    befriendUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FriendRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Updated relation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unfriendUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated relation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUserFriends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Friends */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyFriends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's friends overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendsOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getFriendRecommendations: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRecommendationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAnimeFriends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Watching first (furthest along at the top), then completed, then the rest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendsOnAnime"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    recommendAnime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendRequest"];
+            };
+        };
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMyInbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inbox */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inbox"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUnreadMessageCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: {
+                /** @description Keyset cursor — messages older than this id */
+                before_id?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message page (empty for a friend you haven't messaged yet) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Sent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

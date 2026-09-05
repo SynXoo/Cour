@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserMenu } from "@/components/auth/user-menu";
+import { InboxBadge } from "@/components/messages/inbox-badge";
 import { NotificationBell } from "@/components/notifications/bell";
 
 const nav = [
@@ -35,7 +36,8 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3 md:gap-6">
+        <div className="ml-auto flex items-center gap-1 md:gap-3">
+          <InboxBadge />
           <NotificationBell />
           <UserMenu />
         </div>

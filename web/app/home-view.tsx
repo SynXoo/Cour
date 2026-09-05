@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ContinueWatching } from "./home/continue-watching";
 import { ConversationGrid } from "./home/conversation-grid";
+import { FriendRecs } from "./home/friend-recs";
 import { Greeting } from "./home/greeting";
 import { PulseBlock } from "./home/pulse";
 import { YourEvening } from "./home/your-evening";
@@ -159,6 +160,9 @@ export async function HomeView() {
 
         {/* ── Continue watching (renders nothing when caught up) ─────── */}
         <ContinueWatching />
+
+        {/* ── Friends think you'd like (renders nothing without recs) ─── */}
+        <FriendRecs />
 
         {/* ── The season's conversation ───────────────────────────────── */}
         {current.length > 0 && (

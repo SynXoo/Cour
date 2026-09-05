@@ -48,6 +48,9 @@ const maxBodyLen = 8000
 // comment lands, outside the transaction.
 type Notifier interface {
 	CommentPosted(ctx context.Context, comment sqlcgen.Comment, thread sqlcgen.Thread)
+	// Mentioned carries the resolved ids of every @user the comment named
+	// (already minus the author and the parent's author).
+	Mentioned(ctx context.Context, comment sqlcgen.Comment, userIDs []int64)
 }
 
 type Service struct {
@@ -272,6 +275,7 @@ func (s *Service) Post(ctx context.Context, threadID, userID int64, in PostInput
 	if in.TimestampSeconds != nil && thread.Kind != sqlcgen.ThreadKindEpisode {
 		return sqlcgen.Comment{}, ErrNoTimestamps
 	}
+	var parentAuthor *int64
 	if in.ParentID != nil {
 		parent, err := s.q.GetComment(ctx, *in.ParentID)
 		if err != nil {
@@ -283,6 +287,7 @@ func (s *Service) Post(ctx context.Context, threadID, userID int64, in PostInput
 		if parent.ThreadID != threadID || parent.DeletedAt != nil {
 			return sqlcgen.Comment{}, ErrBadParent
 		}
+		parentAuthor = &parent.UserID
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -321,6 +326,9 @@ func (s *Service) Post(ctx context.Context, threadID, userID int64, in PostInput
 
 	if s.notifier != nil {
 		s.notifier.CommentPosted(ctx, comment, thread)
+		if ids := s.mentionedUserIDs(ctx, comment, parentAuthor); len(ids) > 0 {
+			s.notifier.Mentioned(ctx, comment, ids)
+		}
 	}
 	return comment, nil
 }
