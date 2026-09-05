@@ -159,8 +159,8 @@ export async function HomeView() {
           )}
         </div>
 
-        {/* ── Watch parties open right now (renders nothing when none) ── */}
-        <OpenParties />
+        {/* ── Watch parties: the open rooms, or an invitation to open one ── */}
+        <OpenParties whenEmpty="invite" />
 
         {/* ── Continue watching (renders nothing when caught up) ─────── */}
         <ContinueWatching />

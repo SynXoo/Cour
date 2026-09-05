@@ -2,15 +2,33 @@ import Link from "next/link";
 import { UserMenu } from "@/components/auth/user-menu";
 import { InboxBadge } from "@/components/messages/inbox-badge";
 import { NotificationBell } from "@/components/notifications/bell";
+import { PartiesNavLink } from "@/components/parties/parties-nav-link";
 
+/**
+ * The links after Parties, which is rendered on its own because it carries a
+ * live count. Parties taking the second slot cost Hidden Gems the header
+ * entry it used to hold — six links is already where the row starts
+ * scrolling below `lg`. Gems keeps its page, its tile in the home page's
+ * "More to explore", and its row in the mobile Menu: a discovery detour,
+ * where a party is a destination.
+ */
 const nav = [
-  { href: "/seasonal", label: "Seasonal" },
   { href: "/threads", label: "Threads" },
   { href: "/schedule", label: "Schedule" },
   { href: "/trending", label: "Trending" },
-  { href: "/hidden-gems", label: "Hidden Gems" },
   { href: "/search", label: "Search" },
 ];
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      {label}
+    </Link>
+  );
+}
 
 export function SiteHeader() {
   return (
@@ -26,14 +44,10 @@ export function SiteHeader() {
         </Link>
         {/* Below md the tab bar + its Menu sheet carry these destinations. */}
         <nav aria-label="Primary" className="hidden flex-1 items-center gap-1 overflow-x-auto md:flex">
+          <NavLink href="/seasonal" label="Seasonal" />
+          <PartiesNavLink />
           {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              {item.label}
-            </Link>
+            <NavLink key={item.href} href={item.href} label={item.label} />
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 md:gap-3">

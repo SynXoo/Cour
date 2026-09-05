@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WatchPartySummary } from "@/lib/hooks/use-parties";
 import { OpenParties, partyCountLabel } from "./open-parties";
 
@@ -9,6 +9,11 @@ vi.mock("next/image", () => ({
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} />;
   },
+}));
+
+let flag = true;
+vi.mock("@/lib/hooks/use-features", () => ({
+  useFeatures: () => ({ data: { watch_parties: flag } }),
 }));
 
 const data: WatchPartySummary[] = [];
@@ -46,23 +51,53 @@ const party = (id: number, over: Partial<WatchPartySummary> = {}): WatchPartySum
 });
 
 describe("OpenParties", () => {
-  it("renders nothing when no room is open", () => {
+  beforeEach(() => {
+    flag = true;
     data.length = 0;
+  });
+
+  it("renders nothing when no room is open and the caller asked to hide", () => {
     const { container } = render(<OpenParties />);
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("offers a way into the hub when no room is open", () => {
+    render(<OpenParties whenEmpty="invite" />);
+    expect(screen.getByTestId("parties-invite")).toHaveAttribute("href", "/parties");
+    expect(screen.getByText(/start one on tonight/i)).toBeInTheDocument();
+  });
+
+  it("stays silent with the flag off, invitation or not", () => {
+    flag = false;
+    const { container } = render(<OpenParties whenEmpty="invite" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("lists rooms with episode, host, visibility and live counts", () => {
-    data.length = 0;
     data.push(party(1), party(2, { visibility: "followers", watching: 0, host: { username: "sue", avatar_url: null } }));
     render(<OpenParties heading="Watching together tonight" />);
     expect(screen.getByRole("heading", { name: /Watching together tonight/ })).toBeInTheDocument();
     expect(screen.getByText("2 rooms · 3 watching")).toBeInTheDocument();
     const links = screen.getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/parties/1", "/parties/2"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/parties",
+      "/parties/1",
+      "/parties/2",
+    ]);
     expect(screen.getByText(/Ep 4 · @rin/)).toBeInTheDocument();
     expect(screen.getByText("followers")).toBeInTheDocument();
     expect(screen.getByLabelText("3 watching")).toBeInTheDocument();
+  });
+
+  it("shows at most `limit` rooms but counts them all", () => {
+    data.push(party(1), party(2), party(3));
+    render(<OpenParties limit={2} />);
+    expect(screen.getByText("3 rooms · 9 watching")).toBeInTheDocument();
+    expect(screen.getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([
+      "/parties",
+      "/parties/1",
+      "/parties/2",
+    ]);
   });
 });
 

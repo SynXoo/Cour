@@ -28,8 +28,8 @@ export default async function SchedulePage() {
         </p>
       </header>
 
-      {/* Rooms watching together right now (M4.4); nothing when none are open. */}
-      <OpenParties heading="Watching together tonight" />
+      {/* Rooms watching together right now; an invitation when none are open. */}
+      <OpenParties heading="Watching together tonight" whenEmpty="invite" />
 
       {entries.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-16 text-center text-muted-foreground">

@@ -17,12 +17,18 @@ const STEPS = [
     title: "Talk in the room",
     body: "Every episode has a live thread. What you haven't seen yet stays blurred, so the conversation is safe to join mid-season.",
   },
+  {
+    n: "04",
+    accent: "border-chart-2/30 text-chart-2",
+    title: "Or watch it together",
+    body: "Start a watch party and press play at the same second: one shared clock, live chat, reactions pinned to the moment. Everyone brings their own stream.",
+  },
 ];
 
-/** Three plain steps under the tour — the whole loop, in one glance. */
+/** Four plain steps under the tour — the whole loop, in one glance. */
 export function HowItWorks() {
   return (
-    <ol className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {STEPS.map((s) => (
         <li key={s.n} className="relative rounded-2xl border border-border/60 bg-card/50 p-5 pt-6">
           <span

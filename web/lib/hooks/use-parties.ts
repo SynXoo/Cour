@@ -13,12 +13,17 @@ export const openPartiesKey = (animeId?: number, episode?: number) =>
   ["parties", "open", animeId ?? null, episode ?? null] as const;
 
 /**
- * Open parties the viewer may join — all of them for the discovery rails,
+ * Open parties the viewer may join — all of them for the discovery surfaces,
  * or one episode's for the launcher. Waits for the session to settle so an
  * authed viewer's first fetch already carries their token (followers-only
  * rooms). Polls gently: rooms open and close on the scale of minutes.
+ *
+ * Deliberately unfiltered by count: the header's live badge, the home rail
+ * and the `/parties` hub all read the same cached list (one poll per tab,
+ * not three) and take the slice they want. The API's own default cap (20)
+ * is the ceiling — well past what any of these surfaces render.
  */
-export function useOpenParties(opts: { animeId?: number; episode?: number; limit?: number } = {}) {
+export function useOpenParties(opts: { animeId?: number; episode?: number } = {}) {
   const { status } = useSession();
   const features = useFeatures();
   const enabled = status !== "loading" && features.data?.watch_parties === true;
@@ -32,7 +37,6 @@ export function useOpenParties(opts: { animeId?: number; episode?: number; limit
           query: {
             ...(opts.animeId != null ? { anime_id: opts.animeId } : {}),
             ...(opts.episode != null ? { episode: opts.episode } : {}),
-            ...(opts.limit != null ? { limit: opts.limit } : {}),
           },
         },
       });
@@ -40,6 +44,20 @@ export function useOpenParties(opts: { animeId?: number; episode?: number; limit
       return res.data.data;
     },
   });
+}
+
+/**
+ * The header's live badge: how many rooms are open and how many people are
+ * in them, or null while the feature is off / nothing has loaded. Shares the
+ * discovery query, so mounting it app-wide costs no extra request.
+ */
+export function usePartyPulse(): { rooms: number; watching: number } | null {
+  const { data } = useOpenParties();
+  if (!data || data.length === 0) return null;
+  return {
+    rooms: data.length,
+    watching: data.reduce((n, p) => n + p.watching, 0),
+  };
 }
 
 /** Start a party on an episode; resolves to the new party. */

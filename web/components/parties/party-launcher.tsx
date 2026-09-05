@@ -62,9 +62,15 @@ export function PartyLauncher({ animeId, episode }: { animeId: number; episode: 
     >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <h2 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold">
             <UsersThreeIcon size={16} weight="fill" className="text-primary" aria-hidden />
             Watch it together
+            <Link
+              href="/parties"
+              className="text-xs font-normal text-muted-foreground hover:text-primary"
+            >
+              All parties &rarr;
+            </Link>
           </h2>
           <p className="text-xs text-muted-foreground">
             {rooms.length > 0

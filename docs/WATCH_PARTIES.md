@@ -167,6 +167,15 @@ TS client sees them.
    + "Start a party" with a visibility pick), and the "Watching together"
    rail on the schedule page and the logged-in home. Explicit invites are
    still not a thing — `invite` remains "the host's friends" (Parking lot).
+4b. Findability. **Shipped (M4.5)** — step 4's entry points were all
+   conditional: both rails render nothing when no room is open, and the
+   launcher only exists on an episode page, so on a quiet evening the
+   feature was invisible and it had no nav entry at all. Added the
+   `/parties` hub (open rooms, live counts, a permanent "how a party
+   works" including the bring-your-own-stream guarantee, and the episodes
+   you could host now), a header nav slot and a mobile tab, both carrying
+   a live room count, and an `whenEmpty="invite"` mode so the rails leave
+   a signpost instead of a gap. Spec: PHASE_2.md §M4.5.
 5. Later: SSE fallback for notification push (the bell currently polls),
    riding the same pub/sub channels.
 

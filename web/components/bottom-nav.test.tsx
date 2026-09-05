@@ -13,19 +13,44 @@ vi.mock("@/lib/auth/session", () => ({
   useSession: () => useSession(),
 }));
 
+// The Parties tab's live dot reads the shared discovery query.
+let pulse: { rooms: number; watching: number } | null = null;
+vi.mock("@/lib/hooks/use-parties", () => ({
+  usePartyPulse: () => pulse,
+}));
+
 describe("BottomNav", () => {
   beforeEach(() => {
     usePathname.mockReturnValue("/");
     useSession.mockReturnValue({ status: "anon" });
+    pulse = null;
   });
 
-  it("renders the four tab links and a menu button", () => {
+  it("renders the five tab links and a menu button", () => {
     render(<BottomNav />);
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Seasonal" })).toHaveAttribute("href", "/seasonal");
+    expect(screen.getByRole("link", { name: "Parties" })).toHaveAttribute("href", "/parties");
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/search");
     expect(screen.getByRole("link", { name: "My list" })).toHaveAttribute("href", "/list");
     expect(screen.getByRole("button", { name: "Menu" })).toBeInTheDocument();
+  });
+
+  it("says how many rooms are open on the Parties tab, and stays quiet otherwise", () => {
+    const { rerender } = render(<BottomNav />);
+    expect(screen.getByRole("link", { name: "Parties" })).toBeInTheDocument();
+    pulse = { rooms: 2, watching: 5 };
+    rerender(<BottomNav />);
+    expect(screen.getByRole("link", { name: /^Parties.*2 open now$/ })).toHaveAttribute(
+      "href",
+      "/parties",
+    );
+  });
+
+  it("keeps the party room routes on the Parties tab", () => {
+    usePathname.mockReturnValue("/parties/42");
+    render(<BottomNav />);
+    expect(screen.getByRole("link", { name: "Parties" })).toHaveAttribute("aria-current", "page");
   });
 
   it("marks the tab matching the current route, including subroutes", () => {

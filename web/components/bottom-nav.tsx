@@ -5,6 +5,7 @@ import {
   CalendarDotsIcon,
   ChatCircleIcon,
   ChatsCircleIcon,
+  HandshakeIcon,
   HouseIcon,
   type Icon,
   ListChecksIcon,
@@ -19,6 +20,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { PartiesLiveCount, PartiesLiveDot } from "@/components/parties/parties-nav-link";
 import {
   Sheet,
   SheetContent,
@@ -31,14 +33,21 @@ import { cn } from "@/lib/utils";
 
 /**
  * Mobile-only bottom tab bar (hidden ≥ md, where the header nav takes over).
- * The four destinations that earn a thumb slot get tabs; everything else the
+ * The destinations that earn a thumb slot get tabs; everything else the
  * collapsed header no longer shows lives behind the Menu sheet. Height is
  * 4 rem — the root layout's mobile body padding must match so page content
  * and the footer clear the fixed bar.
+ *
+ * Parties is the fifth tab (six columns with Menu) rather than another Menu
+ * row: it is the one destination here whose content is time-sensitive, and
+ * a room you only find by opening a sheet is a room you join after it ends.
+ * It wears a live dot when any room is open, so the bar itself says whether
+ * anything is happening.
  */
-const tabs: { href: string; label: string; icon: Icon; exact?: boolean }[] = [
+const tabs: { href: string; label: string; icon: Icon; exact?: boolean; live?: boolean }[] = [
   { href: "/", label: "Home", icon: HouseIcon, exact: true },
   { href: "/seasonal", label: "Seasonal", icon: CalendarDotsIcon },
+  { href: "/parties", label: "Parties", icon: UsersThreeIcon, live: true },
   { href: "/search", label: "Search", icon: MagnifyingGlassIcon },
   { href: "/list", label: "My list", icon: ListChecksIcon },
 ];
@@ -52,14 +61,14 @@ const browseLinks: { href: string; label: string; icon: Icon }[] = [
 
 const personalLinks: { href: string; label: string; icon: Icon }[] = [
   { href: "/feed", label: "Feed", icon: RssIcon },
-  { href: "/friends", label: "Friends", icon: UsersThreeIcon },
+  { href: "/friends", label: "Friends", icon: HandshakeIcon },
   { href: "/messages", label: "Messages", icon: ChatCircleIcon },
   { href: "/recommendations", label: "For you", icon: MagicWandIcon },
 ];
 
 const tabClass = (active: boolean) =>
   cn(
-    "flex flex-col items-center justify-center gap-1 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+    "flex flex-col items-center justify-center gap-1 px-0.5 text-center text-[10px] font-medium leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active ? "text-primary" : "text-muted-foreground",
   );
 
@@ -80,7 +89,7 @@ export function BottomNav() {
         aria-label="Primary, mobile"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/80 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden"
       >
-        <div className="grid h-16 grid-cols-5">
+        <div className="grid h-16 grid-cols-6">
           {tabs.map((tab) => {
             const active = isActive(tab.href, tab.exact);
             return (
@@ -90,8 +99,12 @@ export function BottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={tabClass(active)}
               >
-                <tab.icon size={22} weight={active ? "fill" : "regular"} aria-hidden />
+                <span className="relative">
+                  <tab.icon size={22} weight={active ? "fill" : "regular"} aria-hidden />
+                  {tab.live && <PartiesLiveDot className="absolute -right-1 -top-0.5" />}
+                </span>
                 {tab.label}
+                {tab.live && <PartiesLiveCount />}
               </Link>
             );
           })}

@@ -193,10 +193,52 @@ Miguel + Fable walked the live site; diagnosis and specs in
 - [x] **M4.2** (F) Shared clock — host controls, drift correction
 - [x] **M4.3** (O) Live chat + reactions + opt-in persistence into threads
 - [x] **M4.4** (O) Room lifecycle + discovery (episode page, schedule, home)
+- [x] **M4.5** (O) Making it findable — `/parties` hub, nav slot (header +
+  mobile tab, both with a live count), rails that invite instead of
+  vanishing. Spec: §M4.5.
 
 ### Session log
 
 <!-- One line per completed session: date · task · outcome / notes for the next session. -->
+
+- 2026-09-05 · M4.5 · Watch parties get a front door. M4 shipped the whole
+  feature behind two rails that `return null` whenever no room happened to
+  be open, plus a launcher on episode pages — so on a quiet night (which is
+  most nights, and every fresh environment) the biggest thing in Phase 2
+  looked like it did not exist, and it had no nav entry anywhere.
+  **Destination:** `/parties` — a hub that never renders empty. Live stats
+  (rooms open · watching together), the open rooms, a permanent four-card
+  "How a party works" (shared clock / chat + reactions / presence and
+  visibility / **your own stream** — the no-video guarantee reads as a
+  feature here, not a disclaimer), and "Start one on tonight's episodes".
+  That last list needed its own window: `threads-hub`'s `tonightRooms` is
+  anchored on what is *about* to air, and a party needs an episode you can
+  press play on, so `lib/parties-hub.ts` (`hostableWindow` +
+  `hostableEpisodes`) fetches `/schedule?from=-24h&to=+12h` and orders it
+  aired-newest-first, then upcoming — verified at 04:00 local, where the
+  old window offered twelve rows of "Soon" and nothing to start. Rows link
+  to the episode page so the launcher stays the single start flow.
+  **Nav:** header gains `PartiesNavLink` (live coral dot + room count) in
+  slot 2, which cost **Hidden Gems** its header entry — it keeps its page,
+  its home "More to explore" tile and its mobile Menu row; the mobile bar
+  goes to six columns with **Parties** as a real tab (dot over the icon,
+  `sr-only` count after the label so the dot never reads out ahead of the
+  destination). Measured at a true 375 px *and* 320 px: every label stays
+  on one line (widest, "Seasonal", 43 px in a 53 px column).
+  **No more vanishing:** `OpenParties` gained `whenEmpty="hide" | "invite"`;
+  home and schedule pass `invite` and get a one-line signpost into the hub
+  instead of nothing. `useOpenParties` dropped its `limit` param (it was
+  never in the query key, so the header badge and the home rail would have
+  clobbered each other's cache) — callers slice; one poll per tab feeds
+  the badge, both rails and the hub (verified: a single `GET /parties` on
+  a hub load). Party pages get an "All watch parties" crumb, the episode
+  launcher an "All parties" link, and the landing's how-it-works a fourth
+  step. **Tests:** +19 → **379** web tests (`lib/parties-hub` window and
+  ordering, hub empty/live/flag-off/label states, nav-link and tab
+  signals, `OpenParties` invite + limit); tsc and eslint clean. **Verified
+  live** against the Docker stack: with a room open, header reads
+  "Parties ●1" and the hub "1 room open"; closing it over REST flipped the
+  home and schedule rails to the invitation strip.
 
 - 2026-09-05 · M4.4 · Room lifecycle + discovery — **M4 complete.**
   **Backend:** `POST /parties/{id}/close` (host only → 403 otherwise, 404
@@ -1549,7 +1591,12 @@ Miguel + Fable walked the live site; diagnosis and specs in
   `watch_parties` + a members table if we want names); the bell's SSE
   fallback riding the party bus (WATCH_PARTIES.md step 5); discovery's
   per-room `ZCOUNT` becomes a pipeline once lists grow; a "party starting"
-  notification to the host's friends/followers when a room opens.
+  notification to the host's friends/followers when a room opens — the
+  strongest remaining lever now that M4.5 has given rooms a destination,
+  since the hub still only tells you about a room while you are looking at
+  it. Also unbuilt: seeding an open party in `task seed`, so a fresh demo
+  shows the live state rather than the (now at least self-explanatory)
+  empty one.
 - **Episode titles are never mirrored (found 2026-09-05, M3.11).** Every
   one of the ~1.5 M `episodes` rows has `title IS NULL`: `mediaFields`
   doesn't ask for them and the airing-schedule sync only writes numbers and
@@ -2679,6 +2726,56 @@ canonical episode thread. Flag-gated `FEATURE_WATCH_PARTIES`. Builds on
 M2's `internal/realtime` + pub/sub plumbing. Entry points: "start a party"
 on episode pages; public parties discoverable on the schedule page and
 "Tonight on Cour".
+
+### M4.5 — making it findable
+
+Those entry points turned out to be the whole problem. Both discovery
+rails `return null` when no room is open, and the launcher only exists
+on `/anime/{id}/episode/{n}`, so the feature was invisible on any quiet
+evening and absent from every nav surface. A feature nobody can find is
+indistinguishable from one that was never built.
+
+**The destination.** `/parties` — the index route the feature never had
+(only `/parties/{id}` existed). It must never render empty, because the
+empty case is the one that has to do the selling:
+
+| Band | Always there? | Why |
+|---|---|---|
+| Live stats — rooms open · watching together | yes | Numbers make it a real place, even at zero. |
+| Open right now | yes (empty state names what to do) | The join path. |
+| How a party works — 4 cards | yes | The answer to "what even is this?". The fourth card is the no-video guarantee, stated as a feature. |
+| Start one on tonight's episodes | when the window has any | The host path. |
+
+**Window.** `tonightRooms` (threads hub) is anchored on what is *about* to
+air — a countdown is its point. A party needs an episode you can press
+play on *now*, so `lib/parties-hub.ts` has its own: `hostableWindow()` →
+`/schedule?from=now-24h&to=now+12h`, `hostableEpisodes()` orders it
+already-out-newest-first then upcoming-soonest-first. Rows link to the
+episode page: the launcher there stays the single start flow (it owns the
+visibility picker and the rooms already open on that episode).
+
+**Nav.** Parties earns a top-level slot on both surfaces, and both carry a
+live count — a nav entry that looks the same on a dead night and a busy one
+teaches nobody that the feature is alive:
+
+- Header: `PartiesNavLink` in slot 2 (coral pulse + open-room count). Six
+  links is where the row starts scrolling below `lg`, so **Hidden Gems**
+  gives up the header slot — it keeps its page, its home "More to explore"
+  tile and its mobile Menu row. A discovery detour vs. a destination.
+- Mobile: a sixth column, Parties as a real tab. A room found only by
+  opening a sheet is a room you join after it ends. The dot sits over the
+  icon and is `aria-hidden`; an `sr-only` count follows the label so the
+  number never reads out ahead of the destination's name. Verified at 375
+  and 320 px — every label stays on one line.
+
+**Rails stop vanishing.** `OpenParties` takes `whenEmpty`: `"hide"` (the
+old behaviour) or `"invite"`, a one-line signpost into the hub. Home and
+schedule pass `invite`.
+
+**One poll.** `useOpenParties` dropped its `limit` argument — it was never
+part of the query key, so the header badge (unfiltered) and the home rail
+(`limit: 6`) would have overwritten each other's cache. Callers slice
+instead, and the badge, both rails and the hub share one 30 s query.
 
 ---
 
